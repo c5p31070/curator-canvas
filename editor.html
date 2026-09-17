@@ -18,11 +18,34 @@
     <h2>展示配置図作成</h2>
 
     <div id="canvas">
-      
+      <div class="artwork">
+  作品A
+</div>
     </div>
 
-    <button>展示品を追加</button>
+    <div class="artwork-form">
+
+  <label>
+    作品名：
+    <input type="text" id="artworkName" placeholder="作品名を入力">
+  </label>
+
+  <label>
+    幅：
+    <input type="number" id="artworkWidth" placeholder="cm">
+  </label>
+
+  <label>
+    高さ：
+    <input type="number" id="artworkHeight" placeholder="cm">
+  </label>
+
+  <button id="addArtwork">展示品を追加</button>
+
+</div>
   </main>
+
+<script src="js/editor.js"></script>
 
 </body>
 
