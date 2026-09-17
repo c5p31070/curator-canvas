@@ -4,6 +4,7 @@ const canvas = document.getElementById("canvas");
 const artworkName = document.getElementById("artworkName");
 const artworkWidth = document.getElementById("artworkWidth");
 const artworkHeight = document.getElementById("artworkHeight");
+const scale = document.getElementById("scale");
 
 let artworkNumber = 1;
 
@@ -17,8 +18,8 @@ addButton.addEventListener("click", function() {
   artwork.textContent = artworkName.value;
 
 // 展示品のサイズを入力値に合わせる
-artwork.style.width = artworkWidth.value + "px";
-artwork.style.height = artworkHeight.value + "px";
+artwork.style.width = (artworkWidth.value * scale.value) + "px";
+artwork.style.height = (artworkHeight.value * scale.value) + "px";
 
 // 展示品を少しずつ横にずらして配置
 artwork.style.left = (100 + (artworkNumber - 2) * 120) + "px";
