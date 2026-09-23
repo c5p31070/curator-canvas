@@ -6,62 +6,84 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>展示配置 - Curator・Canvas</title>
   <link rel="stylesheet" href="css/style.css">
+  <!-- Fabric.js の読み込み -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 </head>
 
 <body>
 
   <header>
     <h1>Curator・Canvas</h1>
+    <span class="subtitle">東京都美術館 企画展配置エディタ</span>
   </header>
 
-  <main>
-    <h2>展示配置図作成</h2>
+  <main class="editor-container">
 
-    <div class="floorplan-form">
+    <!-- 左側：操作・データ入力パネル -->
+    <aside class="sidebar">
+      <h2>展示設定</h2>
 
-  <label>
-    会場図面：
-    <input type="file" id="floorplan" accept="image/*">
-  </label>
+      <!-- 縮尺設定 -->
+      <section class="panel-section">
+        <h3>基本スケール</h3>
+        <label>
+          1cmあたりの表示：
+          <input type="number" id="scale" value="0.5" step="0.1"> px
+        </label>
+      </section>
 
-</div>
+      <!-- 作品追加フォーム -->
+      <section class="panel-section artwork-form">
+        <h3>作品オブジェクト追加</h3>
+        <label>
+          作品名：
+          <input type="text" id="artworkName" placeholder="例：モナ・リザ">
+        </label>
 
-    <div class="scale-form">
+        <label>
+          幅 (cm)：
+          <input type="number" id="artworkWidth" placeholder="150" value="150">
+        </label>
 
-  <label>
-    1cmあたりの表示：
-    <input type="number" id="scale" value="1" step="0.1">
-    px
-  </label>
+        <label>
+          高さ (cm)：
+          <input type="number" id="artworkHeight" placeholder="100" value="100">
+        </label>
 
-</div>
+        <button id="addArtwork" class="btn primary-btn">＋ 展示品を追加</button>
+      </section>
 
-    <div id="canvas">
-    </div>
+      <!-- 混雑実測値入力フォーム -->
+      <section class="panel-section">
+        <h3>混雑実測データの反映</h3>
+        <label>
+          作品前の滞留平均人数（実測値）：
+          <input type="number" id="crowdCount" placeholder="例: 15" value="0" min="0">
+        </label>
+        <button id="updateCrowd" class="btn warning-btn">📊 選択中の作品に反映</button>
+      </section>
 
-    <div class="artwork-form">
+      <!-- 警備員・周辺設備 -->
+      <section class="panel-section">
+        <h3>安全・警備計画</h3>
+        <button id="addGuard" class="btn secondary-btn">👤 警備員ピンを配置</button>
+      </section>
 
-  <label>
-    作品名：
-    <input type="text" id="artworkName" placeholder="作品名を入力">
-  </label>
+      <!-- 出力機能 -->
+      <section class="panel-section">
+        <h3>エクスポート</h3>
+        <button id="exportPdf" class="btn export-btn">📄 PDF指示書を出力</button>
+      </section>
+    </aside>
 
-  <label>
-    幅：
-    <input type="number" id="artworkWidth" placeholder="cm">
-  </label>
+    <!-- 右側：メインキャンバス領域 -->
+    <section class="canvas-container">
+      <canvas id="canvas" width="900" height="600"></canvas>
+    </section>
 
-  <label>
-    高さ：
-    <input type="number" id="artworkHeight" placeholder="cm">
-  </label>
-
-  <button id="addArtwork">展示品を追加</button>
-
-</div>
   </main>
 
-<script src="js/editor.js"></script>
+  <script src="js/editor.js"></script>
 
 </body>
 

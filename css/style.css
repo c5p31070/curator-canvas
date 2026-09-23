@@ -1,42 +1,152 @@
+/* 全体基本設定 */
 body {
   margin: 0;
-  font-family: sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: #f4f6f8;
+  color: #333;
 }
 
+/* ヘッダーデザイン */
 header {
-  padding: 20px;
-  border-bottom: 1px solid #ccc;
-}
-
-main {
-  max-width: 960px;
-  margin: 50px auto;
-  text-align: center;
-}
-
-button {
   padding: 15px 30px;
-  font-size: 16px;
-}
-
-#canvas {
-  width: 800px;
-  height: 500px;
-  margin: 30px auto;
-  border: 2px solid #333;
-  background-color: #f5f5f5;
-  position: relative;
-}
-
-.artwork {
-  width: 100px;
-  height: 70px;
-  border: 2px solid #333;
-  background-color: white;
-  position: absolute;
-  left: 100px;
-  top: 100px;
+  background-color: #1a252f;
+  color: #ffffff;
   display: flex;
-  justify-content: center;
   align-items: center;
+  gap: 15px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+header h1 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 0.5px;
+}
+
+header .subtitle {
+  font-size: 13px;
+  color: #bdc3c7;
+  background: #2c3e50;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+/* エディタ画面レイアウト */
+.editor-container {
+  display: flex;
+  max-width: 1300px;
+  margin: 20px auto;
+  padding: 0 20px;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.sidebar {
+  width: 300px;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.sidebar h2 {
+  font-size: 18px;
+  margin-top: 0;
+  margin-bottom: 15px;
+  border-bottom: 2px solid #ecf0f1;
+  padding-bottom: 8px;
+}
+
+.panel-section {
+  margin-bottom: 20px;
+}
+
+.panel-section h3 {
+  font-size: 14px;
+  color: #7f8c8d;
+  margin-bottom: 10px;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: #34495e;
+}
+
+input[type="text"],
+input[type="number"],
+select {
+  width: 100%;
+  padding: 8px 10px;
+  margin-top: 4px;
+  margin-bottom: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+
+input:focus, select:focus {
+  border-color: #3498db;
+  outline: none;
+}
+
+/* ボタンデザイン */
+.btn {
+  width: 100%;
+  padding: 10px 15px;
+  font-size: 14px;
+  font-weight: bold;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.primary-btn {
+  background-color: #2980b9;
+  color: white;
+}
+.primary-btn:hover {
+  background-color: #1f618d;
+}
+
+.secondary-btn {
+  background-color: #e67e22;
+  color: white;
+}
+.secondary-btn:hover {
+  background-color: #d35400;
+}
+
+.warning-btn {
+  background-color: #8e44ad;
+  color: white;
+}
+.warning-btn:hover {
+  background-color: #71368a;
+}
+
+.export-btn {
+  background-color: #27ae60;
+  color: white;
+}
+.export-btn:hover {
+  background-color: #219150;
+}
+
+/* 右側：キャンバス領域 */
+.canvas-container {
+  background: #ffffff;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.canvas-container .canvas-container {
+  border: 1px solid #bdc3c7;
+  border-radius: 4px;
+  overflow: hidden;
 }
