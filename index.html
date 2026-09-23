@@ -1,27 +1,101 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Curator・Canvas</title>
-  <link rel="stylesheet" href="css/style.css">
-</head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>curator-canvas - 展示配置シミュレーター</title>
+    <!-- Google Fonts (Noto Sans JP) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f4f6f9;
+            color: #333333;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: #ffffff;
+            width: 100%;
+            max-width: 560px;
+            padding: 48px 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            font-weight: 500;
+            color: #3498db;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 16px;
+            line-height: 1.3;
+        }
+
+        .description {
+            font-size: 15px;
+            line-height: 1.7;
+            color: #666666;
+            margin-bottom: 36px;
+        }
+
+        .btn-start {
+            display: inline-block;
+            width: 100%;
+            padding: 16px 32px;
+            background-color: #3498db;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 700;
+            text-decoration: none;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+            transition: all 0.25s ease;
+        }
+
+        .btn-start:hover {
+            background-color: #2980b9;
+            box-shadow: 0 6px 16px rgba(41, 128, 185, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn-start:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
 <body>
 
-  <header>
-    <h1>Curator・Canvas</h1>
-  </header>
-
-  <main>
-    <h2>展示配置図作成システム</h2>
-
-    <a href="editor.html">
-      <button class="btn primary-btn" style="width: auto; padding: 15px 30px; font-size: 16px;">新しい展示を作成</button>
-    </a>
-  </main>
+    <main class="container">
+        <p class="subtitle">展示企画・レイアウトツール</p>
+        <h1 class="title">curator-canvas</h1>
+        <p class="description">
+            展示室のレイアウト設計、作品配置、および混雑シミュレーションを行うWebアプリケーションです。
+        </p>
+        <a href="editor.html" class="btn-start">展示物配置を開始する</a>
+    </main>
 
 </body>
-
 </html>

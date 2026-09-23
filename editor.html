@@ -1,90 +1,251 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>展示配置 - Curator・Canvas</title>
-  <link rel="stylesheet" href="css/style.css">
-  <!-- Fabric.js の読み込み -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-</head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>展示配置エディタ - curator-canvas</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Fabric.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f1f5f9;
+            color: #334155;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: #1e293b;
+            color: #ffffff;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .btn-back {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        .btn-back:hover {
+            color: #ffffff;
+        }
+
+        .main-layout {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* サイドバー（操作パネル） */
+        .sidebar {
+            width: 340px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            height: fit-content;
+        }
+
+        .panel-section {
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 20px;
+        }
+
+        .panel-section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .panel-section h2 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary { background-color: #2563eb; color: #ffffff; }
+        .btn-primary:hover { background-color: #1d4ed8; }
+
+        .btn-warning { background-color: #eab308; color: #ffffff; }
+        .btn-warning:hover { background-color: #ca8a04; }
+
+        .btn-secondary { background-color: #64748b; color: #ffffff; }
+        .btn-secondary:hover { background-color: #475569; }
+
+        .btn-success { background-color: #059669; color: #ffffff; }
+        .btn-success:hover { background-color: #047857; }
+
+        /* キャンバスエリア */
+        .canvas-container-wrapper {
+            flex: 1;
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+        }
+
+        #canvas {
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
 <body>
 
-  <header>
-    <h1>Curator・Canvas</h1>
-    <span class="subtitle">東京都美術館 企画展配置エディタ</span>
-  </header>
+    <header>
+        <h1>curator-canvas - 展示配置シミュレーター</h1>
+        <a href="index.html" class="btn-back">← トップへ戻る</a>
+    </header>
 
-  <main class="editor-container">
+    <div class="main-layout">
+        <!-- サイドパネル -->
+        <aside class="sidebar">
+            <!-- 展示品追加セクション -->
+            <div class="panel-section">
+                <h2>🖼️ 展示品の追加</h2>
+                <div class="form-group">
+                    <label for="artworkName">作品名 / 展示物名</label>
+                    <input type="text" id="artworkName" class="form-control" placeholder="例: モナ・リザ">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="artworkWidth">幅 (cm)</label>
+                        <input type="number" id="artworkWidth" class="form-control" value="150">
+                    </div>
+                    <div class="form-group">
+                        <label for="artworkHeight">高さ (cm)</label>
+                        <input type="number" id="artworkHeight" class="form-control" value="100">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="scale">縮尺スケール (px / cm)</label>
+                    <input type="number" id="scale" class="form-control" value="0.5" step="0.1">
+                </div>
+                <button id="addArtwork" class="btn btn-primary">展示物を追加</button>
+            </div>
 
-    <!-- 左側：操作・データ入力パネル -->
-    <aside class="sidebar">
-      <h2>展示設定</h2>
+            <!-- 混雑シミュレーションセクション -->
+            <div class="panel-section">
+                <h2>👥 滞留人数・混雑シミュレーション</h2>
+                <p style="font-size: 11px; color: #64748b; margin-bottom: 8px;">選択中の作品の直前に滞留する人数を入力（15人で赤）</p>
+                <div class="form-group">
+                    <label for="crowdCount">実測滞留人数（人）</label>
+                    <input type="number" id="crowdCount" class="form-control" value="5" min="0" max="30">
+                </div>
+                <button id="updateCrowd" class="btn btn-warning">選択中の作品に混雑円を反映</button>
+            </div>
 
-      <!-- 縮尺設定 -->
-      <section class="panel-section">
-        <h3>基本スケール</h3>
-        <label>
-          1cmあたりの表示：
-          <input type="number" id="scale" value="0.5" step="0.1"> px
-        </label>
-      </section>
+            <!-- 警備員配置セクション -->
+            <div class="panel-section">
+                <h2>👮 警備員配置</h2>
+                <button id="addGuard" class="btn btn-secondary">警備員ピン（👤）を追加</button>
+            </div>
 
-      <!-- 作品追加フォーム -->
-      <section class="panel-section artwork-form">
-        <h3>作品オブジェクト追加</h3>
-        <label>
-          作品名：
-          <input type="text" id="artworkName" placeholder="例：モナ・リザ">
-        </label>
+            <!-- PDF指示書出力セクション -->
+            <div class="panel-section">
+                <h2>📄 指示書出力</h2>
+                <div class="form-group">
+                    <label for="pdfMemo">指示書用の特記事項・メモ</label>
+                    <textarea id="pdfMemo" class="form-control" rows="3" placeholder="例: 警備員は作品1前に1名配置。動線を広めに確保のこと。"></textarea>
+                </div>
+                <button id="generatePdf" class="btn btn-success">PDF指示書を作成・印刷</button>
+            </div>
+        </aside>
 
-        <label>
-          幅 (cm)：
-          <input type="number" id="artworkWidth" placeholder="150" value="150">
-        </label>
+        <!-- 描画キャンバス -->
+        <main class="canvas-container-wrapper">
+            <canvas id="canvas" width="900" height="650"></canvas>
+        </main>
+    </div>
 
-        <label>
-          高さ (cm)：
-          <input type="number" id="artworkHeight" placeholder="100" value="100">
-        </label>
-
-        <button id="addArtwork" class="btn primary-btn">＋ 展示品を追加</button>
-      </section>
-
-      <!-- 混雑実測値入力フォーム -->
-      <section class="panel-section">
-        <h3>混雑実測データの反映</h3>
-        <label>
-          作品前の滞留平均人数（実測値）：
-          <input type="number" id="crowdCount" placeholder="例: 15" value="0" min="0">
-        </label>
-        <button id="updateCrowd" class="btn warning-btn">📊 選択中の作品に反映</button>
-      </section>
-
-      <!-- 警備員・周辺設備 -->
-      <section class="panel-section">
-        <h3>安全・警備計画</h3>
-        <button id="addGuard" class="btn secondary-btn">👤 警備員ピンを配置</button>
-      </section>
-
-      <!-- 出力機能 -->
-      <section class="panel-section">
-        <h3>エクスポート</h3>
-        <button id="exportPdf" class="btn export-btn">📄 PDF指示書を出力</button>
-      </section>
-    </aside>
-
-    <!-- 右側：メインキャンバス領域 -->
-    <section class="canvas-container">
-      <canvas id="canvas" width="900" height="600"></canvas>
-    </section>
-
-  </main>
-
-  <script src="js/editor.js"></script>
-
+    <!-- メインJS読み込み -->
+    <script src="js/editor.js" defer></script>
 </body>
-
 </html>

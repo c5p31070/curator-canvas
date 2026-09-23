@@ -1,7 +1,7 @@
 // ① Fabric.js キャンバスの初期化
 const canvas = new fabric.Canvas('canvas');
 
-// ② 東京都美術館の図面画像を背景に設定
+// ② 会場図面画像を背景に設定
 fabric.Image.fromURL('images/tobikan.png', function(img) {
     if (img) {
         canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
@@ -19,7 +19,6 @@ let artworkCount = 0;
 
 // 実測人数に応じた色の連続変化（緑 ➔ 黄 ➔ 赤）を計算する関数（最大15人基準）
 function getCrowdColor(count) {
-    // 0〜15人を基準範囲として 0.0〜1.0 に正規化（15人以上は1.0で打ち止め）
     const MAX_PEOPLE = 15;
     const ratio = Math.min(Math.max(count / MAX_PEOPLE, 0), 1);
     
@@ -44,12 +43,13 @@ function getCrowdColor(count) {
     };
 }
 
-// DOMの読み込み完了後にイベント登録
+// DOM読み込み完了後にイベント処理を登録
 document.addEventListener("DOMContentLoaded", function() {
 
     const addButton = document.getElementById("addArtwork");
     const addGuardButton = document.getElementById("addGuard");
     const updateCrowdButton = document.getElementById("updateCrowd");
+    const pdfButton = document.getElementById("generatePdf");
 
     // ③ 展示品（作品オブジェクト）の追加
     if (addButton) {
@@ -89,7 +89,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 originY: 'center'
             });
 
-            // 作品グループの作成（サイズ情報をプロパティに保持）
+            // 作品グループを作成
             const artworkGroup = new fabric.Group([rect, text], {
                 left: 150 + ((artworkCount % 8) * 20),
                 top: 150 + ((artworkCount % 8) * 20),
@@ -107,7 +107,7 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
-    // ④ 滞留人数（実測値）による混雑色の更新（最大15人基準）
+    // ④ 滞留人数による混雑色の更新（15人基準・一回り大きいサイズ固定）
     if (updateCrowdButton) {
         updateCrowdButton.addEventListener("click", function() {
             const activeObj = canvas.getActiveObject();
@@ -120,19 +120,17 @@ document.addEventListener("DOMContentLoaded", function() {
 
             const count = crowdInput ? (parseInt(crowdInput.value) || 0) : 0;
 
-            // 既に混雑円が存在する場合は一旦削除
+            // 既存の混雑円を削除
             if (activeObj.crowdCircle) {
                 canvas.remove(activeObj.crowdCircle);
                 activeObj.crowdCircle = null;
             }
 
-            // 1人以上の滞留がある場合に円を生成
             if (count > 0) {
-                // 作品の対角線サイズを計算し、一回り大きい半径を設定 (+15pxの余白)
+                // 対角線サイズに基づき一回り大きい固定半径を計算
                 const diagonal = Math.sqrt(Math.pow(activeObj.pxWidth, 2) + Math.pow(activeObj.pxHeight, 2));
                 const radius = (diagonal / 2) + 15;
 
-                // 人数に基づく連続色の取得（15人上限）
                 const colorObj = getCrowdColor(count);
 
                 const circle = new fabric.Circle({
@@ -148,7 +146,6 @@ document.addEventListener("DOMContentLoaded", function() {
                     evented: false
                 });
 
-                // キャンバスへ追加し、作品の背面へ移動
                 canvas.add(circle);
                 circle.sendToBack();
 
@@ -157,13 +154,14 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
 
                 activeObj.crowdCircle = circle;
+                activeObj.crowdCountValue = count;
             }
 
             canvas.renderAll();
         });
     }
 
-    // ⑤ 作品移動時に混雑円も中心にぴったり追従させる処理
+    // ⑤ 作品移動時に混雑円をぴったり追従させる処理
     canvas.on('object:moving', function(e) {
         const obj = e.target;
         if (obj && obj.isArtwork && obj.crowdCircle) {
@@ -191,6 +189,137 @@ document.addEventListener("DOMContentLoaded", function() {
             canvas.add(guardText);
             canvas.setActiveObject(guardText);
             canvas.renderAll();
+        });
+    }
+
+    // ⑦ PDF指示書作成機能
+    if (pdfButton) {
+        pdfButton.addEventListener("click", function() {
+            // キャンバス画像を生成
+            const canvasDataUrl = canvas.toDataURL({
+                format: 'png',
+                quality: 1.0
+            });
+
+            // 作品情報リストを抽出
+            const objects = canvas.getObjects();
+            const artworkList = [];
+
+            objects.forEach((obj, index) => {
+                if (obj.isArtwork) {
+                    const textObj = obj.item(1);
+                    const name = textObj ? textObj.text : `作品 ${index + 1}`;
+                    
+                    const scaleEl = document.getElementById("scale");
+                    const currentScale = scaleEl ? parseFloat(scaleEl.value) || 0.5 : 0.5;
+                    const cmW = Math.round(obj.pxWidth / currentScale);
+                    const cmH = Math.round(obj.pxHeight / currentScale);
+
+                    let crowdStatus = "未設定 / 0人";
+                    if (obj.crowdCountValue) {
+                        crowdStatus = `警戒人数: ${obj.crowdCountValue}人`;
+                    }
+
+                    artworkList.push({
+                        id: artworkList.length + 1,
+                        name: name,
+                        width: cmW,
+                        height: cmH,
+                        crowd: crowdStatus
+                    });
+                }
+            });
+
+            const memoEl = document.getElementById("pdfMemo");
+            const memoText = memoEl ? memoEl.value : "特記事項なし";
+
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+                alert("ポップアップがブロックされました。ブラウザのポップアップブロックを解除してください。");
+                return;
+            }
+
+            const today = new Date().toLocaleDateString('ja-JP', {
+                year: 'numeric', month: 'long', day: 'numeric'
+            });
+
+            // 印刷・PDF用HTMLを出力
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html lang="ja">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>展示配置指示書 - curator-canvas</title>
+                    <style>
+                        @page { size: A4 portrait; margin: 15mm; }
+                        body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #333; margin: 0; padding: 0; }
+                        .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; margin-bottom: 20px; }
+                        .title { font-size: 22px; font-weight: bold; color: #2c3e50; }
+                        .date { font-size: 12px; color: #666; }
+                        .section-title { font-size: 14px; font-weight: bold; background: #f2f4f7; padding: 6px 10px; border-left: 4px solid #3498db; margin: 20px 0 10px 0; }
+                        .canvas-img { width: 100%; max-height: 400px; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+                        th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
+                        th { background-color: #f8fafc; font-weight: bold; }
+                        .memo-box { font-size: 12px; line-height: 1.6; white-space: pre-wrap; background: #fafafa; border: 1px solid #eee; padding: 10px; border-radius: 4px; min-height: 60px; }
+                        .footer { margin-top: 30px; text-align: right; font-size: 10px; color: #888; }
+                        @media print { .no-print { display: none; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="no-print" style="background: #e0f2fe; padding: 10px; text-align: center; margin-bottom: 15px; border-radius: 4px;">
+                        <button onclick="window.print()" style="padding: 8px 24px; background: #0284c7; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🖨️ PDF保存・印刷する</button>
+                    </div>
+
+                    <div class="header">
+                        <div class="title">展示配置指示書 (curator-canvas)</div>
+                        <div class="date">発行日: ${today}</div>
+                    </div>
+
+                    <div class="section-title">1. 配置図面</div>
+                    <div style="text-align: center;">
+                        <img src="${canvasDataUrl}" class="canvas-img" />
+                    </div>
+
+                    <div class="section-title">2. 展示作品一覧</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 8%;">No.</th>
+                                <th style="width: 42%;">作品名 / 展示物</th>
+                                <th style="width: 25%;">サイズ (幅 × 高さ cm)</th>
+                                <th style="width: 25%;">混雑警戒状態</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${artworkList.length > 0 ? artworkList.map(item => `
+                                <tr>
+                                    <td>${item.id}</td>
+                                    <td><strong>${item.name}</strong></td>
+                                    <td>${item.width} cm × ${item.height} cm</td>
+                                    <td>${item.crowd}</td>
+                                </tr>
+                            `).join('') : '<tr><td colspan="4" style="text-align:center;">配置されている作品はありません。</td></tr>'}
+                        </tbody>
+                    </table>
+
+                    <div class="section-title">3. 特記事項・注意事項</div>
+                    <div class="memo-box">${memoText}</div>
+
+                    <div class="footer">curator-canvas - 展示配置シミュレーター</div>
+
+                    <script>
+                        window.onload = function() {
+                            setTimeout(function() {
+                                window.print();
+                            }, 500);
+                        };
+                    <\/script>
+                </body>
+                </html>
+            `);
+
+            printWindow.document.close();
         });
     }
 });
