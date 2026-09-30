@@ -58,8 +58,8 @@ function initializeCreationSettingsUi() {
     const btnSaveData =
         document.getElementById("btnSaveData");
 
-    const btnClearData =
-        document.getElementById("btnClearData");
+    const btnResetCurrentLayout =
+        document.getElementById("btnResetCurrentLayout");
 
     // ----------------------------------------------------
     // Undo / Redo
@@ -91,70 +91,24 @@ function initializeCreationSettingsUi() {
     // 初期化
     // ----------------------------------------------------
 
-    if (btnClearData) {
+    if (btnResetCurrentLayout) {
+        btnResetCurrentLayout.addEventListener("click", function() {
+            if (!confirm("現在表示中の配置図にある展示物・ピン・フリーペイントをすべて消去しますか？")) return;
 
-        btnClearData.addEventListener("click", function() {
+            const removable = canvas.getObjects().filter(obj =>
+                obj.isArtwork || obj.isPin || obj.isFreePin || obj.isGuard ||
+                obj.pinLabel !== undefined || obj.isCrowdCircle || obj.isFreeDrawing || obj.type === 'path'
+            );
+            canvas.discardActiveObject();
+            canvas.remove(...removable);
+            canvas.requestRenderAll();
+            artworkCount = canvas.getObjects().filter(obj => obj.isArtwork).length;
+            pinCount = canvas.getObjects().filter(obj => obj.isPin || obj.isFreePin || obj.isGuard).length;
+            saveState();
 
-            if (
-                confirm(
-                    "保存されている下書きデータを削除し、キャンバスを初期化しますか？"
-                )
-            ) {
-
-                localStorage.removeItem(STORAGE_KEY);
-
-                canvas.clear();
-
-                if (titleInput) {
-                    titleInput.value = "";
-                }
-
-                loadBackgroundImage(function() {
-
-                    historyStack = [];
-                    redoStack = [];
-
-                    artworkCount = 0;
-                    pinCount = 0;
-
-                    floorPlanJsonData = null;
-
-                    wallPlanJsonData = {
-                        'wall_default': {
-                            title: '壁 A',
-                            widthCm: 600,
-                            heightCm: 300,
-                            json: null
-                        }
-                    };
-
-                    selectedWallInfo = {
-                        id: 'wall_default',
-                        title: '壁 A',
-                        widthCm: 600,
-                        heightCm: 300
-                    };
-
-                    currentViewMode = 'floor';
-
-                    switchViewMode('floor');
-
-                    saveState();
-
-                    const statusEl =
-                        document.getElementById("saveStatus");
-
-                    if (statusEl) {
-                        statusEl.innerText =
-                            "データを初期化しました";
-                    }
-
-                });
-
-            }
-
+            const statusEl = document.getElementById("saveStatus");
+            if (statusEl) statusEl.innerText = "現在の配置図をリセットしました";
         });
-
     }
 
     // ----------------------------------------------------

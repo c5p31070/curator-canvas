@@ -186,6 +186,7 @@ function getCustomProperties() {
         'pxHeight',
         'crowdCountValue',
         'isCrowdCircle',
+        'crowdLinkId',
         'isFreePin',
         'pinLabel',
         'isGuard',
@@ -484,6 +485,7 @@ function updateUndoRedoButtons() {
 function restoreCustomProperties() {
 
     const objects = canvas.getObjects();
+    const matchedCrowdCircles = new Set();
 
     objects.forEach(obj => {
 
@@ -492,18 +494,32 @@ function restoreCustomProperties() {
             obj.crowdCountValue
         ) {
 
-            const circle = objects.find(c =>
-                c.isCrowdCircle && c.left === obj.left && c.top === obj.top
-            ) || objects.find(
-                c =>
-                    c.type === 'circle' &&
-                    c.left === obj.left &&
-                    c.top === obj.top
-            );
+            let circle = obj.crowdLinkId
+                ? objects.find(c => c.isCrowdCircle && c.crowdLinkId === obj.crowdLinkId && !matchedCrowdCircles.has(c))
+                : null;
+            if (!circle) {
+                const candidates = objects.filter(c => !matchedCrowdCircles.has(c) &&
+                    ((c.isCrowdCircle && c.type === 'circle') ||
+                     (c.type === 'circle' && c.left === obj.left && c.top === obj.top)));
+                circle = candidates.sort((a, b) =>
+                    a.getCenterPoint().distanceFrom(obj.getCenterPoint()) -
+                    b.getCenterPoint().distanceFrom(obj.getCenterPoint())
+                )[0];
+            }
 
             if (circle) {
-                obj.crowdCircle = circle;
-                configureCrowdCircle(circle, obj);
+                matchedCrowdCircles.add(circle);
+                const radius = circle.radius || 40;
+                const fill = circle.fill;
+                const stroke = circle.stroke;
+                const strokeWidth = circle.strokeWidth || 2;
+                const oldIndex = canvas.getObjects().indexOf(circle);
+                canvas.remove(circle);
+                const semicircle = createCrowdSemicircle(obj, radius, fill, stroke, strokeWidth);
+                if (!obj.crowdLinkId) obj.crowdLinkId = `crowd-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                semicircle.crowdLinkId = obj.crowdLinkId;
+                canvas.insertAt(semicircle, Math.max(0, oldIndex), false);
+                obj.crowdCircle = semicircle;
             }
         }
 
@@ -529,12 +545,64 @@ function restoreCustomProperties() {
     applyWallOutlineLock();
 }
 
+function createCrowdSemicircle(artwork, radius, fill, stroke = '#333', strokeWidth = 2) {
+    if (!artwork.crowdLinkId) artwork.crowdLinkId = `crowd-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const center = artwork.getCenterPoint();
+    const angle = (artwork.angle || 0) * Math.PI / 180;
+    const nx = Math.sin(angle), ny = Math.cos(angle);
+    const tx = -ny, ty = nx;
+    const halfExtent = artwork.getScaledHeight() / 2;
+    const base = { x: center.x + nx * halfExtent, y: center.y + ny * halfExtent };
+    const polygonCenter = { x: base.x + nx * radius / 2, y: base.y + ny * radius / 2 };
+    const points = [];
+    for (let i = 0; i <= 24; i++) {
+        const angle = Math.PI * i / 24;
+        points.push({
+            x: tx * radius * Math.cos(angle) + nx * (radius * Math.sin(angle) - radius / 2),
+            y: ty * radius * Math.cos(angle) + ny * (radius * Math.sin(angle) - radius / 2)
+        });
+    }
+    const poly = new fabric.Polygon(points, {
+        left: polygonCenter.x, top: polygonCenter.y, originX: 'center', originY: 'center',
+        fill, stroke, strokeWidth, selectable: false, evented: false, isCrowdCircle: true,
+        crowdRadius: radius, crowdLinkId: artwork.crowdLinkId || null
+    });
+    configureCrowdCircle(poly);
+    return poly;
+}
+
+function updateCrowdSemicircle(artwork) {
+    if (!artwork?.crowdCircle) return;
+    const old = artwork.crowdCircle;
+    const radius = old.crowdRadius || old.radius || 40;
+    const replacement = createCrowdSemicircle(artwork, radius, old.fill, old.stroke, old.strokeWidth || 2);
+    if (!artwork.crowdLinkId) artwork.crowdLinkId = `crowd-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    replacement.crowdLinkId = artwork.crowdLinkId;
+    const index = canvas.getObjects().indexOf(old);
+    const wasUndoRedoOperation = isUndoRedoOperation;
+    isUndoRedoOperation = true;
+    canvas.remove(old);
+    canvas.insertAt(replacement, Math.max(0, index), false);
+    isUndoRedoOperation = wasUndoRedoOperation;
+    artwork.crowdCircle = replacement;
+}
+
+function positionCrowdSemicircle(artwork) {
+    const crowd = artwork?.crowdCircle;
+    if (!crowd) return;
+    const center = artwork.getCenterPoint();
+    const angle = (artwork.angle || 0) * Math.PI / 180;
+    const nx = Math.sin(angle), ny = Math.cos(angle);
+    const radius = crowd.crowdRadius || 40;
+    const distance = artwork.getScaledHeight() / 2 + radius / 2;
+    crowd.set({ left: center.x + nx * distance, top: center.y + ny * distance });
+    crowd.setCoords();
+}
+
 function configureCrowdCircle(circle, artwork = null) {
     if (!circle) return;
     circle.set({
         isCrowdCircle: true,
-        left: artwork ? artwork.left : circle.left,
-        top: artwork ? artwork.top : circle.top,
         selectable: false,
         evented: false,
         hasControls: false,

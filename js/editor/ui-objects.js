@@ -476,37 +476,9 @@ function initializeObjectControlsUi() {
                     const colorObj =
                         getCrowdColor(count);
 
-                    const circle =
-                        new fabric.Circle({
-
-                            radius: radius,
-
-                            fill:
-                                colorObj.fill,
-
-                            stroke:
-                                colorObj.stroke,
-
-                            strokeWidth: 2,
-
-                            left:
-                                activeObj.left,
-
-                            top:
-                                activeObj.top,
-
-                            originX: 'center',
-                            originY: 'center',
-
-                            selectable: false,
-
-                            evented: false,
-
-                            isCrowdCircle: true
-
-                        });
-
-                    configureCrowdCircle(circle, activeObj);
+                    const circle = createCrowdSemicircle(
+                        activeObj, radius, colorObj.fill, colorObj.stroke, 2
+                    );
 
                     canvas.add(circle);
 

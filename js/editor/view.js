@@ -606,11 +606,8 @@ function applyScaleToAllArtworks(newScale) {
             const radius =
                 (diagonal / 2) + 25;
 
-            obj.crowdCircle.set({
-                radius: radius
-            });
-
-            obj.crowdCircle.setCoords();
+            obj.crowdCircle.crowdRadius = radius;
+            updateCrowdSemicircle(obj);
         }
     });
 

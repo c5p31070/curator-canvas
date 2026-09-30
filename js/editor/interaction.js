@@ -188,12 +188,7 @@ function rotateActiveObject() {
             activeObj.crowdCircle
         ) {
 
-            activeObj.crowdCircle.set({
-                left: activeObj.left,
-                top: activeObj.top
-            });
-
-            activeObj.crowdCircle.setCoords();
+            updateCrowdSemicircle(activeObj);
         }
 
         canvas.renderAll();
@@ -632,12 +627,7 @@ canvas.on(
             obj.crowdCircle
         ) {
 
-            obj.crowdCircle.set({
-                left: obj.left,
-                top: obj.top
-            });
-
-            obj.crowdCircle.setCoords();
+            positionCrowdSemicircle(obj);
         }
     }
 );
