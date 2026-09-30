@@ -4,10 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>展示配置エディタ - curator-canvas</title>
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+
     <!-- Fabric.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 
@@ -192,23 +194,59 @@
             cursor: not-allowed;
         }
 
-        .btn-primary { background-color: #2563eb; color: #ffffff; }
-        .btn-primary:hover:not(:disabled) { background-color: #1d4ed8; }
+        .btn-primary {
+            background-color: #2563eb;
+            color: #ffffff;
+        }
 
-        .btn-warning { background-color: #eab308; color: #ffffff; }
-        .btn-warning:hover:not(:disabled) { background-color: #ca8a04; }
+        .btn-primary:hover:not(:disabled) {
+            background-color: #1d4ed8;
+        }
 
-        .btn-secondary { background-color: #64748b; color: #ffffff; }
-        .btn-secondary:hover:not(:disabled) { background-color: #475569; }
+        .btn-warning {
+            background-color: #eab308;
+            color: #ffffff;
+        }
 
-        .btn-success { background-color: #059669; color: #ffffff; }
-        .btn-success:hover:not(:disabled) { background-color: #047857; }
+        .btn-warning:hover:not(:disabled) {
+            background-color: #ca8a04;
+        }
 
-        .btn-dark { background-color: #334155; color: #ffffff; }
-        .btn-dark:hover:not(:disabled) { background-color: #1e293b; }
+        .btn-secondary {
+            background-color: #64748b;
+            color: #ffffff;
+        }
 
-        .btn-danger { background-color: #ef4444; color: #ffffff; }
-        .btn-danger:hover:not(:disabled) { background-color: #dc2626; }
+        .btn-secondary:hover:not(:disabled) {
+            background-color: #475569;
+        }
+
+        .btn-success {
+            background-color: #059669;
+            color: #ffffff;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background-color: #047857;
+        }
+
+        .btn-dark {
+            background-color: #334155;
+            color: #ffffff;
+        }
+
+        .btn-dark:hover:not(:disabled) {
+            background-color: #1e293b;
+        }
+
+        .btn-danger {
+            background-color: #ef4444;
+            color: #ffffff;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background-color: #dc2626;
+        }
 
         .btn-active-measure {
             background-color: #dc2626 !important;
@@ -217,9 +255,17 @@
         }
 
         @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.7; }
-            100% { opacity: 1; }
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+
+            100% {
+                opacity: 1;
+            }
         }
 
         .btn-group {
@@ -269,200 +315,546 @@
             display: none;
         }
     </style>
+    <link rel="stylesheet" href="css/theme.css">
 </head>
+
 <body>
 
     <header>
         <h1>curator-canvas</h1>
+
         <!-- ビュー切り替えタブ -->
         <div class="view-tabs">
-            <button id="tabFloorPlan" class="tab-btn active">🗺️ 平面図 (上からの図)</button>
-            <button id="tabWallPlan" class="tab-btn">🖼️ 壁面図 (正面からの図)</button>
+            <button id="tabFloorPlan" class="tab-btn active">
+                平面図
+            </button>
+
+            <button id="tabWallPlan" class="tab-btn">
+                壁面図
+            </button>
+
+            <button id="tabPdfExport" class="tab-btn">
+                PDF出力
+            </button>
         </div>
+
         <a href="index.html" class="btn-back">← トップへ戻る</a>
     </header>
 
     <div class="main-layout">
+
         <!-- サイドパネル -->
         <aside class="sidebar">
+
             <!-- 展覧会基本情報セクション -->
-            <div class="panel-section">
-                <h2>🏛️ 展覧会情報</h2>
+            <div class="panel-section info-section">
+                <h2>展覧会情報</h2>
+
                 <div class="form-group">
                     <label for="exhibitionTitle">展覧会タイトル</label>
-                    <input type="text" id="exhibitionTitle" class="form-control" placeholder="例: 印象派の光と影 展">
+                    <input
+                        type="text"
+                        id="exhibitionTitle"
+                        class="form-control"
+                        placeholder="例: 印象派の光と影 展"
+                    >
                 </div>
+            </div>
+
+            <div class="panel-section mode-switch-section workflow-section">
+                <h2>作業モード</h2>
+                <p id="modeDescription" class="mode-description">配置図を作成します。壁を選んで展示物を配置してください。</p>
+                <button id="btnToggleAdminMode" class="btn btn-secondary" type="button">管理設定を開く</button>
+                <div id="adminModeBanner" class="admin-mode-banner" hidden>管理者設定モード</div>
+            </div>
+
+            <div id="adminSettingsPanel" class="panel-section admin-settings-panel config-section" hidden>
+                <h2>壁・図面の事前設定</h2>
+                <p class="mode-description">壁の寸法を登録し、壁面図や平面図に設備を配置します。</p>
+                <div class="form-group">
+                    <label for="newWallTitle">壁面名</label>
+                    <input id="newWallTitle" class="form-control" type="text" placeholder="例: 北側の壁">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="newWallWidthCm">壁の長さ (cm)</label>
+                        <input id="newWallWidthCm" class="form-control" type="number" value="600" min="1" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="newWallHeightCm">壁の高さ (cm)</label>
+                        <input id="newWallHeightCm" class="form-control" type="number" value="300" min="1" step="1">
+                    </div>
+                </div>
+                <button id="btnAddWall" class="btn btn-primary" type="button">この壁を登録</button>
+                <label class="fixture-option">
+                    <input id="addAsFixture" type="checkbox">
+                    これから追加する物を管理者設定の備品として登録
+                </label>
             </div>
 
             <!-- オブジェクト操作（回転）セクション -->
-            <div class="panel-section">
-                <h2>🔄 オブジェクト操作</h2>
-                <button id="btnRotate90" class="btn btn-dark">↪️ 90度回転 (ショートカット: Rキー)</button>
+            <div class="panel-section edit-tools-section">
+                <h2>オブジェクト操作</h2>
+
+                <button id="btnRotate90" class="btn btn-dark">
+                    90度回転（Rキー）
+                </button>
             </div>
 
             <!-- データ保存・復元セクション -->
-            <div class="panel-section">
-                <h2>💾 データ保存・復元</h2>
+            <div class="panel-section data-section">
+                <h2>データ保存・復元</h2>
+
                 <div class="btn-group" style="margin-bottom: 6px;">
-                    <button id="btnSaveData" class="btn btn-primary">手動保存</button>
-                    <button id="btnClearData" class="btn btn-danger">初期化</button>
+                    <button id="btnSaveData" class="btn btn-primary">
+                        展覧会として保存
+                    </button>
+
+                    <button id="btnClearData" class="btn btn-danger admin-only" hidden>
+                        初期化
+                    </button>
                 </div>
-                <div id="saveStatus" class="save-status-text">自動保存: 有効</div>
+
+                <div class="form-group" style="margin-top: 10px;">
+                    <label for="savedExhibitions">保存済みの展覧会</label>
+                    <select id="savedExhibitions" class="form-control">
+                        <option value="">保存済み展覧会を選択</option>
+                    </select>
+                </div>
+                <div class="btn-group" style="margin-bottom: 6px;">
+                    <button id="btnLoadExhibition" class="btn btn-dark">選択した配置図を呼び出す</button>
+                    <button id="btnDeleteExhibition" class="btn btn-danger">保存データを削除</button>
+                </div>
+
+                <div id="saveStatus" class="save-status-text">
+                    自動保存: 有効
+                </div>
             </div>
 
             <!-- 履歴操作（Undo/Redo）セクション -->
-            <div class="panel-section">
-                <h2>↩️ 履歴操作</h2>
+            <div class="panel-section history-section">
+                <h2>履歴操作</h2>
+
                 <div class="btn-group">
-                    <button id="btnUndo" class="btn btn-dark" disabled>↶ 元に戻す</button>
-                    <button id="btnRedo" class="btn btn-dark" disabled>↷ やり直す</button>
+                    <button id="btnUndo" class="btn btn-dark" disabled>
+                        ↶ 元に戻す
+                    </button>
+
+                    <button id="btnRedo" class="btn btn-dark" disabled>
+                        ↷ やり直す
+                    </button>
                 </div>
             </div>
 
             <!-- 平面図コントロール -->
             <div id="floorPlanControls">
+
                 <!-- 縮尺設定セクション -->
-                <div class="panel-section">
-                    <h2>📏 縮尺設定 (平面図)</h2>
-                    <button id="btnMeasureScale" class="btn btn-warning" style="margin-bottom: 8px;">📐 基準線を引いて縮尺を自動計算</button>
+                <div class="panel-section admin-only config-section" hidden>
+                    <h2>縮尺設定（平面図）</h2>
+
+                    <button
+                        id="btnMeasureScale"
+                        class="btn btn-warning"
+                        style="margin-bottom: 8px;"
+                    >
+                        基準線から縮尺を計算
+                    </button>
+
                     <div class="form-group">
                         <label for="scale">縮尺スケール (px / cm)</label>
-                        <input type="number" id="scale" class="form-control" value="0.5" step="0.01" min="0.01">
-                        <p style="font-size: 11px; color: #64748b; margin-top: 4px;">※ドラッグ測定または直接数値入力で全作品がリアルタイム伸縮します。</p>
+
+                        <input
+                            type="number"
+                            id="scale"
+                            class="form-control"
+                            value="0.5"
+                            step="0.01"
+                            min="0.01"
+                        >
+
+                        <p style="font-size: 11px; color: #64748b; margin-top: 4px;">
+                            ※ドラッグ測定または直接数値入力で全作品がリアルタイム伸縮します。
+                        </p>
                     </div>
                 </div>
 
-                <!-- 壁選択ツール -->
-                <div class="panel-section">
-                    <h2>🧱 壁面図移行ツール</h2>
-                    <button id="btnSelectWall" class="btn btn-primary" style="margin-bottom: 8px;">👆 図面上の壁を選択して壁面図へ</button>
-                    <p style="font-size: 11px; color: #64748b;">※指定の壁の長さから自動で立面図キャンバスを作成します。</p>
+                <!-- 利用者向けの壁面選択 -->
+                <div class="panel-section navigation-section">
+                    <h2>壁面配置図</h2>
+                    <label for="floorWallListSelect">壁を選択すると配置図に移動します</label>
+                    <select id="floorWallListSelect" class="form-control"></select>
                 </div>
+
             </div>
 
             <!-- 壁面図コントロール -->
             <div id="wallPlanControls" style="display: none;">
-                <div class="panel-section">
-                    <h2>🧱 壁面の選択・切替</h2>
+
+                <div class="panel-section navigation-section">
+                    <h2>壁面の選択・切り替え</h2>
+
                     <div class="form-group">
-                        <label for="wallListSelect">表示する壁面を選択</label>
+                        <label for="wallListSelect">
+                            表示する壁面を選択
+                        </label>
+
                         <select id="wallListSelect" class="form-control">
                             <!-- JSで動的に追加されます -->
                         </select>
                     </div>
                 </div>
 
-                <div class="panel-section">
-                    <h2>📐 壁面仕様設定 (現在選択中)</h2>
-                    <div class="form-group">
+                <div class="panel-section admin-only config-section" hidden>
+                    <h2>壁面の寸法（選択中）</h2>
+
+                    <div class="form-group admin-only" hidden>
                         <label for="wallWidthCm">壁の幅 (cm)</label>
-                        <input type="number" id="wallWidthCm" class="form-control" value="600">
+
+                        <input
+                            type="number"
+                            id="wallWidthCm"
+                            class="form-control"
+                            value="600"
+                        >
+                    </div>
+
+                    <div class="form-group admin-only" hidden>
+                        <label for="wallHeightCm">
+                            天井高 / 壁の高さ (cm)
+                        </label>
+
+                        <input
+                            type="number"
+                            id="wallHeightCm"
+                            class="form-control"
+                            value="300"
+                        >
+                    </div>
+
+                    <button
+                        id="btnApplyWallSize"
+                        class="btn btn-primary admin-only"
+                        hidden
+                    >
+                        壁面キャンバスを更新
+                    </button>
+                    <button
+                        id="btnDeleteWall"
+                        class="btn btn-danger admin-only"
+                        type="button"
+                        hidden
+                        style="margin-top: 8px;"
+                    >
+                        選択した壁を削除
+                    </button>
+                </div>
+
+            </div>
+
+            <div class="panel-section drawing-section">
+                <h2>フリーペイント</h2>
+                <p class="section-help">平面図や壁面図に、線・矢印・メモを書き込めます。</p>
+                <div class="form-row drawing-options">
+                    <div class="form-group">
+                        <label for="freeDrawColor">線の色</label>
+                        <input id="freeDrawColor" class="form-control-color" type="color" value="#26776f">
                     </div>
                     <div class="form-group">
-                        <label for="wallHeightCm">天井高 / 壁の高さ (cm)</label>
-                        <input type="number" id="wallHeightCm" class="form-control" value="300">
+                        <label for="freeDrawWidth">線の太さ (px)</label>
+                        <input id="freeDrawWidth" class="form-control" type="number" value="4" min="1" max="30" step="1">
                     </div>
-                    <button id="btnApplyWallSize" class="btn btn-primary">壁面キャンバスを更新</button>
                 </div>
+                <button id="btnToggleFreeDraw" class="btn btn-secondary" type="button">描き込みを開始</button>
             </div>
 
             <!-- 展示品追加セクション -->
-            <div class="panel-section">
-                <h2>🖼️ 展示品の追加</h2>
+            <div class="panel-section artwork-section">
+                <h2>展示品の追加</h2>
+
                 <div class="form-group">
-                    <label for="displayType">展示方法（タイプ）</label>
+                    <label for="displayType">
+                        展示方法（タイプ）
+                    </label>
+
                     <select id="displayType" class="form-control">
-                        <option value="wall">🖼️ 壁面展示（絵画・額装作品など）</option>
-                        <option value="floor">📦 床置展示（展示ケース・立体物など）</option>
+                        <option value="wall">
+                            壁面展示（絵画・額装作品など）
+                        </option>
+
+                        <option value="floor">
+                            床置展示（展示ケース・立体物など）
+                        </option>
                     </select>
                 </div>
+
                 <div class="form-group">
-                    <label for="artworkName">作品名 / 展示物名</label>
-                    <input type="text" id="artworkName" class="form-control" placeholder="例: モナ・リザ">
+                    <label for="artworkName">
+                        作品名 / 展示物名
+                    </label>
+
+                    <input
+                        type="text"
+                        id="artworkName"
+                        class="form-control"
+                        placeholder="例: モナ・リザ"
+                    >
                 </div>
+
+                <div class="form-group">
+                    <label for="artworkDescription">説明・注意事項</label>
+                    <textarea id="artworkDescription" class="form-control" rows="2" placeholder="例: 作品に触れないようご案内ください"></textarea>
+                </div>
+
                 <div class="form-row">
+
                     <div class="form-group">
-                        <label for="artworkWidth">幅 (cm)</label>
-                        <input type="number" id="artworkWidth" class="form-control" value="150">
+                        <label for="artworkWidth">
+                            幅 (cm)
+                        </label>
+
+                        <input
+                            type="number"
+                            id="artworkWidth"
+                            class="form-control"
+                            value="150"
+                        >
                     </div>
+
                     <div class="form-group">
-                        <label for="artworkHeight">高さ (cm)</label>
-                        <input type="number" id="artworkHeight" class="form-control" value="100">
+                        <label for="artworkHeight">
+                            高さ (cm)
+                        </label>
+
+                        <input
+                            type="number"
+                            id="artworkHeight"
+                            class="form-control"
+                            value="100"
+                        >
                     </div>
+
                 </div>
+
                 <div class="form-group" id="depthGroup">
-                    <label for="artworkDepth">作品の厚み / 奥行き (cm)</label>
-                    <input type="number" id="artworkDepth" class="form-control" value="5" placeholder="例: 5">
-                    <p id="typeHelpText" style="font-size: 11px; color: #64748b; margin-top: 4px;">※壁面展示では「幅×厚み」の細長い形状で平面図に描画されます。</p>
+
+                    <label for="artworkDepth">
+                        作品の厚み / 奥行き (cm)
+                    </label>
+
+                    <input
+                        type="number"
+                        id="artworkDepth"
+                        class="form-control"
+                        value="5"
+                        placeholder="例: 5"
+                    >
+
+                    <p
+                        id="typeHelpText"
+                        style="font-size: 11px; color: #64748b; margin-top: 4px;"
+                    >
+                        ※壁面展示では「幅×厚み」の細長い形状で平面図に描画されます。
+                    </p>
+
                 </div>
-                <button id="addArtwork" class="btn btn-primary">展示物を追加</button>
+
+                <button id="addArtwork" class="btn btn-primary">
+                    展示物を追加
+                </button>
             </div>
 
-            <!-- フリーピン追加セクション -->
-            <div class="panel-section">
-                <h2>📍 フリーピンの追加</h2>
+            <!-- ピン追加セクション（フリーピン・警備員を統合） -->
+            <div class="panel-section pin-section">
+
+                    <h2>ピン・警備員の追加</h2>
+
+
                 <div class="form-group">
-                    <label for="pinText">ピンのラベル・メモ</label>
-                    <input type="text" id="pinText" class="form-control" placeholder="例: 非常口 / 音響機器">
+                    <label for="pinText">
+                        ピンのラベル・メモ
+                    </label>
+
+                    <input
+                        type="text"
+                        id="pinText"
+                        class="form-control"
+                        placeholder="例: 非常口 / 音響機器"
+                    >
                 </div>
+
+                <div class="form-group">
+                    <label for="pinDescription">説明・注意事項</label>
+                    <textarea id="pinDescription" class="form-control" rows="2" placeholder="例: 点検時に管理室へ連絡"></textarea>
+                </div>
+
                 <div class="form-row">
+
                     <div class="form-group">
-                        <label for="pinIcon">ピンの種類</label>
+                        <label for="pinIcon">
+                            ピンの種類
+                        </label>
+
                         <select id="pinIcon" class="form-control">
-                            <option value="📍">📍 ピン</option>
-                            <option value="🚩">🚩 フラグ</option>
-                            <option value="⚠️">⚠️ 注意</option>
-                            <option value="ℹ️">ℹ️ 情報</option>
-                            <option value="🚪">🚪 出入口</option>
-                            <option value="🧯">🧯 消火器</option>
+
+                            <option value="📍">
+                                ピン
+                            </option>
+
+                            <option value="🚩">
+                                フラグ
+                            </option>
+
+                            <option value="⚠️">
+                                注意
+                            </option>
+
+                            <option value="ℹ️">
+                                情報
+                            </option>
+
+                            <option value="🚪">
+                                出入口
+                            </option>
+
+                            <option value="🧯">
+                                消火器
+                            </option>
+
+                            <option value="🔔">
+                                非常ベル
+                            </option>
+
+                            <option value="👤">
+                                警備員
+                            </option>
+
                         </select>
                     </div>
+
                     <div class="form-group">
-                        <label for="pinColor">ピンの色</label>
-                        <input type="color" id="pinColor" class="form-control-color" value="#ef4444">
+                        <label for="pinColor">
+                            ピンの色
+                        </label>
+
+                        <input
+                            type="color"
+                            id="pinColor"
+                            class="form-control-color"
+                            value="#ef4444"
+                        >
                     </div>
+
                 </div>
-                <button id="addFreePin" class="btn btn-primary">フリーピンを追加</button>
+
+                <button id="addPin" class="btn btn-primary">
+                    ピンを追加
+                </button>
+
+                <p style="font-size: 11px; color: #64748b; margin-top: 6px;">
+                    ※ 警備員も通常のピンと同じように移動・削除・回転・保存できます。
+                </p>
+
+            </div>
+
+            <div id="itemEditorPanel" class="panel-section item-editor-section">
+                <h2>選択中の項目を編集</h2>
+                <p id="itemEditorStatus" class="section-help">キャンバス上の展示物またはピンを選択してください。</p>
+                <div id="itemEditorFields" hidden>
+                    <div class="form-group">
+                        <label for="editItemName">名前 / ラベル</label>
+                        <input id="editItemName" class="form-control" type="text">
+                    </div>
+                    <div class="form-group">
+                        <label for="editItemDescription">説明・注意事項</label>
+                        <textarea id="editItemDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                    <button id="btnApplyItemEdit" class="btn btn-primary" type="button">変更を適用</button>
+                </div>
             </div>
 
             <!-- 混雑シミュレーションセクション -->
-            <div class="panel-section">
-                <h2>👥 滞留人数・混雑シミュレーション</h2>
-                <p style="font-size: 11px; color: #64748b; margin-bottom: 6px;">選択中の作品の直前に滞留する人数を入力（15人で赤）</p>
+            <div class="panel-section analysis-section">
+
+                <h2>滞留人数・混雑シミュレーション</h2>
+
+                <p style="font-size: 11px; color: #64748b; margin-bottom: 6px;">
+                    選択中の作品の直前に滞留する人数を入力（15人で赤）
+                </p>
+
                 <div class="form-group">
-                    <label for="crowdCount">実測滞留人数（人）</label>
-                    <input type="number" id="crowdCount" class="form-control" value="5" min="0" max="30">
+                    <label for="crowdCount">
+                        実測滞留人数（人）
+                    </label>
+
+                    <input
+                        type="number"
+                        id="crowdCount"
+                        class="form-control"
+                        value="5"
+                        min="0"
+                        max="30"
+                    >
                 </div>
-                <button id="updateCrowd" class="btn btn-warning">選択中の作品に混雑円を反映</button>
+
+                <button id="updateCrowd" class="btn btn-warning">
+                    選択中の作品に混雑円を反映
+                </button>
+
             </div>
 
-            <!-- 警備員配置セクション -->
-            <div class="panel-section">
-                <h2>👮 警備員配置</h2>
-                <button id="addGuard" class="btn btn-secondary">警備員ピン（👤）を追加</button>
-            </div>
-
-            <!-- PDF指示書出力セクション -->
-            <div class="panel-section">
-                <h2>📄 指示書出力</h2>
-                <div class="form-group">
-                    <label for="pdfMemo">指示書用の特記事項・メモ</label>
-                    <textarea id="pdfMemo" class="form-control" rows="3" placeholder="例: 警備員は作品1前に1名配置。動線を広めに確保のこと。"></textarea>
-                </div>
-                <button id="generatePdf" class="btn btn-success">📄 平面＋全壁面をまとめた統合PDFを作成</button>
-            </div>
         </aside>
 
         <!-- 描画キャンバスエリア -->
         <main class="canvas-container-wrapper">
+
             <div id="wallInfoBanner" class="wall-info-banner">
-                📍 選択中の壁面: <strong><span id="bannerWallTitle">壁 A</span></strong> (幅: <span id="bannerWallWidth">600</span> cm × 高さ: <span id="bannerWallHeight">300</span> cm)
+                選択中の壁面:
+                <strong>
+                    <span id="bannerWallTitle">壁 A</span>
+                </strong>
+                (幅:
+                <span id="bannerWallWidth">600</span>
+                cm × 高さ:
+                <span id="bannerWallHeight">300</span>
+                cm)
             </div>
-            <canvas id="canvas" width="900" height="650"></canvas>
+
+            <canvas
+                id="canvas"
+                width="900"
+                height="650"
+            ></canvas>
+
+            <div id="canvasTooltip" class="canvas-tooltip" role="tooltip" hidden>
+                <strong id="canvasTooltipTitle"></strong>
+                <span id="canvasTooltipMeta"></span>
+                <p id="canvasTooltipDescription"></p>
+            </div>
+
+            <section id="pdfExportWorkspace" class="pdf-export-workspace" hidden>
+                <div class="pdf-export-card">
+                    <p class="pdf-export-kicker">DOCUMENT EXPORT</p>
+                    <h2>配置指示書をPDFで出力</h2>
+                    <p class="pdf-export-description">平面図と登録済みの全壁面図をまとめた指示書を作成します。必要な特記事項を入力してから出力してください。</p>
+                    <div class="form-group">
+                        <label for="pdfMemo">指示書用の特記事項・メモ</label>
+                        <textarea id="pdfMemo" class="form-control" rows="6" placeholder="例: 警備員は作品1前に1名配置。動線を広めに確保してください。"></textarea>
+                    </div>
+                    <button id="generatePdf" class="btn btn-success" type="button">平面図と全壁面のPDFを作成</button>
+                </div>
+            </section>
+
         </main>
+
     </div>
 
     <!-- メインJS読み込み -->
-    <script src="js/editor.js" defer></script>
+    <script src="js/editor/core.js" defer></script>
+    <script src="js/editor/view.js" defer></script>
+    <script src="js/editor/interaction.js" defer></script>
+    <script src="js/editor/pdf.js" defer></script>
+    <script src="js/editor/ui.js" defer></script>
+
 </body>
 </html>
