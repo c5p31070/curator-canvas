@@ -185,6 +185,7 @@ function getCustomProperties() {
         'pxWidth',
         'pxHeight',
         'crowdCountValue',
+        'isCrowdCircle',
         'isFreePin',
         'pinLabel',
         'isGuard',
@@ -491,7 +492,9 @@ function restoreCustomProperties() {
             obj.crowdCountValue
         ) {
 
-            const circle = objects.find(
+            const circle = objects.find(c =>
+                c.isCrowdCircle && c.left === obj.left && c.top === obj.top
+            ) || objects.find(
                 c =>
                     c.type === 'circle' &&
                     c.left === obj.left &&
@@ -500,6 +503,7 @@ function restoreCustomProperties() {
 
             if (circle) {
                 obj.crowdCircle = circle;
+                configureCrowdCircle(circle, obj);
             }
         }
 
@@ -523,6 +527,25 @@ function restoreCustomProperties() {
 
     applyFixtureEditability();
     applyWallOutlineLock();
+}
+
+function configureCrowdCircle(circle, artwork = null) {
+    if (!circle) return;
+    circle.set({
+        isCrowdCircle: true,
+        left: artwork ? artwork.left : circle.left,
+        top: artwork ? artwork.top : circle.top,
+        selectable: false,
+        evented: false,
+        hasControls: false,
+        hasBorders: false,
+        lockMovementX: true,
+        lockMovementY: true,
+        lockScalingX: true,
+        lockScalingY: true,
+        lockRotation: true
+    });
+    circle.setCoords();
 }
 
 function applyFixtureEditability() {

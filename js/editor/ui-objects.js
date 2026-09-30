@@ -500,9 +500,13 @@ function initializeObjectControlsUi() {
 
                             selectable: false,
 
-                            evented: false
+                            evented: false,
+
+                            isCrowdCircle: true
 
                         });
+
+                    configureCrowdCircle(circle, activeObj);
 
                     canvas.add(circle);
 

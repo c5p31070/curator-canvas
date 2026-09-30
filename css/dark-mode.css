@@ -122,3 +122,26 @@ textarea:focus {
 }
 .save-status-text { border-color: #303738 !important; }
 ::selection { color: #fff; background: #326f67; }
+
+.sidebar .panel-section.info-section {
+    padding: 13px 12px !important;
+    border: 1px solid #4a4132 !important;
+    border-left: 3px solid var(--brass) !important;
+    background: linear-gradient(115deg, #242019, #171a1a 84%) !important;
+}
+.sidebar .info-section h2 {
+    margin-bottom: 10px;
+    color: #f0e5d2 !important;
+    font-size: 16px;
+    letter-spacing: .04em;
+}
+.sidebar .info-section label {
+    color: #c1b49f !important;
+    font-size: 11px;
+}
+.sidebar .info-section input {
+    min-height: 36px;
+    border-color: #544a39 !important;
+    background: #111414 !important;
+    font-size: 14px;
+}
