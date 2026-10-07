@@ -110,7 +110,7 @@ create policy "editors can delete exhibitions"
 -- Replace the email and team name, then run this block once.
 do $$
 declare
-    admin_email text := 'REPLACE_WITH_ADMIN_EMAIL';
+    admin_email text := 'c5p31070@bunkyo.ac.jp';
     team_name text := '東京都美術館 展覧会チーム';
     admin_id uuid;
     new_team_id uuid;

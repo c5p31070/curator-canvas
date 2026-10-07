@@ -27,7 +27,7 @@
 2. Authentication > Usersで最初の管理者メールアドレスに招待を送ります。
 3. SQL Editorで `supabase/schema.sql` を開き、末尾の `REPLACE_WITH_ADMIN_EMAIL` を最初の管理者のメールアドレスに置き換えて実行します。チームとowner権限が作成されます。
 4. 公開後、Authentication > URL ConfigurationのSite URLとRedirect URLsに、公開サイトのURLと `/login.html` を登録します。
-5. Supabase CLIから `supabase/functions/invite-member` をデプロイし、Edge Function Secretsに `SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEY`、`SUPABASE_SECRET_KEY` を設定します。secret keyはブラウザーやGitに置かず、SupabaseのSecretsにのみ登録してください。
+5. `supabase/functions/invite-member` をSupabase Edge Functionとしてデプロイします。SupabaseはURLとPublishable/Secret keyを関数環境へ自動で渡します。Secret keyをブラウザーやGitへ置かないでください。
 6. リポジトリをVercelに接続して静的サイトとして公開し、公開URLをSupabaseのURL Configurationに登録します。
 
 管理者はチーム機能から編集者または閲覧者を招待できます。編集者は共有配置図の作成・編集・削除ができ、閲覧者は配置図を開いて閲覧できます。保存済みの配置図はチームで共有され、編集内容は選択中の配置図に自動保存されます。

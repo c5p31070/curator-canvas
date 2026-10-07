@@ -15,8 +15,10 @@ Deno.serve(async request => {
     if (!accessToken) return reply({ error: 'ログインしてください。' }, 401);
 
     const url = Deno.env.get('SUPABASE_URL')!;
-    const publishableKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY')!;
-    const secretKey = Deno.env.get('SUPABASE_SECRET_KEY')!;
+    const publishableKeys = JSON.parse(Deno.env.get('SUPABASE_PUBLISHABLE_KEYS')!);
+    const secretKeys = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS')!);
+    const publishableKey = publishableKeys.default;
+    const secretKey = secretKeys.default;
     const userClient = createClient(url, publishableKey, {
         global: { headers: { Authorization: `Bearer ${accessToken}` } },
         auth: { persistSession: false, autoRefreshToken: false }
