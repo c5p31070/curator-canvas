@@ -12,6 +12,25 @@
     <link rel="stylesheet" href="css/home.css">
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/dark-mode.css">
+    <script>
+        // Supabase Auth emails can fall back to the Site URL (/). Forward auth
+        // callbacks to the page that initializes Supabase, preserving tokens.
+        (() => {
+            const query = new URLSearchParams(window.location.search);
+            const fragment = new URLSearchParams(window.location.hash.slice(1));
+            const isAuthCallback = query.has('code') || query.has('token_hash') ||
+                fragment.has('access_token') || fragment.has('refresh_token') ||
+                fragment.has('token_hash') || ['invite', 'recovery'].includes(query.get('type')) ||
+                ['invite', 'recovery'].includes(fragment.get('type')) ||
+                fragment.has('error_code');
+            if (isAuthCallback) {
+                const loginUrl = new URL('login.html', window.location.href);
+                loginUrl.search = window.location.search;
+                loginUrl.hash = window.location.hash;
+                window.location.replace(loginUrl.toString());
+            }
+        })();
+    </script>
 </head>
 <body>
 

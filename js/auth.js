@@ -36,12 +36,20 @@
 
     if (isLoginPage) document.addEventListener('DOMContentLoaded', async () => {
         const params = new URLSearchParams(location.search);
+        const authParams = new URLSearchParams(location.hash.slice(1));
+        const authError = authParams.get('error_code') || params.get('error_code');
+        if (authError === 'otp_expired') {
+            showStatus('認証リンクの有効期限が切れているか、すでに使用されています。新しいパスワード再設定メールを送ってください。');
+        } else if (authParams.has('error')) {
+            showStatus('認証リンクを確認できませんでした。新しい認証メールを送ってください。');
+        }
         if (params.get('team') === 'missing') {
             showStatus('アカウントにチームが登録されていません。管理者に招待状態を確認してもらってください。');
         }
 
         const { data: { session } } = await client.auth.getSession();
-        const isInvite = /type=(invite|recovery)/.test(location.hash);
+        const isInvite = ['invite', 'recovery'].includes(authParams.get('type')) ||
+            ['invite', 'recovery'].includes(params.get('type'));
         if (session && isInvite) {
             document.getElementById('loginForm').hidden = true;
             document.getElementById('invitePasswordForm').hidden = false;
