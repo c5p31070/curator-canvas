@@ -47,6 +47,9 @@ function initializeNavigationUi() {
     }
 
     refreshExhibitionList();
+    window.CURATOR_AUTH_READY?.then(context => {
+        if (context) refreshExhibitionList();
+    });
     const savedExhibitions = document.getElementById('savedExhibitions');
     const btnLoadExhibition = document.getElementById('btnLoadExhibition');
     const btnDeleteExhibition = document.getElementById('btnDeleteExhibition');

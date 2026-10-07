@@ -117,6 +117,14 @@ function initializeCreationSettingsUi() {
 
     window.addEventListener("keydown", function(e) {
 
+        if (window.CURATOR_ROLE === 'viewer' && (
+            e.key === 'Delete' || e.key === 'r' || e.key === 'R' ||
+            ((e.ctrlKey || e.metaKey) && ['z', 'y'].includes(e.key.toLowerCase()))
+        )) {
+            e.preventDefault();
+            return;
+        }
+
         if (
             e.target.tagName === 'INPUT' ||
             e.target.tagName === 'TEXTAREA' ||

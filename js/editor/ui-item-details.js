@@ -4,12 +4,29 @@ function initializeItemDetailsUi() {
     const itemEditorStatus = document.getElementById('itemEditorStatus');
     const itemNameInput = document.getElementById('editItemName');
     const itemDescriptionInput = document.getElementById('editItemDescription');
+    const itemArtworkDimensions = document.getElementById('itemArtworkDimensions');
+    const itemWidthInput = document.getElementById('editItemWidth');
+    const itemHeightInput = document.getElementById('editItemHeight');
+    const itemDepthInput = document.getElementById('editItemDepth');
     const itemTooltip = document.getElementById('canvasTooltip');
     const tooltipTitle = document.getElementById('canvasTooltipTitle');
     const tooltipMeta = document.getElementById('canvasTooltipMeta');
     const tooltipDescription = document.getElementById('canvasTooltipDescription');
     const canvasArea = document.querySelector('.canvas-container-wrapper');
     let hoveredItem = null;
+    let saveTimer = null;
+    let pendingEditedObject = null;
+
+    window.flushPendingItemEditHistory = () => {
+        if (!saveTimer) return;
+        clearTimeout(saveTimer);
+        saveTimer = null;
+        saveState();
+        if (itemEditorStatus && selectedItemForEditing === pendingEditedObject) {
+            itemEditorStatus.textContent = '変更を自動保存しました。';
+        }
+        pendingEditedObject = null;
+    };
 
     const isEditableCanvasItem = obj => Boolean(
         obj && (obj.isArtwork || obj.isPin || obj.isFreePin || obj.isGuard || obj.pinLabel !== undefined)
@@ -29,6 +46,13 @@ function initializeItemDetailsUi() {
         }
         if (itemNameInput) itemNameInput.value = getItemName(selectedItemForEditing);
         if (itemDescriptionInput) itemDescriptionInput.value = selectedItemForEditing.description || '';
+        const isArtwork = Boolean(selectedItemForEditing?.isArtwork);
+        if (itemArtworkDimensions) itemArtworkDimensions.hidden = !isArtwork;
+        if (isArtwork) {
+            if (itemWidthInput) itemWidthInput.value = selectedItemForEditing.cmWidth ?? 150;
+            if (itemHeightInput) itemHeightInput.value = selectedItemForEditing.cmHeight ?? 100;
+            if (itemDepthInput) itemDepthInput.value = selectedItemForEditing.cmDepth ?? 5;
+        }
     };
 
     canvas.on('selection:created', e => updateSelectedItemEditor(e.selected?.[0] || canvas.getActiveObject()));
@@ -68,20 +92,31 @@ function initializeItemDetailsUi() {
     canvas.on('mouse:out', hideItemTooltip);
     canvas.on('mouse:down', hideItemTooltip);
 
-    const btnApplyItemEdit = document.getElementById('btnApplyItemEdit');
-    if (btnApplyItemEdit) {
-        btnApplyItemEdit.addEventListener('click', () => {
+    const applyItemEdit = () => {
             const obj = selectedItemForEditing;
-            if (!isEditableCanvasItem(obj)) return;
+            if (!isEditableCanvasItem(obj)) return false;
             const newName = (itemNameInput?.value || '').trim();
             if (!newName) {
-                alert('名前またはラベルを入力してください。');
-                return;
+                if (itemEditorStatus) itemEditorStatus.textContent = '名前を入力してください。';
+                return false;
             }
             const newDescription = itemDescriptionInput?.value.trim() || '';
-            obj.description = newDescription;
 
             if (obj.isArtwork) {
+                const dimensions = {
+                    width: Number(itemWidthInput?.value),
+                    height: Number(itemHeightInput?.value),
+                    depth: Number(itemDepthInput?.value)
+                };
+                if (Object.values(dimensions).some(value => !Number.isFinite(value) || value <= 0)) {
+                    if (itemEditorStatus) itemEditorStatus.textContent = '寸法は0より大きい数値で入力してください。';
+                    return false;
+                }
+                obj.cmWidth = dimensions.width;
+                obj.cmHeight = dimensions.height;
+                obj.cmDepth = dimensions.depth;
+                const scale = parseFloat(document.getElementById('scale')?.value) || 0.5;
+                applyArtworkDimensions(obj, scale);
                 obj.artworkName = newName;
                 const label = obj.item(1);
                 if (label) {
@@ -103,11 +138,23 @@ function initializeItemDetailsUi() {
                 obj.pinLabel = `${icon} ${newName}`;
             }
 
+            obj.description = newDescription;
             obj.setCoords();
             canvas.requestRenderAll();
-            saveState();
-            updateSelectedItemEditor(obj);
-            if (itemEditorStatus) itemEditorStatus.textContent = '変更を保存しました。';
-        });
-    }
+            if (saveTimer) clearTimeout(saveTimer);
+            pendingEditedObject = obj;
+            saveTimer = setTimeout(() => {
+                saveState();
+                saveTimer = null;
+                if (itemEditorStatus && selectedItemForEditing === obj) itemEditorStatus.textContent = '変更を自動保存しました。';
+                pendingEditedObject = null;
+            }, 500);
+            if (itemEditorStatus) itemEditorStatus.textContent = '変更を反映中…';
+            return true;
+    };
+
+    [itemNameInput, itemDescriptionInput, itemWidthInput, itemHeightInput, itemDepthInput]
+        .filter(Boolean)
+        .forEach(input => input.addEventListener('input', () => applyItemEdit(false)));
+
 }

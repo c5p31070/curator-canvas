@@ -203,6 +203,15 @@ function rotateActiveObject() {
 
 function loadSavedData() {
 
+    // Signed-in users open shared exhibitions explicitly; don't mix per-browser drafts between accounts.
+    if (window.CURATOR_SUPABASE_CONFIG) {
+        historyStack = [getSerializedCanvasData()];
+        redoStack = [];
+        updateUndoRedoButtons();
+        window.applyCuratorRoleRestrictions?.();
+        return;
+    }
+
     const savedData =
         localStorage.getItem(STORAGE_KEY);
 
@@ -233,6 +242,7 @@ function loadSavedData() {
                         statusEl.innerText =
                             "前回のデータを読み込みました";
                     }
+                    window.applyCuratorRoleRestrictions?.();
                 }
             );
 
@@ -249,6 +259,7 @@ function loadSavedData() {
     } else {
 
         saveState();
+        window.applyCuratorRoleRestrictions?.();
     }
 }
 

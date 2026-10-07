@@ -10,6 +10,72 @@ const canvas = new fabric.Canvas('canvas');
 const STORAGE_KEY = 'curator_canvas_draft_data';
 const EXHIBITIONS_KEY = 'curator_canvas_saved_exhibitions';
 let selectedExhibitionId = '';
+let cloudExhibitionCache = [];
+let cloudExhibitionRefreshPending = false;
+let cloudExhibitionSaveTimer = null;
+let cloudExhibitionConflict = false;
+
+function canEditSharedExhibitions() {
+    return Boolean(window.CURATOR_USER && window.CURATOR_TEAM && ['owner', 'editor'].includes(window.CURATOR_ROLE));
+}
+
+async function refreshCloudExhibitions() {
+    if (!window.curatorSupabase || !window.CURATOR_TEAM || cloudExhibitionRefreshPending) return;
+    cloudExhibitionRefreshPending = true;
+    const { data, error } = await window.curatorSupabase
+        .from('exhibitions')
+        .select('id, team_id, title, data, updated_at')
+        .eq('team_id', window.CURATOR_TEAM.id)
+        .order('updated_at', { ascending: false });
+    cloudExhibitionRefreshPending = false;
+    if (error) {
+        const status = document.getElementById('saveStatus');
+        if (status) status.textContent = '共有データを読み込めませんでした。管理者に設定を確認してください。';
+        console.error('共有展覧会の取得に失敗しました:', error);
+        return;
+    }
+    cloudExhibitionCache = data || [];
+    refreshExhibitionList(false);
+}
+
+function queueCloudExhibitionSave(json) {
+    if (!canEditSharedExhibitions() || !selectedExhibitionId || cloudExhibitionConflict) return;
+    if (cloudExhibitionSaveTimer) clearTimeout(cloudExhibitionSaveTimer);
+    cloudExhibitionSaveTimer = setTimeout(async () => {
+        cloudExhibitionSaveTimer = null;
+        const record = cloudExhibitionCache.find(item => item.id === selectedExhibitionId);
+        if (!record) return;
+        const parsed = JSON.parse(json);
+        const nextTitle = (document.getElementById('exhibitionTitle')?.value || record.title).trim() || record.title;
+        const updatedAt = new Date().toISOString();
+        const { data: updated, error } = await window.curatorSupabase.from('exhibitions').update({
+            title: nextTitle,
+            data: parsed,
+            updated_by: window.CURATOR_USER.id,
+            updated_at: updatedAt
+        }).eq('id', selectedExhibitionId).eq('team_id', window.CURATOR_TEAM.id)
+            .eq('updated_at', record.updated_at).select('id, updated_at').maybeSingle();
+        if (error) {
+            console.error('共有配置図の自動保存に失敗しました:', error);
+            const status = document.getElementById('saveStatus');
+            if (status) status.textContent = '共有保存に失敗しました。ネットワークを確認してください。';
+            return;
+        }
+        if (!updated) {
+            cloudExhibitionConflict = true;
+            await refreshCloudExhibitions();
+            const status = document.getElementById('saveStatus');
+            if (status) status.textContent = '他のメンバーが先に更新しました。最新の配置図を再読み込みしてください。';
+            return;
+        }
+        record.data = parsed;
+        record.title = nextTitle;
+        record.updated_at = updated.updated_at;
+        refreshExhibitionList(false);
+        const status = document.getElementById('saveStatus');
+        if (status) status.textContent = `「${nextTitle}」をチームに自動保存しました`;
+    }, 900);
+}
 
 function getSavedExhibitions() {
     try {
@@ -21,16 +87,17 @@ function getSavedExhibitions() {
     }
 }
 
-function refreshExhibitionList() {
+function refreshExhibitionList(fetchCloud = true) {
     const select = document.getElementById('savedExhibitions');
     if (!select) return;
-    const exhibitions = getSavedExhibitions();
+    const exhibitions = window.CURATOR_SUPABASE_CONFIG ? cloudExhibitionCache : getSavedExhibitions();
+    if (fetchCloud && window.CURATOR_TEAM) refreshCloudExhibitions();
     select.replaceChildren();
     const placeholder = document.createElement('option');
     placeholder.value = '';
     placeholder.textContent = '保存済み展覧会を選択';
     select.appendChild(placeholder);
-    exhibitions.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
+    exhibitions.sort((a, b) => (b.updated_at || b.updatedAt || '').localeCompare(a.updated_at || a.updatedAt || ''))
         .forEach(item => {
             const option = document.createElement('option');
             option.value = item.id;
@@ -41,10 +108,59 @@ function refreshExhibitionList() {
     if (select.value !== selectedExhibitionId) selectedExhibitionId = '';
 }
 
-function saveExhibitionSnapshot() {
+async function saveExhibitionSnapshot() {
     const title = (document.getElementById('exhibitionTitle')?.value || '').trim();
     if (!title) {
         alert('展覧会タイトルを入力してください。');
+        return;
+    }
+    if (window.CURATOR_TEAM) {
+        if (!canEditSharedExhibitions()) {
+            alert('閲覧者は展覧会を保存できません。');
+            return;
+        }
+        if (cloudExhibitionConflict) {
+            alert('他のメンバーが先に更新しました。最新の配置図を読み込んでから保存してください。');
+            return;
+        }
+        const id = selectedExhibitionId || crypto.randomUUID();
+        const snapshot = getSerializedCanvasData();
+        const record = {
+            id,
+            team_id: window.CURATOR_TEAM.id,
+            title,
+            data: JSON.parse(snapshot),
+            updated_by: window.CURATOR_USER.id,
+            updated_at: new Date().toISOString()
+        };
+        const existing = cloudExhibitionCache.find(item => item.id === id);
+        const query = existing
+            ? window.curatorSupabase.from('exhibitions').update({
+                title: record.title,
+                data: record.data,
+                updated_by: record.updated_by,
+                updated_at: record.updated_at
+            }).eq('id', id).eq('team_id', record.team_id).eq('updated_at', existing.updated_at).select('id, updated_at').maybeSingle()
+            : window.curatorSupabase.from('exhibitions').insert(record).select('id, updated_at').maybeSingle();
+        const { data: savedRecord, error } = await query;
+        if (error) {
+            console.error('共有展覧会の保存に失敗しました:', error);
+            alert('共有保存に失敗しました。ネットワークとデータベース設定を確認してください。');
+            return;
+        }
+        if (!savedRecord) {
+            cloudExhibitionConflict = true;
+            await refreshCloudExhibitions();
+            alert('他のメンバーが先に更新しました。最新の配置図を読み込んでから、もう一度保存してください。');
+            return;
+        }
+        record.updated_at = savedRecord.updated_at;
+        selectedExhibitionId = id;
+        cloudExhibitionCache = [record, ...cloudExhibitionCache.filter(item => item.id !== id)];
+        localStorage.setItem(STORAGE_KEY, snapshot);
+        refreshExhibitionList(false);
+        const status = document.getElementById('saveStatus');
+        if (status) status.innerText = `「${title}」をチームに保存しました`;
         return;
     }
     const exhibitions = getSavedExhibitions();
@@ -69,29 +185,46 @@ function saveExhibitionSnapshot() {
     }
 }
 
-function loadExhibitionSnapshot(id) {
-    const record = getSavedExhibitions().find(item => item.id === id);
+async function loadExhibitionSnapshot(id) {
+    const record = window.CURATOR_TEAM
+        ? cloudExhibitionCache.find(item => item.id === id)
+        : getSavedExhibitions().find(item => item.id === id);
     if (!record) return;
+    cloudExhibitionConflict = false;
     selectedExhibitionId = id;
     isUndoRedoOperation = true;
-    applyStateData(record.data, function() {
+    const snapshot = typeof record.data === 'string' ? record.data : JSON.stringify(record.data);
+    applyStateData(snapshot, function() {
         isUndoRedoOperation = false;
         historyStack = [getSerializedCanvasData()];
         redoStack = [];
         updateUndoRedoButtons();
         saveLocalStorage();
+        window.applyCuratorRoleRestrictions?.();
         const status = document.getElementById('saveStatus');
         if (status) status.innerText = `「${record.title}」を読み込みました`;
     });
 }
 
-function deleteExhibitionSnapshot() {
+async function deleteExhibitionSnapshot() {
     if (!selectedExhibitionId) {
         alert('削除する展覧会を選択してください。');
         return;
     }
-    const record = getSavedExhibitions().find(item => item.id === selectedExhibitionId);
+    const record = window.CURATOR_TEAM
+        ? cloudExhibitionCache.find(item => item.id === selectedExhibitionId)
+        : getSavedExhibitions().find(item => item.id === selectedExhibitionId);
     if (!record || !confirm(`「${record.title}」の保存データを削除しますか？`)) return;
+    if (window.CURATOR_TEAM) {
+        if (!canEditSharedExhibitions()) return alert('閲覧者は展覧会を削除できません。');
+        const { error } = await window.curatorSupabase.from('exhibitions')
+            .delete().eq('id', selectedExhibitionId).eq('team_id', window.CURATOR_TEAM.id);
+        if (error) return alert('共有展覧会を削除できませんでした。');
+        cloudExhibitionCache = cloudExhibitionCache.filter(item => item.id !== selectedExhibitionId);
+        selectedExhibitionId = '';
+        refreshExhibitionList(false);
+        return;
+    }
     localStorage.setItem(EXHIBITIONS_KEY, JSON.stringify(getSavedExhibitions().filter(item => item.id !== selectedExhibitionId)));
     selectedExhibitionId = '';
     refreshExhibitionList();
@@ -273,6 +406,7 @@ function saveLocalStorage() {
         const json = getSerializedCanvasData();
 
         localStorage.setItem(STORAGE_KEY, json);
+        queueCloudExhibitionSave(json);
 
         const statusEl = document.getElementById("saveStatus");
 
@@ -331,6 +465,13 @@ function saveState() {
 
 function undo() {
 
+    if (window.CURATOR_ROLE === 'viewer') return;
+
+    // 編集欄の自動保存待ちがあれば、Undo対象として先に履歴へ確定する。
+    if (typeof window.flushPendingItemEditHistory === 'function') {
+        window.flushPendingItemEditHistory();
+    }
+
     if (historyStack.length <= 1) {
         return;
     }
@@ -359,6 +500,8 @@ function undo() {
 // ============================================================
 
 function redo() {
+
+    if (window.CURATOR_ROLE === 'viewer') return;
 
     if (redoStack.length === 0) {
         return;

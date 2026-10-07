@@ -471,7 +471,7 @@ function initializeObjectControlsUi() {
                         );
 
                     const radius =
-                        (diagonal / 2) + 25;
+                        ((diagonal / 2) + 25) * 1.1;
 
                     const colorObj =
                         getCrowdColor(count);

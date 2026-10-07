@@ -39,6 +39,27 @@ function updateWallDropdownOptions() {
         });
         if (isFloorSelector) selectEl.value = '';
     });
+    updateWallTabs();
+}
+
+function updateWallTabs() {
+    const tabList = document.getElementById('wallTabs');
+    if (!tabList) return;
+
+    tabList.replaceChildren();
+    tabList.hidden = currentViewMode === 'pdf';
+    Object.entries(wallPlanJsonData).forEach(([id, wall], index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'wall-tab';
+        button.setAttribute('role', 'tab');
+        button.setAttribute('aria-selected', String(currentViewMode === 'wall' && id === selectedWallInfo?.id));
+        button.classList.toggle('active', currentViewMode === 'wall' && id === selectedWallInfo?.id);
+        button.textContent = wall.title || `壁面 ${index + 1}`;
+        button.title = `${wall.title || `壁面 ${index + 1}`} · ${wall.widthCm} × ${wall.heightCm} cm`;
+        button.addEventListener('click', () => handleWallSelectChange(id));
+        tabList.appendChild(button);
+    });
 }
 
 // ------------------------------------------------------------
@@ -78,6 +99,7 @@ async function handleWallSelectChange(wallId) {
     };
 
     currentViewMode = 'wall';
+    updateWallTabs();
 
     const tabFloor =
         document.getElementById("tabFloorPlan");
@@ -180,6 +202,8 @@ async function switchViewMode(
 
     if (mode === 'floor') {
 
+        updateWallTabs();
+
         if (tabFloor) {
             tabFloor.classList.add("active");
         }
@@ -237,6 +261,8 @@ async function switchViewMode(
 
     } else if (mode === 'wall') {
 
+        updateWallTabs();
+
         if (tabWall) {
             tabWall.classList.add("active");
         }
@@ -268,6 +294,7 @@ async function switchViewMode(
         );
 
     } else if (mode === 'pdf') {
+        updateWallTabs();
         if (tabFloor) tabFloor.classList.remove("active");
         if (tabWall) tabWall.classList.remove("active");
         if (tabPdfExport) tabPdfExport.classList.add("active");
@@ -284,6 +311,10 @@ async function switchViewMode(
 
     if (callback) {
         callback();
+    }
+
+    if (window.refreshCanvasZoomForView) {
+        requestAnimationFrame(() => window.refreshCanvasZoomForView(false));
     }
 }
 
@@ -374,7 +405,8 @@ function renderWallRulers() {
     if (currentViewMode !== 'wall' || !selectedWallInfo) return;
 
     const wrapper = canvas.wrapperEl;
-    const container = document.querySelector('.canvas-container-wrapper');
+    const container = document.getElementById('canvasViewport') ||
+        document.querySelector('.canvas-container-wrapper');
     if (!wrapper || !container) return;
 
     const wall = canvas.getObjects().find(obj => obj.isWallOutline);
@@ -428,7 +460,7 @@ function renderWallRulers() {
     svg.setAttribute('viewBox', `0 0 ${canvas.width} ${canvas.height}`);
     svg.setAttribute('preserveAspectRatio', 'none');
     svg.setAttribute('aria-hidden', 'true');
-    svg.style.cssText = `position:absolute;left:${wrapperRect.left - containerRect.left}px;top:${wrapperRect.top - containerRect.top}px;width:${wrapperRect.width}px;height:${wrapperRect.height}px;overflow:visible;pointer-events:none;z-index:5`;
+    svg.style.cssText = `position:absolute;left:${wrapperRect.left - containerRect.left + container.scrollLeft}px;top:${wrapperRect.top - containerRect.top + container.scrollTop}px;width:${wrapperRect.width}px;height:${wrapperRect.height}px;overflow:visible;pointer-events:none;z-index:5`;
     svg.innerHTML = `
         <g class="ruler-markings">
             <line x1="${left}" y1="${horizontalY}" x2="${left + wallWidth}" y2="${horizontalY}" class="ruler-line"/>
@@ -532,11 +564,43 @@ async function renderWallCanvas(callback = null) {
     if (callback) {
         callback();
     }
+
+    if (window.refreshCanvasZoomForView) {
+        requestAnimationFrame(() => window.refreshCanvasZoomForView(false));
+    }
 }
 
 // ============================================================
 // 全作品一括サイズ変更
 // ============================================================
+
+function applyArtworkDimensions(obj, scale) {
+    if (!obj?.isArtwork) return;
+
+    const newPxW = (Number(obj.cmWidth) || 150) * scale;
+    const isFloorPlan = currentViewMode === 'floor';
+    let newPxH = isFloorPlan && obj.displayType === 'wall'
+        ? (Number(obj.cmDepth) || 5) * scale
+        : (Number(obj.cmHeight) || 100) * scale;
+    newPxH = Math.max(newPxH, isFloorPlan && obj.displayType === 'wall' ? 8 : 6);
+
+    obj.pxWidth = newPxW;
+    obj.pxHeight = newPxH;
+    const rect = obj.item?.(0);
+    if (rect) rect.set({ width: newPxW, height: newPxH });
+
+    const textObj = obj.item?.(1);
+    if (textObj) textObj.set({ fontSize: obj.displayType === 'wall' ? 10 : 14 });
+
+    obj.set({ width: newPxW, height: newPxH });
+    obj.setCoords();
+
+    if (obj.crowdCircle) {
+        const diagonal = Math.sqrt(newPxW ** 2 + newPxH ** 2);
+        obj.crowdCircle.crowdRadius = ((diagonal / 2) + 25) * 1.1;
+        updateCrowdSemicircle(obj);
+    }
+}
 
 function applyScaleToAllArtworks(newScale) {
 
@@ -546,69 +610,7 @@ function applyScaleToAllArtworks(newScale) {
             return;
         }
 
-        let newPxW =
-            obj.cmWidth * newScale;
-
-        let newPxH =
-            (obj.displayType === 'wall')
-                ? (obj.cmDepth || 5) * newScale
-                : (obj.cmHeight || 100) * newScale;
-
-        newPxH =
-            Math.max(newPxH, 6);
-
-        obj.pxWidth = newPxW;
-        obj.pxHeight = newPxH;
-
-        const rect =
-            obj.item
-                ? obj.item(0)
-                : null;
-
-        if (rect) {
-
-            rect.set({
-                width: newPxW,
-                height: newPxH
-            });
-        }
-
-        const textObj =
-            obj.item
-                ? obj.item(1)
-                : null;
-
-        if (textObj) {
-
-            textObj.set({
-                fontSize:
-                    (obj.displayType === 'wall')
-                        ? 10
-                        : 14
-            });
-        }
-
-        obj.set({
-            width: newPxW,
-            height: newPxH
-        });
-
-        obj.setCoords();
-
-        if (obj.crowdCircle) {
-
-            const diagonal =
-                Math.sqrt(
-                    Math.pow(newPxW, 2) +
-                    Math.pow(newPxH, 2)
-                );
-
-            const radius =
-                (diagonal / 2) + 25;
-
-            obj.crowdCircle.crowdRadius = radius;
-            updateCrowdSemicircle(obj);
-        }
+        applyArtworkDimensions(obj, newScale);
     });
 
     canvas.renderAll();

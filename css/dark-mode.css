@@ -123,25 +123,470 @@ textarea:focus {
 .save-status-text { border-color: #303738 !important; }
 ::selection { color: #fff; background: #326f67; }
 
+/* Compact CAD workspace */
+header {
+    min-height: 46px !important;
+    padding: 5px 14px !important;
+    border-bottom: 1px solid #3c4949 !important;
+    background: linear-gradient(180deg, #171d1f, #101415) !important;
+}
+header h1 { font-size: 15px !important; letter-spacing: .06em !important; }
+.view-tabs { gap: 2px !important; padding: 2px !important; border-bottom: 1px solid #303839 !important; }
+.tab-btn { min-width: 82px; padding: 6px 12px !important; font-size: 12px !important; }
+.tab-btn.active { background: #315e59 !important; color: #f0f5f3 !important; }
+.main-layout {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 0;
+    gap: 8px !important;
+    padding: 8px !important;
+}
+.sidebar {
+    width: 276px !important;
+    min-width: 250px;
+    max-height: calc(100vh - 62px) !important;
+    gap: 5px !important;
+    padding: 7px !important;
+    border-top: 1px solid #455151 !important;
+    border-radius: 2px !important;
+}
+.canvas-container-wrapper {
+    min-width: 0;
+    max-height: calc(100vh - 62px);
+    padding: 8px !important;
+    border-radius: 2px !important;
+}
+.panel-section {
+    position: relative;
+    margin: 0 !important;
+    padding: 7px 8px 8px !important;
+    border: 1px solid #30393a !important;
+    border-left: 2px solid #46504f !important;
+    border-radius: 2px !important;
+    background: #171c1d !important;
+}
+.panel-section:last-child { padding-bottom: 8px !important; }
+.panel-section h2 {
+    margin: 0 0 6px !important;
+    padding: 0 0 5px 7px !important;
+    border-left-width: 2px !important;
+    border-bottom: 1px solid #293132;
+    color: #dce4e1 !important;
+    font-family: 'Zen Kaku Gothic New', 'Yu Gothic UI', sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 700;
+    letter-spacing: .025em;
+}
+.info-section h2 { font-size: 13px !important; }
+.form-group { margin-bottom: 5px !important; }
+.form-group label, .sidebar label {
+    margin-bottom: 2px !important;
+    color: #aeb9b6 !important;
+    font-size: 10px !important;
+    line-height: 1.35;
+}
+.form-control, input[type="text"], input[type="number"], select, textarea {
+    min-height: 28px;
+    padding: 4px 7px !important;
+    border-radius: 2px !important;
+    font-size: 11px !important;
+}
+textarea.form-control { min-height: 42px; }
+.form-control-color { height: 28px !important; border-radius: 2px !important; }
+.form-row { gap: 6px !important; }
+.btn {
+    min-height: 28px;
+    padding: 5px 8px !important;
+    border-radius: 2px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    letter-spacing: .01em;
+}
+.btn-group { gap: 5px !important; }
+.section-actions { margin-bottom: 4px !important; }
+.save-status-text { margin-top: 3px !important; font-size: 9px !important; }
+.mode-description, .section-help, .field-note, .section-help,
+#typeHelpText, #modeDescription, .pdf-export-description { display: none !important; }
+.panel-section.workflow-section,
+.panel-section.navigation-section,
+.panel-section.drawing-section,
+.panel-section.artwork-section,
+.panel-section.pin-section,
+.panel-section.config-section,
+.panel-section.analysis-section,
+.panel-section.data-section,
+.panel-section.history-section,
+.panel-section.edit-tools-section,
+.panel-section.item-editor-section {
+    background: #171c1d !important;
+}
+.panel-section.workflow-section, .panel-section.artwork-section,
+.panel-section.pin-section, .panel-section.item-editor-section { border-left-color: #4d8c82 !important; }
+.panel-section.navigation-section, .panel-section.drawing-section,
+.panel-section.edit-tools-section, .panel-section.history-section { border-left-color: #788b88 !important; }
+.panel-section.config-section, .panel-section.analysis-section,
+.panel-section.data-section { border-left-color: #a78655 !important; }
+.info-section { border-left-color: #a78655 !important; }
+.drawing-options .form-group:first-child { flex: 0 0 42px; }
+.drawing-options .form-group:last-child { flex: 1; }
+.admin-mode-banner { margin-top: 5px; padding: 4px 6px !important; font-size: 10px !important; }
+.fixture-option { padding: 5px 6px !important; font-size: 10px !important; }
+.wall-info-banner { margin-bottom: 6px !important; padding: 5px 8px !important; border-radius: 2px !important; font-size: 10px !important; }
+@media (max-width: 900px) {
+    .sidebar { width: 250px !important; min-width: 230px; }
+}
+@media (max-width: 680px) {
+    .main-layout { flex-direction: column; }
+    .sidebar { width: 100% !important; max-width: none; max-height: 40vh !important; }
+    .canvas-container-wrapper { max-height: none; }
+}
+
 .sidebar .panel-section.info-section {
-    padding: 13px 12px !important;
-    border: 1px solid #4a4132 !important;
-    border-left: 3px solid var(--brass) !important;
-    background: linear-gradient(115deg, #242019, #171a1a 84%) !important;
+    padding: 7px 8px 8px !important;
+    border: 1px solid #30393a !important;
+    border-left: 2px solid var(--brass) !important;
+    background: #191b19 !important;
 }
 .sidebar .info-section h2 {
-    margin-bottom: 10px;
-    color: #f0e5d2 !important;
-    font-size: 16px;
-    letter-spacing: .04em;
+    margin-bottom: 6px !important;
+    color: #e0d2b9 !important;
+    font-size: 12px !important;
+    letter-spacing: .025em;
 }
 .sidebar .info-section label {
-    color: #c1b49f !important;
-    font-size: 11px;
+    color: #b5a98f !important;
+    font-size: 10px !important;
 }
 .sidebar .info-section input {
-    min-height: 36px;
-    border-color: #544a39 !important;
+    min-height: 28px;
+    border-color: #4a4132 !important;
     background: #111414 !important;
-    font-size: 14px;
+    font-size: 11px !important;
+}
+.container {
+    max-width: 440px !important;
+    padding: 34px 30px !important;
+    border-radius: 2px !important;
+    border-top-width: 2px !important;
+}
+.container .title { font-size: 24px !important; }
+.container .description { font-size: 12px !important; margin-bottom: 24px !important; }
+.container .btn-start { padding: 11px 20px !important; font-size: 13px !important; }
+
+/* Icon-driven tool palette */
+.tool-palette {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    order: -1;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+    padding: 5px;
+    border: 1px solid #30393a;
+    border-top: 2px solid #4d8c82;
+    background: #111617;
+}
+.tool-icon {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    aspect-ratio: 1.12;
+    min-height: 32px;
+    padding: 6px;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    background: #1a2021;
+    color: #aebbb7;
+    cursor: pointer;
+    transition: background-color .14s ease, color .14s ease, border-color .14s ease;
+}
+.tool-icon svg {
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.65;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.tool-icon:hover, .tool-icon:focus-visible {
+    outline: none;
+    border-color: #5d8f86;
+    background: #24302f;
+    color: #dce9e5;
+}
+.tool-icon.active {
+    border-color: #4d8c82;
+    background: #29413d;
+    color: #d8ebe6;
+}
+.tool-icon[data-tool="setup"],
+.tool-icon[data-tool="data"], .tool-icon[data-action="pdf"] { color: #c1a574; }
+.tool-icon[data-tool="setup"].active,
+.tool-icon[data-tool="data"].active, .tool-icon[data-action="pdf"].active {
+    border-color: #987c4f;
+    background: #3a3225;
+    color: #e5d2ad;
+}
+.tool-icon[data-action="undo"], .tool-icon[data-action="redo"] { color: #9daaa7; }
+.tool-panel { display: none !important; }
+.tool-panel.is-open:not([hidden]) { display: block !important; }
+#floorPlanControls, #wallPlanControls { flex: 0 0 auto; }
+.tool-panel.is-open { animation: panel-reveal .12s ease-out; }
+.wall-tabs {
+    display: flex;
+    align-self: stretch;
+    width: 100%;
+    min-height: 34px;
+    gap: 3px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 2px;
+    border-bottom: 1px solid #3b4545;
+    scrollbar-width: thin;
+    scrollbar-color: #475352 transparent;
+}
+.wall-tab {
+    position: relative;
+    flex: 0 0 auto;
+    min-width: 92px;
+    max-width: 200px;
+    padding: 7px 13px 8px;
+    overflow: hidden;
+    border: 1px solid transparent;
+    border-bottom: 0;
+    background: transparent;
+    color: #9eaaa7;
+    font: 500 11px 'Zen Kaku Gothic New', 'Yu Gothic UI', sans-serif;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.wall-tab:hover { color: #d7e1de; background: #1a2021; }
+.wall-tab.active {
+    border-color: #3b4545;
+    background: #1a2021;
+    color: #e2eae7;
+}
+.wall-tab.active::after {
+    position: absolute;
+    right: 8px;
+    bottom: 0;
+    left: 8px;
+    height: 2px;
+    background: #4d8c82;
+    content: '';
+}
+.wall-tab:focus-visible { outline: 1px solid #79a99f; outline-offset: -2px; }
+.main-layout { height: calc(100vh - 46px); }
+.canvas-container-wrapper {
+    position: relative;
+    height: calc(100vh - 62px);
+    min-height: 0;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    gap: 0;
+    overflow: hidden !important;
+}
+.canvas-viewport {
+    position: relative;
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 220px;
+    overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #46514f #111617;
+}
+.canvas-viewport::-webkit-scrollbar { width: 8px; height: 8px; }
+.canvas-viewport::-webkit-scrollbar-track { background: #111617; }
+.canvas-viewport::-webkit-scrollbar-thumb { background: #46514f; border: 2px solid #111617; }
+.canvas-viewport.is-panning { cursor: grabbing; }
+.canvas-viewport .canvas-container { flex: none !important; transform-origin: center center; }
+.zoom-controls {
+    position: absolute;
+    right: 12px;
+    bottom: 10px;
+    z-index: 12;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    height: 30px;
+    padding: 4px 7px;
+    border: 1px solid #343e3f;
+    background: rgba(17, 22, 23, .94);
+    color: #aebbb7;
+}
+.zoom-icon, #btnZoomFit svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+#canvasZoom {
+    width: 92px;
+    height: 16px;
+    margin: 0;
+    accent-color: #4d8c82;
+    cursor: ew-resize;
+}
+#canvasZoomValue {
+    width: 36px;
+    color: #d4dfdc;
+    font: 10px 'Zen Kaku Gothic New', 'Yu Gothic UI', sans-serif;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+#btnZoomFit {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    padding: 2px;
+    border: 0;
+    background: transparent;
+    color: #aebbb7;
+    cursor: pointer;
+}
+#btnZoomFit svg { width: 14px; height: 14px; }
+#btnZoomFit:hover { color: #e5eeeb; background: #293332; }
+.pdf-mode .canvas-viewport, .pdf-mode .zoom-controls { display: none !important; }
+.zoom-controls {
+    right: 9px;
+    bottom: 7px;
+    gap: 5px;
+    height: 22px;
+    padding: 1px 2px;
+    border: 0;
+    background: transparent;
+    color: #87928f;
+}
+.zoom-icon { width: 13px; height: 13px; }
+#canvasZoom {
+    width: 72px;
+    height: 12px;
+    appearance: none;
+    background: transparent;
+}
+#canvasZoom::-webkit-slider-runnable-track {
+    height: 1px;
+    background: #687572;
+}
+#canvasZoom::-moz-range-track {
+    height: 1px;
+    background: #687572;
+}
+#canvasZoom::-webkit-slider-thumb {
+    width: 7px;
+    height: 7px;
+    margin-top: -3px;
+    appearance: none;
+    border: 1px solid #aab8b4;
+    border-radius: 50%;
+    background: #18201f;
+}
+#canvasZoom::-moz-range-thumb {
+    width: 6px;
+    height: 6px;
+    border: 1px solid #aab8b4;
+    border-radius: 50%;
+    background: #18201f;
+}
+#canvasZoomValue { width: 30px; color: #9ca8a5; font-size: 9px; }
+#btnZoomFit { width: 17px; height: 17px; color: #87928f; }
+#btnZoomFit svg { width: 11px; height: 11px; }
+#btnZoomFit:hover { background: transparent; color: #d0dad7; }
+.tool-palette {
+    position: relative;
+    top: auto;
+    z-index: 6;
+    order: 0;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 5px;
+    width: 100%;
+    min-height: 50px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 3px;
+    border: 0;
+    border-bottom: 1px solid #303839;
+    background: #111617;
+    scrollbar-width: thin;
+    scrollbar-color: #414c49 transparent;
+}
+.tool-group {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: stretch;
+    gap: 2px;
+    padding: 0 4px;
+    border-right: 1px solid #303839;
+}
+.tool-group:last-child { border-right: 0; }
+.tool-icon {
+    display: flex;
+    flex: 0 0 51px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: auto;
+    min-width: 51px;
+    min-height: 40px;
+    aspect-ratio: auto;
+    padding: 3px 4px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #abb6b3;
+}
+.tool-icon svg { flex: 0 0 17px; width: 17px; height: 17px; }
+.tool-label {
+    display: block;
+    max-width: 76px;
+    color: inherit;
+    font: 500 9px/1.1 'Zen Kaku Gothic New', 'Yu Gothic UI', sans-serif;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+.tool-icon:hover, .tool-icon:focus-visible {
+    border-color: #394a46;
+    background: #1a2422;
+    color: #e1e9e6;
+}
+.tool-icon.active { border-color: #42665e; background: #202c29; color: #d7e7e1; }
+.tool-group-create .tool-icon { flex-basis: 58px; min-width: 58px; }
+.tool-group-create .tool-icon-primary {
+    flex-basis: 80px;
+    min-width: 80px;
+    border-color: #355a52;
+    background: #1b2926;
+    color: #d0e3dc;
+}
+.tool-group-create .tool-icon-primary:hover,
+.tool-group-create .tool-icon-primary.active { border-color: #4d8c82; background: #29413d; }
+.tool-group-setup .tool-icon { color: #b9c4c0; }
+.tool-group-setup [data-tool="setup"] { flex-basis: 72px; min-width: 72px; }
+.tool-group-output .tool-icon { color: #c1a574; }
+.tool-group-output .tool-icon:hover,
+.tool-group-output .tool-icon.active { border-color: #66563c; background: #28241d; color: #e5d2ad; }
+.tool-icon[data-action="undo"], .tool-icon[data-action="redo"] { color: #98a5a1; }
+@media (max-width: 680px) {
+    .tool-palette { min-height: 48px; }
+    .tool-group-create .tool-icon-primary { flex-basis: 72px; min-width: 72px; }
+}
+@keyframes panel-reveal {
+    from { opacity: .55; transform: translateY(-2px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 680px) {
+    .main-layout { height: auto; min-height: calc(100vh - 46px); }
+    .canvas-container-wrapper { height: min(72vh, 700px); max-height: none; }
+    .canvas-viewport { min-height: 180px; }
 }
