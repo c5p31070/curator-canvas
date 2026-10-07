@@ -90,7 +90,8 @@ function getSavedExhibitions() {
 function refreshExhibitionList(fetchCloud = true) {
     const select = document.getElementById('savedExhibitions');
     if (!select) return;
-    const exhibitions = window.CURATOR_SUPABASE_CONFIG ? cloudExhibitionCache : getSavedExhibitions();
+    const useCloudExhibitions = window.CURATOR_SUPABASE_CONFIG && !window.CURATOR_DEMO_MODE;
+    const exhibitions = useCloudExhibitions ? cloudExhibitionCache : getSavedExhibitions();
     if (fetchCloud && window.CURATOR_TEAM) refreshCloudExhibitions();
     select.replaceChildren();
     const placeholder = document.createElement('option');

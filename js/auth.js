@@ -1,14 +1,22 @@
 (function () {
     const client = window.curatorSupabase;
-    if (!client) return;
-
     const isLoginPage = /(^|\/)login\.html$/.test(location.pathname);
+    // Temporary, explicit demo switch. Set this to false (or remove this block)
+    // to disable the unauthenticated demo without changing the normal auth flow.
+    const DEMO_MODE_ENABLED = true;
+    const isDemoMode = !isLoginPage && DEMO_MODE_ENABLED && new URLSearchParams(location.search).get('demo') === '1';
+    window.CURATOR_DEMO_MODE = isDemoMode;
+    if (!client && !isDemoMode) return;
+
     const showStatus = message => {
         const status = document.getElementById('authStatus');
         if (status) status.textContent = message;
     };
 
-    if (!isLoginPage) {
+    if (!isLoginPage && isDemoMode) {
+        window.CURATOR_AUTH_READY = Promise.resolve({ demo: true, user: null, team: null, role: 'demo' });
+        document.documentElement.classList.remove('auth-loading');
+    } else if (!isLoginPage) {
         document.documentElement.classList.add('auth-loading');
         window.CURATOR_AUTH_READY = (async () => {
             const { data: { session }, error } = await client.auth.getSession();
@@ -125,6 +133,14 @@
                 const teamName = document.getElementById('teamNameLabel');
                 const roleLabel = document.getElementById('teamRoleLabel');
                 const inviteFields = document.getElementById('teamInviteFields');
+                if (context.demo) {
+                    if (account) account.textContent = 'デモモード';
+                    if (teamName) teamName.textContent = 'ローカル保存（この端末のみ）';
+                    if (roleLabel) roleLabel.textContent = '認証なし・共有機能は無効';
+                    if (inviteFields) inviteFields.hidden = true;
+                    if (typeof refreshExhibitionList === 'function') refreshExhibitionList();
+                    return;
+                }
                 const roleNames = { owner: '管理者', editor: '編集者', viewer: '閲覧者' };
                 if (account) account.textContent = `${context.user.email} · ${roleNames[context.role] || context.role}`;
                 if (teamName) teamName.textContent = `展覧会チーム：${context.team?.name || 'チーム'}`;
@@ -135,7 +151,11 @@
             });
             window.CURATOR_AUTH_READY?.then(() => window.applyCuratorRoleRestrictions?.());
             document.getElementById('btnLogout')?.addEventListener('click', async () => {
-                await client.auth.signOut();
+                if (isDemoMode) {
+                    location.replace('index.html');
+                    return;
+                }
+                await client?.auth.signOut();
                 location.replace('login.html');
             });
             document.getElementById('btnInviteMember')?.addEventListener('click', async event => {

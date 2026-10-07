@@ -72,3 +72,22 @@ body {
 .btn-start:active {
     transform: translateY(0);
 }
+
+.btn-demo {
+    display: inline-block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px 24px;
+    border: 1px solid rgba(52, 152, 219, 0.55);
+    color: #8fc8ed;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-demo:hover {
+    background-color: rgba(52, 152, 219, 0.12);
+    border-color: #8fc8ed;
+}
