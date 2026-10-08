@@ -47,7 +47,7 @@ function updateWallTabs() {
     if (!tabList) return;
 
     tabList.replaceChildren();
-    tabList.hidden = currentViewMode === 'pdf';
+    tabList.hidden = false;
     Object.entries(wallPlanJsonData).forEach(([id, wall], index) => {
         const button = document.createElement('button');
         button.type = 'button';
@@ -101,12 +101,6 @@ async function handleWallSelectChange(wallId) {
     currentViewMode = 'wall';
     updateWallTabs();
 
-    const tabFloor =
-        document.getElementById("tabFloorPlan");
-
-    const tabWall =
-        document.getElementById("tabWallPlan");
-
     const floorControls =
         document.getElementById("floorPlanControls");
 
@@ -116,13 +110,7 @@ async function handleWallSelectChange(wallId) {
     const wallBanner =
         document.getElementById("wallInfoBanner");
 
-    if (tabWall) {
-        tabWall.classList.add("active");
-    }
-
-    if (tabFloor) {
-        tabFloor.classList.remove("active");
-    }
+    updateViewModeToolState('wall');
 
     if (floorControls) {
         floorControls.style.display = "none";
@@ -180,17 +168,6 @@ async function switchViewMode(
     removeWallRulers();
     canvas.clear();
 
-    const tabPdfExport = document.getElementById("tabPdfExport");
-    const pdfWorkspace = document.getElementById("pdfExportWorkspace");
-    document.body.classList.toggle('pdf-mode', mode === 'pdf');
-    if (pdfWorkspace) pdfWorkspace.hidden = mode !== 'pdf';
-
-    const tabFloor =
-        document.getElementById("tabFloorPlan");
-
-    const tabWall =
-        document.getElementById("tabWallPlan");
-
     const floorControls =
         document.getElementById("floorPlanControls");
 
@@ -203,16 +180,7 @@ async function switchViewMode(
     if (mode === 'floor') {
 
         updateWallTabs();
-
-        if (tabFloor) {
-            tabFloor.classList.add("active");
-        }
-
-        if (tabWall) {
-            tabWall.classList.remove("active");
-        }
-
-        if (tabPdfExport) tabPdfExport.classList.remove("active");
+        updateViewModeToolState('floor');
 
         if (floorControls) {
             floorControls.style.display = "block";
@@ -262,16 +230,7 @@ async function switchViewMode(
     } else if (mode === 'wall') {
 
         updateWallTabs();
-
-        if (tabWall) {
-            tabWall.classList.add("active");
-        }
-
-        if (tabFloor) {
-            tabFloor.classList.remove("active");
-        }
-
-        if (tabPdfExport) tabPdfExport.classList.remove("active");
+        updateViewModeToolState('wall');
 
         if (floorControls) {
             floorControls.style.display = "none";
@@ -293,14 +252,6 @@ async function switchViewMode(
             renderWallCanvas(resolve)
         );
 
-    } else if (mode === 'pdf') {
-        updateWallTabs();
-        if (tabFloor) tabFloor.classList.remove("active");
-        if (tabWall) tabWall.classList.remove("active");
-        if (tabPdfExport) tabPdfExport.classList.add("active");
-        if (floorControls) floorControls.style.display = "none";
-        if (wallControls) wallControls.style.display = "none";
-        if (wallBanner) wallBanner.style.display = "none";
     }
 
     isTransitioning = false;

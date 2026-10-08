@@ -14,6 +14,7 @@ function getWallCollisionScore(obj) {
         !isWallDataLoaded ||
         !obj ||
         obj.isPin ||
+        obj.isShapeObject ||
         obj.isFreePin ||
         obj.isGuard ||
         obj.pinLabel !== undefined ||
@@ -544,7 +545,7 @@ canvas.on(
 
                 const realLengthCmStr =
                     prompt(
-                        `測定した線の長さ（画面上 ${Math.round(linePixelLength)} px）は、現実で何 cm ですか？\n例: 300`,
+                        `測定した線の長さ（画面上 ${Math.round(linePixelLength)} px）は、現実で何 cm ですか？`,
                         "300"
                     );
 

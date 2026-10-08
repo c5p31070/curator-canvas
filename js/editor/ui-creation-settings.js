@@ -5,6 +5,15 @@ function initializeCreationSettingsUi() {
 
     const displayTypeSelect = document.getElementById("displayType");
     const typeHelpText = document.getElementById("typeHelpText");
+    const depthInput = document.getElementById("artworkDepth");
+
+    const updateDepthTooltip = () => {
+        if (!depthInput || !displayTypeSelect) return;
+        depthInput.dataset.tooltip = displayTypeSelect.value === 'wall'
+            ? '壁面展示では厚みとして扱い、平面図では幅と厚みで表示します。'
+            : '床置展示では奥行きとして扱い、平面図では幅と奥行きで表示します。';
+    };
+    updateDepthTooltip();
 
     if (displayTypeSelect && typeHelpText) {
 
@@ -21,6 +30,7 @@ function initializeCreationSettingsUi() {
                     '※床置展示では「幅×奥行き」の領域で平面図に描画されます。';
 
             }
+            updateDepthTooltip();
 
         });
 
@@ -97,7 +107,7 @@ function initializeCreationSettingsUi() {
 
             const removable = canvas.getObjects().filter(obj =>
                 obj.isArtwork || obj.isPin || obj.isFreePin || obj.isGuard ||
-                obj.pinLabel !== undefined || obj.isCrowdCircle || obj.isFreeDrawing || obj.type === 'path'
+                obj.pinLabel !== undefined || obj.isCrowdCircle || obj.isFreeDrawing || obj.isShapeObject || obj.type === 'path'
             );
             canvas.discardActiveObject();
             canvas.remove(...removable);
@@ -139,7 +149,7 @@ function initializeCreationSettingsUi() {
             const selectedObjects = canvas.getActiveObjects();
             const deletableObjects = selectedObjects.filter(obj =>
                 obj.isArtwork || obj.isPin || obj.isFreePin || obj.isGuard || obj.pinLabel !== undefined ||
-                obj.isFreeDrawing || obj.type === 'path'
+                obj.isFreeDrawing || obj.isShapeObject || obj.type === 'path'
             );
 
             if (deletableObjects.length > 0) {

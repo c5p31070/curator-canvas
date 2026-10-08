@@ -9,6 +9,9 @@ function initializeNavigationUi() {
         if (adminPanel) adminPanel.hidden = !enabled;
         if (adminModeBanner) adminModeBanner.hidden = !enabled;
         if (modeButton) modeButton.textContent = enabled ? '配置図作成に戻る' : '管理設定を開く';
+        if (modeButton) modeButton.dataset.tooltip = enabled
+            ? '壁・縮尺・固定設備を事前設定するモードです。'
+            : '壁や縮尺、固定設備の設定を行います。';
         if (modeDescription) {
             modeDescription.textContent = enabled
                 ? '壁・縮尺・固定設備を事前設定します。'
@@ -69,22 +72,6 @@ function initializeNavigationUi() {
     }
     if (btnDeleteExhibition) {
         btnDeleteExhibition.addEventListener('click', deleteExhibitionSnapshot);
-    }
-
-    const tabFloor = document.getElementById("tabFloorPlan");
-    const tabWall = document.getElementById("tabWallPlan");
-    const tabPdfExport = document.getElementById("tabPdfExport");
-
-    if (tabFloor) {
-        tabFloor.addEventListener("click", () => switchViewMode('floor'));
-    }
-
-    if (tabWall) {
-        tabWall.addEventListener("click", () => switchViewMode('wall'));
-    }
-
-    if (tabPdfExport) {
-        tabPdfExport.addEventListener("click", () => switchViewMode('pdf'));
     }
 
     // ----------------------------------------------------

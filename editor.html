@@ -29,21 +29,6 @@
     <header>
         <h1>curator-canvas</h1>
 
-        <!-- ビュー切り替えタブ -->
-        <div class="view-tabs">
-            <button id="tabFloorPlan" class="tab-btn active">
-                平面図
-            </button>
-
-            <button id="tabWallPlan" class="tab-btn">
-                壁面図
-            </button>
-
-            <button id="tabPdfExport" class="tab-btn">
-                PDF出力
-            </button>
-        </div>
-
         <div class="account-controls">
             <span id="accountLabel"></span>
             <button id="btnLogout" type="button">ログアウト</button>
@@ -65,7 +50,6 @@
                         type="text"
                         id="exhibitionTitle"
                         class="form-control"
-                        placeholder="例: 印象派の光と影 展"
                     >
                 </div>
             </div>
@@ -73,7 +57,7 @@
             <div class="panel-section mode-switch-section workflow-section tool-panel" data-tool-panel="setup">
                 <h2>作業モード</h2>
                 <p id="modeDescription" class="mode-description">配置図を作成します。壁を選んで展示物を配置してください。</p>
-                <button id="btnToggleAdminMode" class="btn btn-secondary" type="button">管理設定を開く</button>
+                <button id="btnToggleAdminMode" class="btn btn-secondary" type="button" data-tooltip="壁・縮尺・固定設備を事前設定します。">管理設定を開く</button>
                 <div id="adminModeBanner" class="admin-mode-banner" hidden>管理者設定モード</div>
             </div>
 
@@ -82,7 +66,7 @@
                 <p class="mode-description">壁の寸法を登録し、壁面図や平面図に設備を配置します。</p>
                 <div class="form-group">
                     <label for="newWallTitle">壁面名</label>
-                    <input id="newWallTitle" class="form-control" type="text" placeholder="例: 北側の壁">
+                    <input id="newWallTitle" class="form-control" type="text">
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -152,6 +136,7 @@
                             id="scale"
                             class="form-control"
                             value="0.5"
+                            data-tooltip="縮尺を変更すると、配置済みの展示物にも反映されます。"
                             step="0.01"
                             min="0.01"
                         >
@@ -165,8 +150,8 @@
                 <!-- 利用者向けの壁面選択 -->
                 <div class="panel-section navigation-section tool-panel" data-tool-panel="walls">
                     <h2>壁面配置図</h2>
-                    <label for="floorWallListSelect">壁を選択すると配置図に移動します</label>
-                    <select id="floorWallListSelect" class="form-control"></select>
+                    <label for="floorWallListSelect">壁面</label>
+                    <select id="floorWallListSelect" class="form-control" data-tooltip="壁を選択すると、その壁面図に切り替わります。"></select>
                 </div>
 
             </div>
@@ -247,7 +232,33 @@
                         <input id="freeDrawWidth" class="form-control" type="number" value="4" min="1" max="30" step="1">
                     </div>
                 </div>
-                <button id="btnToggleFreeDraw" class="btn btn-secondary" type="button">描き込みを開始</button>
+                <button id="btnToggleFreeDraw" class="btn btn-secondary" type="button" data-tooltip="平面図や壁面図に線・矢印・メモを書き込めます。">描き込みを開始</button>
+            </div>
+
+            <div class="panel-section drawing-section tool-panel" data-tool-panel="shapes">
+                <h2>図形</h2>
+                <p class="section-help">追加後、選択して移動・拡大縮小・回転できます。</p>
+                <div class="form-group">
+                    <label for="shapeKind">種類</label>
+                    <select id="shapeKind" class="form-control">
+                        <option value="rect">四角形</option>
+                        <option value="triangle">三角形</option>
+                        <option value="arrow">直線矢印</option>
+                        <option value="curvedArrow">曲線矢印</option>
+                    </select>
+                </div>
+                <div class="form-row drawing-options">
+                    <div class="form-group"><label for="shapeLength">長さ (px)</label><input id="shapeLength" class="form-control" type="number" value="180" min="20" max="1000"></div>
+                    <div class="form-group"><label for="shapeHeadSize">矢じり (px)</label><input id="shapeHeadSize" class="form-control" type="number" value="22" min="4" max="120"></div>
+                </div>
+                <div class="form-row drawing-options">
+                    <div class="form-group"><label for="shapeStroke">線</label><input id="shapeStroke" class="form-control-color" type="color" value="#d9e0e3"></div>
+                    <div class="form-group"><label for="shapeFill">塗り</label><input id="shapeFill" class="form-control-color" type="color" value="#52616b"></div>
+                </div>
+                <div class="form-row">
+                    <button id="btnAddShape" class="btn btn-secondary" type="button">図形を追加</button>
+                    <button id="btnUpdateShape" class="btn btn-secondary" type="button">選択図形を更新</button>
+                </div>
             </div>
 
             <!-- 展示品追加セクション -->
@@ -279,13 +290,12 @@
                         type="text"
                         id="artworkName"
                         class="form-control"
-                        placeholder="例: モナ・リザ"
                     >
                 </div>
 
                 <div class="form-group">
                     <label for="artworkDescription">説明・注意事項</label>
-                    <textarea id="artworkDescription" class="form-control" rows="2" placeholder="例: 作品に触れないようご案内ください"></textarea>
+                    <textarea id="artworkDescription" class="form-control" rows="2"></textarea>
                 </div>
 
                 <div class="form-row">
@@ -329,7 +339,7 @@
                         id="artworkDepth"
                         class="form-control"
                         value="5"
-                        placeholder="例: 5"
+                        data-tooltip="壁面展示では厚み、床置展示では奥行きとして使います。"
                     >
 
                     <p
@@ -361,13 +371,12 @@
                         type="text"
                         id="pinText"
                         class="form-control"
-                        placeholder="例: 非常口 / 音響機器"
                     >
                 </div>
 
                 <div class="form-group">
                     <label for="pinDescription">説明・注意事項</label>
-                    <textarea id="pinDescription" class="form-control" rows="2" placeholder="例: 点検時に管理室へ連絡"></textarea>
+                    <textarea id="pinDescription" class="form-control" rows="2"></textarea>
                 </div>
 
                 <div class="form-row">
@@ -429,7 +438,7 @@
 
                 </div>
 
-                <button id="addPin" class="btn btn-primary">
+                <button id="addPin" class="btn btn-primary" data-tooltip="警備員や設備の位置もピンとして登録できます。">
                     ピンを追加
                 </button>
 
@@ -522,6 +531,19 @@
 
             </div>
 
+            <section id="pdfExportWorkspace" class="panel-section pdf-export-workspace tool-panel" data-tool-panel="pdf">
+                <div class="pdf-export-card">
+                    <p class="pdf-export-kicker">DOCUMENT EXPORT</p>
+                    <h2>PDF出力</h2>
+                    <p class="pdf-export-description">平面図と登録済みの全壁面図をまとめた指示書を作成します。</p>
+                    <div class="form-group">
+                        <label for="pdfMemo">指示書用の特記事項・メモ</label>
+                        <textarea id="pdfMemo" class="form-control" rows="5"></textarea>
+                    </div>
+                    <button id="generatePdf" class="btn btn-success" type="button">PDFを作成</button>
+                </div>
+            </section>
+
         </aside>
 
         <!-- 描画キャンバスエリア -->
@@ -533,15 +555,20 @@
                     <button class="tool-icon" type="button" data-tool="setup" title="作業モード・縮尺設定" aria-label="作業モード・縮尺設定"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16M9 4v4m7 2v4m-5 2v4"/></svg><span class="tool-label">作業モード</span></button>
                     <button class="tool-icon" type="button" data-tool="walls" title="壁面選択" aria-label="壁面選択"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3zM9 4v16m6-16v16M3 10h6m6 4h6"/></svg><span class="tool-label">壁面</span></button>
                 </div>
+                <div class="tool-group tool-group-views" aria-label="図面表示">
+                    <button class="tool-icon" type="button" data-action="floor" title="平面図を表示" aria-label="平面図を表示" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3zM8 4v6h5V4m3 16v-6h5"/><path d="M8 14h3m-3 3h6"/></svg><span class="tool-label">平面図</span></button>
+                    <button class="tool-icon" type="button" data-action="wall" title="壁面図を表示" aria-label="壁面図を表示" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3zM7 4v16m10-16v16M3 9h4m10 6h4"/></svg><span class="tool-label">壁面図</span></button>
+                </div>
                 <div class="tool-group tool-group-create">
                     <button class="tool-icon" type="button" data-tool="draw" title="フリーペイント" aria-label="フリーペイント"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1 11-11a2.1 2.1 0 0 0-3-3l-11 11zM14.5 6.5l3 3M4 20h16"/></svg><span class="tool-label">描画</span></button>
+                    <button class="tool-icon" type="button" data-tool="shapes" title="図形追加" aria-label="図形追加"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM16 4l5 8h-10zM4 19h16M14 15l6 4-6 4"/></svg><span class="tool-label">図形</span></button>
                     <button class="tool-icon" type="button" data-tool="artwork" title="展示物追加" aria-label="展示物追加"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM7 16l4-5 3 3 2-2 2 4M8 8h.01"/></svg><span class="tool-label">展示物追加</span></button>
                     <button class="tool-icon" type="button" data-tool="pins" title="ピン追加" aria-label="ピン追加"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span class="tool-label">ピン追加</span></button>
                 </div>
                 <div class="tool-group tool-group-edit">
-                    <button class="tool-icon" type="button" data-tool="edit" title="項目編集" aria-label="項目編集"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 17-.8 4 4-.8L19 8.4 15.6 5zM14.5 6.1l3.4 3.4M4 4h7"/></svg><span class="tool-label">編集</span></button>
+                    <button class="tool-icon" type="button" data-tool="edit" aria-label="項目編集" data-tooltip="選択した展示物やピンを編集します。変更は自動保存されます。"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 17-.8 4 4-.8L19 8.4 15.6 5zM14.5 6.1l3.4 3.4M4 4h7"/></svg><span class="tool-label">編集</span></button>
                     <button class="tool-icon" type="button" data-action="rotate" title="90度回転" aria-label="90度回転"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 8a8 8 0 1 0 1 6M20 4v5h-5M12 8v4l3 2"/></svg><span class="tool-label">回転</span></button>
-                    <button class="tool-icon" type="button" data-tool="crowd" title="混雑予測" aria-label="混雑予測"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18a8 8 0 0 1 16 0M12 10v5m0 3h.01M3 21h18"/></svg><span class="tool-label">混雑</span></button>
+                    <button class="tool-icon" type="button" data-tool="crowd" aria-label="混雑予測" data-tooltip="選択した作品の正面に表示する混雑人数を設定します。"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18a8 8 0 0 1 16 0M12 10v5m0 3h.01M3 21h18"/></svg><span class="tool-label">混雑</span></button>
                 </div>
                 <div class="tool-group tool-group-history">
                     <button class="tool-icon" type="button" data-action="undo" title="元に戻す" aria-label="元に戻す"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 8 4 12l5 4M5 12h8a6 6 0 0 1 6 6"/></svg><span class="tool-label">元に戻す</span></button>
@@ -550,7 +577,7 @@
                 <div class="tool-group tool-group-output">
                     <button class="tool-icon" type="button" data-tool="data" title="保存・呼び出し" aria-label="保存・呼び出し"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h14l2 2v14H4zM8 4v6h8V4M8 20v-6h8v6"/></svg><span class="tool-label">保存</span></button>
                     <button class="tool-icon" type="button" data-tool="team" title="チーム共有" aria-label="チーム共有"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2"/></svg><span class="tool-label">チーム</span></button>
-                    <button class="tool-icon" type="button" data-action="pdf" title="PDF出力" aria-label="PDF出力"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v5h5M8 13h8M8 17h6"/></svg><span class="tool-label">PDF</span></button>
+                    <button class="tool-icon" type="button" data-tool="pdf" aria-label="PDF出力" aria-pressed="false" data-tooltip="平面図と登録済みの壁面図を指示書にまとめます。"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v5h5M8 13h8M8 17h6"/></svg><span class="tool-label">PDF</span></button>
                 </div>
             </nav>
 
@@ -582,23 +609,10 @@
                 <svg class="zoom-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M8 10.5h5M10.5 8v5"/></svg>
                 <input id="canvasZoom" type="range" min="10" max="200" step="1" value="100" aria-label="表示倍率">
                 <output id="canvasZoomValue" for="canvasZoom">100%</output>
-                <button id="btnZoomFit" type="button" title="全体を表示" aria-label="全体を表示">
+                <button id="btnZoomFit" type="button" aria-label="全体を表示" data-tooltip="図面全体が画面に入る倍率に戻します。">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5M4 4l6 6m10-6-6 6m6 10-6-6M4 20l6-6"/></svg>
                 </button>
             </div>
-
-            <section id="pdfExportWorkspace" class="pdf-export-workspace" hidden>
-                <div class="pdf-export-card">
-                    <p class="pdf-export-kicker">DOCUMENT EXPORT</p>
-                    <h2>配置指示書をPDFで出力</h2>
-                    <p class="pdf-export-description">平面図と登録済みの全壁面図をまとめた指示書を作成します。必要な特記事項を入力してから出力してください。</p>
-                    <div class="form-group">
-                        <label for="pdfMemo">指示書用の特記事項・メモ</label>
-                        <textarea id="pdfMemo" class="form-control" rows="6" placeholder="例: 警備員は作品1前に1名配置。動線を広めに確保してください。"></textarea>
-                    </div>
-                    <button id="generatePdf" class="btn btn-success" type="button">平面図と全壁面のPDFを作成</button>
-                </div>
-            </section>
 
         </main>
 
@@ -611,6 +625,8 @@
     <script src="js/editor/pdf.js" defer></script>
     <script src="js/editor/ui-navigation.js" defer></script>
     <script src="js/editor/ui-controls.js" defer></script>
+    <script src="js/editor/shape-engine.js" defer></script>
+    <script src="js/editor/ui-shapes.js" defer></script>
     <script src="js/editor/ui-item-details.js" defer></script>
     <script src="js/editor/ui-creation-settings.js" defer></script>
     <script src="js/editor/ui-objects.js" defer></script>

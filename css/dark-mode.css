@@ -131,9 +131,6 @@ header {
     background: linear-gradient(180deg, #171d1f, #101415) !important;
 }
 header h1 { font-size: 15px !important; letter-spacing: .06em !important; }
-.view-tabs { gap: 2px !important; padding: 2px !important; border-bottom: 1px solid #303839 !important; }
-.tab-btn { min-width: 82px; padding: 6px 12px !important; font-size: 12px !important; }
-.tab-btn.active { background: #315e59 !important; color: #f0f5f3 !important; }
 .main-layout {
     width: 100% !important;
     max-width: none !important;
@@ -322,9 +319,9 @@ textarea.form-control { min-height: 42px; }
     color: #d8ebe6;
 }
 .tool-icon[data-tool="setup"],
-.tool-icon[data-tool="data"], .tool-icon[data-action="pdf"] { color: #c1a574; }
+.tool-icon[data-tool="data"], .tool-icon[data-tool="pdf"] { color: #c1a574; }
 .tool-icon[data-tool="setup"].active,
-.tool-icon[data-tool="data"].active, .tool-icon[data-action="pdf"].active {
+.tool-icon[data-tool="data"].active, .tool-icon[data-tool="pdf"].active {
     border-color: #987c4f;
     background: #3a3225;
     color: #e5d2ad;
@@ -334,6 +331,12 @@ textarea.form-control { min-height: 42px; }
 .tool-panel.is-open:not([hidden]) { display: block !important; }
 #floorPlanControls, #wallPlanControls { flex: 0 0 auto; }
 .tool-panel.is-open { animation: panel-reveal .12s ease-out; }
+.sidebar .pdf-export-card { width: 100%; padding: 12px; }
+.sidebar .pdf-export-kicker { margin-bottom: 6px; }
+.sidebar .pdf-export-card h2 { margin-bottom: 8px; font-size: 14px; }
+.sidebar .pdf-export-description { display: none !important; }
+.sidebar .pdf-export-card textarea { min-height: 82px; }
+.sidebar .pdf-export-card .btn { width: 100%; min-height: 34px; }
 .wall-tabs {
     display: flex;
     align-self: stretch;
@@ -454,7 +457,6 @@ textarea.form-control { min-height: 42px; }
 }
 #btnZoomFit svg { width: 14px; height: 14px; }
 #btnZoomFit:hover { color: #e5eeeb; background: #293332; }
-.pdf-mode .canvas-viewport, .pdf-mode .zoom-controls { display: none !important; }
 .zoom-controls {
     right: 9px;
     bottom: 7px;
@@ -581,6 +583,189 @@ textarea.form-control { min-height: 42px; }
     .tool-palette { min-height: 48px; }
     .tool-group-create .tool-icon-primary { flex-basis: 72px; min-width: 72px; }
 }
+
+/* Restrained charcoal CAD palette */
+body { background: #111315 !important; color: #e1e4e5 !important; }
+header { background: linear-gradient(180deg, #1c2022, #171a1c) !important; border-color: #343a3d !important; }
+.sidebar,
+.canvas-container-wrapper { background-color: #1a1d1f !important; border-color: #34393c !important; }
+.sidebar { border-top-color: #3b4144 !important; }
+.container { background-image: none !important; }
+.canvas-container-wrapper { background-image: none !important; }
+.panel-section,
+.panel-section.workflow-section,
+.panel-section.navigation-section,
+.panel-section.drawing-section,
+.panel-section.artwork-section,
+.panel-section.pin-section,
+.panel-section.config-section,
+.panel-section.analysis-section,
+.panel-section.data-section,
+.panel-section.history-section,
+.panel-section.edit-tools-section,
+.panel-section.item-editor-section {
+    background: #1e2224 !important;
+    border-color: #353b3e !important;
+}
+.panel-section.workflow-section,
+.panel-section.navigation-section,
+.panel-section.drawing-section,
+.panel-section.artwork-section,
+.panel-section.pin-section,
+.panel-section.config-section,
+.panel-section.analysis-section,
+.panel-section.data-section,
+.panel-section.history-section,
+.panel-section.edit-tools-section,
+.panel-section.item-editor-section,
+.info-section,
+.panel-section.mode-switch-section { border-left-color: #51595d !important; }
+.panel-section h2,
+.panel-section h2::before,
+.panel-section h2::after { border-color: #626b70 !important; color: #dce0e1 !important; }
+.info-section,
+.sidebar .panel-section.info-section { background: #202426 !important; border-color: #41484b !important; }
+.sidebar .info-section h2,
+.sidebar .info-section label { color: #c1c7c9 !important; }
+.form-control,
+input[type="text"], input[type="number"], select, textarea {
+    color: #e1e4e5 !important;
+    background: #141719 !important;
+    border-color: #3a4144 !important;
+}
+.form-control:focus,
+input:focus, select:focus, textarea:focus {
+    outline-color: rgba(168, 179, 183, .14) !important;
+    border-color: #687276 !important;
+}
+.tool-palette { border-color: #343a3d !important; border-top-color: #4a5256 !important; background: #15181a !important; }
+.tool-group { border-right-color: #303639 !important; }
+.tool-icon,
+.tool-group-setup .tool-icon,
+.tool-group-output .tool-icon,
+.tool-icon[data-tool="setup"],
+.tool-icon[data-tool="data"],
+.tool-icon[data-tool="pdf"],
+.tool-icon[data-action="undo"],
+.tool-icon[data-action="redo"] { color: #aeb5b8 !important; }
+.tool-icon:hover,
+.tool-icon:focus-visible { border-color: #454d50 !important; background: #252a2c !important; color: #dce0e1 !important; }
+.tool-icon.active,
+.tool-group-output .tool-icon.active,
+.tool-icon[data-tool="setup"].active,
+.tool-icon[data-tool="data"].active,
+.tool-icon[data-tool="pdf"].active {
+    border-color: #50595d !important;
+    background: #303639 !important;
+    color: #f0f2f2 !important;
+}
+.tool-group-create .tool-icon-primary,
+.tool-group-create .tool-icon-primary.active,
+.tool-group-create .tool-icon-primary:hover { border-color: #50595d !important; background: #303639 !important; color: #f0f2f2 !important; }
+.admin-settings-panel:not([hidden]),
+.admin-mode .panel-section.mode-switch-section { background: #202426 !important; border-color: #3b4245 !important; }
+#btnToggleAdminMode { background: #3b4245 !important; color: #e1e4e5 !important; }
+#btnToggleAdminMode:hover:not(:disabled) { background: #4a5256 !important; }
+.fixture-option,
+.admin-mode-banner { color: #d4d8d9 !important; background: #24292b !important; border-color: #3b4245 !important; }
+.wall-info-banner { color: #d9dfe0 !important; background: #202527 !important; border-color: #3c4447 !important; }
+.wall-tab { color: #aeb6b9 !important; }
+.wall-tab:hover { background: #242a2c !important; color: #e1e4e5 !important; }
+.wall-tab.active,
+.wall-tab[aria-selected="true"] { background: #303639 !important; border-color: #566064 !important; color: #f0f2f2 !important; }
+.btn-primary, .btn-success, .btn-start { background: #454d51 !important; border-color: #596266 !important; color: #f0f2f2 !important; }
+.btn-primary:hover:not(:disabled), .btn-success:hover:not(:disabled), .btn-start:hover { background: #545e62 !important; }
+.btn-warning, .btn-secondary, .btn-dark { background: #292e30 !important; border-color: #42494c !important; color: #d7dcdd !important; }
+.btn-warning:hover:not(:disabled), .btn-secondary:hover:not(:disabled), .btn-dark:hover:not(:disabled) { background: #343a3d !important; }
+.btn-danger { background: #30292a !important; border-color: #4a3d3f !important; color: #d9c7c8 !important; }
+.btn-danger:hover:not(:disabled) { background: #3a3032 !important; }
+.pdf-export-card { background: #202426 !important; border-color: #3a4144 !important; border-top-color: #636c70 !important; }
+.pdf-export-kicker { color: #aeb6b9 !important; }
+::selection { color: #fff; background: #50595d; }
+.sidebar { width: 244px !important; min-width: 218px !important; background-color: #171d26 !important; }
+.sidebar .panel-section,
+.sidebar .panel-section.workflow-section,
+.sidebar .panel-section.navigation-section,
+.sidebar .panel-section.drawing-section,
+.sidebar .panel-section.artwork-section,
+.sidebar .panel-section.pin-section,
+.sidebar .panel-section.config-section,
+.sidebar .panel-section.analysis-section,
+.sidebar .panel-section.data-section,
+.sidebar .panel-section.history-section,
+.sidebar .panel-section.edit-tools-section,
+.sidebar .panel-section.item-editor-section { background: #1c232d !important; border-color: #343e49 !important; }
+.sidebar .info-section,
+.sidebar .panel-section.info-section { background: #202833 !important; border-color: #3b4652 !important; }
+.tool-palette { background: #151c26 !important; border-color: #303a46 !important; border-top-color: #465361 !important; }
+.tool-group { border-right-color: #2b3540 !important; }
+.tool-icon:hover,
+.tool-icon:focus-visible { background: #252e39 !important; border-color: #414d59 !important; }
+.tool-icon.active,
+.tool-group-output .tool-icon.active,
+.tool-icon[data-tool="setup"].active,
+.tool-icon[data-tool="data"].active,
+.tool-icon[data-tool="pdf"].active,
+.tool-group-create .tool-icon-primary.active { background: #2d3742 !important; border-color: #56616c !important; }
+@media (max-width: 900px) {
+    .sidebar { width: 226px !important; min-width: 205px !important; }
+}
+@media (max-width: 680px) {
+    .sidebar { width: 100% !important; min-width: 0 !important; }
+}
+.sidebar { width: 220px !important; min-width: 198px !important; }
+.sidebar .panel-section,
+.sidebar .panel-section.workflow-section,
+.sidebar .panel-section.navigation-section,
+.sidebar .panel-section.drawing-section,
+.sidebar .panel-section.artwork-section,
+.sidebar .panel-section.pin-section,
+.sidebar .panel-section.config-section,
+.sidebar .panel-section.analysis-section,
+.sidebar .panel-section.data-section,
+.sidebar .panel-section.history-section,
+.sidebar .panel-section.edit-tools-section,
+.sidebar .panel-section.item-editor-section,
+.sidebar .panel-section.info-section,
+.sidebar .panel-section.mode-switch-section,
+.sidebar .admin-settings-panel:not([hidden]) {
+    background: transparent !important;
+    border: 0 !important;
+    border-bottom: 1px solid #303946 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 7px 3px 8px !important;
+}
+.sidebar .panel-section:last-child { border-bottom: 0 !important; }
+.sidebar .panel-section h2 { border-left-color: #68747e !important; border-bottom-color: #303946 !important; }
+.sidebar .pdf-export-card { background: transparent !important; border: 0 !important; padding: 4px 0 !important; }
+.sidebar .fixture-option,
+.sidebar .admin-mode-banner { background: transparent !important; box-shadow: none !important; }
+.sidebar .form-control,
+.sidebar input[type="text"],
+.sidebar input[type="number"],
+.sidebar select,
+.sidebar textarea { border-radius: 0 !important; }
+@media (max-width: 900px) {
+    .sidebar { width: 204px !important; min-width: 188px !important; }
+}
+@media (max-width: 680px) {
+    .sidebar { width: 100% !important; min-width: 0 !important; }
+}
+.ui-help-tooltip {
+    position: fixed;
+    z-index: 10000;
+    max-width: 260px;
+    padding: 5px 7px;
+    border: 1px solid #3d4650;
+    border-radius: 2px;
+    background: rgba(22, 27, 34, .97);
+    color: #d1d6da;
+    font: 11px/1.45 'Zen Kaku Gothic New', 'Yu Gothic UI', sans-serif;
+    box-shadow: none;
+    pointer-events: none;
+}
+.ui-help-tooltip[hidden] { display: none !important; }
 @keyframes panel-reveal {
     from { opacity: .55; transform: translateY(-2px); }
     to { opacity: 1; transform: translateY(0); }

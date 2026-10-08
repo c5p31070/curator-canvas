@@ -6,6 +6,13 @@
 
 // Fabric.js キャンバス
 const canvas = new fabric.Canvas('canvas');
+canvas.selectionColor = 'rgba(178, 187, 190, 0.10)';
+canvas.selectionBorderColor = '#879195';
+canvas.selectionLineWidth = 1;
+fabric.Object.prototype.borderColor = '#879195';
+fabric.Object.prototype.cornerColor = '#aab2b5';
+fabric.Object.prototype.cornerStrokeColor = '#1a1d1f';
+fabric.Object.prototype.transparentCorners = false;
 
 const STORAGE_KEY = 'curator_canvas_draft_data';
 const EXHIBITIONS_KEY = 'curator_canvas_saved_exhibitions';
@@ -305,6 +312,12 @@ let isUndoRedoOperation = false;
 function getCustomProperties() {
     return [
         'isArtwork',
+        'isShapeObject',
+        'shapeKind',
+        'shapeLength',
+        'shapeHeadSize',
+        'shapeStroke',
+        'shapeFill',
         'artworkName',
         'description',
         'isPin',
@@ -442,8 +455,7 @@ function saveState() {
     if (
         isUndoRedoOperation ||
         isMeasuringMode ||
-        isTransitioning ||
-        currentViewMode === 'pdf'
+        isTransitioning
     ) {
         return;
     }
@@ -576,8 +588,7 @@ function applyStateData(jsonString, callback) {
 
         updateWallDropdownOptions();
 
-        const targetMode =
-            parsed.currentViewMode || 'floor';
+        const targetMode = parsed.currentViewMode === 'wall' ? 'wall' : 'floor';
 
         switchViewMode(
             targetMode,
