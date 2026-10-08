@@ -204,7 +204,7 @@ function rotateActiveObject() {
 function loadSavedData() {
 
     // Signed-in users open shared exhibitions explicitly; don't mix per-browser drafts between accounts.
-    if (window.CURATOR_SUPABASE_CONFIG && !window.CURATOR_DEMO_MODE) {
+    if (window.CURATOR_SUPABASE_CONFIG) {
         historyStack = [getSerializedCanvasData()];
         redoStack = [];
         updateUndoRedoButtons();
