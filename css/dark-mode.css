@@ -775,3 +775,196 @@ input:focus, select:focus, textarea:focus {
     .canvas-container-wrapper { height: min(72vh, 700px); max-height: none; }
     .canvas-viewport { min-height: 180px; }
 }
+
+/* Keep wall tabs and zoom control quiet and square-edged. */
+.wall-tabs {
+    min-height: 30px !important;
+    gap: 0 !important;
+    padding: 0 !important;
+    border-bottom-color: #2b3235 !important;
+}
+.wall-tab,
+.wall-tab:hover,
+.wall-tab.active,
+.wall-tab[aria-selected="true"] {
+    min-width: 78px !important;
+    padding: 6px 10px 7px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #909a9e !important;
+}
+.wall-tab:hover { color: #c1c8ca !important; }
+.wall-tab.active,
+.wall-tab[aria-selected="true"] { color: #d0d5d6 !important; }
+.wall-tab.active::after {
+    right: 10px !important;
+    left: 10px !important;
+    height: 1px !important;
+    background: #737e82 !important;
+}
+.wall-tab:focus-visible { outline-color: #687276 !important; }
+#canvasZoom::-webkit-slider-runnable-track { background: #4b5458 !important; }
+#canvasZoom::-moz-range-track { background: #4b5458 !important; }
+
+/* Compact landscape layout for phone screens; desktop and portrait layouts stay unchanged. */
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 950px) and (pointer: coarse) {
+    body {
+        height: 100dvh;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    header {
+        flex: 0 0 34px;
+        min-height: 34px;
+        padding: 3px 8px;
+        gap: 8px;
+    }
+
+    header h1 { font-size: 12px; }
+    .btn-back { font-size: 10px; }
+    .account-controls { gap: 5px; font-size: 9px; }
+    .account-controls button { padding: 3px 6px; font-size: 9px; }
+    #accountLabel { max-width: 120px; }
+
+    .main-layout {
+        flex: 1 1 auto;
+        flex-direction: row !important;
+        align-items: stretch;
+        width: 100%;
+        height: calc(100dvh - 34px);
+        min-height: 0;
+        gap: 4px;
+        padding: 4px !important;
+        overflow: hidden;
+    }
+
+    .sidebar {
+        flex: 0 0 178px;
+        width: 178px !important;
+        min-width: 158px !important;
+        max-width: 38vw;
+        height: 100%;
+        max-height: none !important;
+        gap: 0;
+        padding: 5px 7px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    .sidebar .panel-section,
+    .sidebar .panel-section.workflow-section,
+    .sidebar .panel-section.navigation-section,
+    .sidebar .panel-section.drawing-section,
+    .sidebar .panel-section.artwork-section,
+    .sidebar .panel-section.pin-section,
+    .sidebar .panel-section.config-section,
+    .sidebar .panel-section.analysis-section,
+    .sidebar .panel-section.data-section,
+    .sidebar .panel-section.history-section,
+    .sidebar .panel-section.edit-tools-section,
+    .sidebar .panel-section.item-editor-section,
+    .sidebar .panel-section.info-section,
+    .sidebar .panel-section.mode-switch-section,
+    .sidebar .admin-settings-panel:not([hidden]) {
+        padding: 5px 2px 6px !important;
+    }
+
+    .sidebar .panel-section h2 { margin-bottom: 5px; font-size: 11px; }
+    .sidebar .form-group { margin-bottom: 4px; }
+    .sidebar .form-control,
+    .sidebar input[type="text"],
+    .sidebar input[type="number"],
+    .sidebar select,
+    .sidebar textarea { min-height: 26px; padding: 4px 5px; font-size: 10px; }
+    .sidebar .btn { min-height: 27px; padding: 4px 6px; font-size: 10px; }
+    .sidebar .section-help,
+    .sidebar .mode-description { font-size: 9px; line-height: 1.3; }
+
+    .canvas-container-wrapper {
+        flex: 1 1 0;
+        width: 0;
+        height: 100%;
+        min-width: 0;
+        min-height: 0;
+        max-height: none;
+        gap: 0;
+        padding: 3px !important;
+        overflow: hidden !important;
+    }
+
+    .tool-palette {
+        flex: 0 0 38px;
+        min-height: 38px;
+        gap: 2px;
+        padding: 2px;
+        overscroll-behavior-x: contain;
+    }
+
+    .tool-group { gap: 0; padding: 0 2px; }
+    .tool-icon,
+    .tool-group-create .tool-icon,
+    .tool-group-create .tool-icon-primary,
+    .tool-group-setup [data-tool="setup"] {
+        flex: 0 0 48px;
+        min-width: 48px;
+        min-height: 32px;
+        padding: 2px;
+    }
+    .tool-icon svg { flex-basis: 15px; width: 15px; height: 15px; }
+    .tool-label { max-width: 48px; font-size: 7px; }
+
+    .wall-tabs { flex: 0 0 25px; min-height: 25px !important; }
+    .wall-tab,
+    .wall-tab:hover,
+    .wall-tab.active,
+    .wall-tab[aria-selected="true"] {
+        min-width: 58px !important;
+        max-width: 120px;
+        padding: 4px 7px !important;
+        font-size: 9px;
+    }
+
+    .wall-info-banner {
+        flex: 0 0 auto;
+        margin: 2px 0 3px !important;
+        padding: 3px 5px !important;
+        font-size: 8px !important;
+    }
+
+    .canvas-viewport {
+        min-height: 0;
+        touch-action: none;
+        overscroll-behavior: contain;
+    }
+
+    .zoom-controls { right: 4px; bottom: 3px; gap: 3px; }
+    #canvasZoom { width: 62px; }
+    #canvasZoomValue { width: 26px; font-size: 8px; }
+}
+#canvasZoom::-webkit-slider-thumb {
+    width: 5px !important;
+    height: 9px !important;
+    margin-top: -4px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #8b9599 !important;
+}
+#wallRulerOverlay .ruler-line,
+#wallRulerOverlay .ruler-tick {
+    stroke: #606a6e !important;
+    stroke-width: .65 !important;
+}
+#wallRulerOverlay .ruler-label {
+    fill: #7d878b !important;
+    font-size: 7px !important;
+}
+#canvasZoom::-moz-range-thumb {
+    width: 5px !important;
+    height: 9px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #8b9599 !important;
+}

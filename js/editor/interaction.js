@@ -178,11 +178,21 @@ function rotateActiveObject() {
 
         activeObj.setCoords();
 
+        const angleInput = document.getElementById('editItemAngle');
+        if (activeObj.isArtwork && angleInput) {
+            angleInput.value = Math.round(originalAngle || 0);
+        }
+
         alert(
             "壁（黒線）をまたぐため回転できません。"
         );
 
     } else {
+
+        const angleInput = document.getElementById('editItemAngle');
+        if (activeObj.isArtwork && angleInput) {
+            angleInput.value = Math.round(newAngle);
+        }
 
         if (
             activeObj.isArtwork &&

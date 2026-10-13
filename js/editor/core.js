@@ -97,7 +97,9 @@ function getSavedExhibitions() {
 function refreshExhibitionList(fetchCloud = true) {
     const select = document.getElementById('savedExhibitions');
     if (!select) return;
-    const exhibitions = window.CURATOR_SUPABASE_CONFIG ? cloudExhibitionCache : getSavedExhibitions();
+    const exhibitions = [
+        ...(window.CURATOR_SUPABASE_CONFIG ? cloudExhibitionCache : getSavedExhibitions())
+    ];
     if (fetchCloud && window.CURATOR_TEAM) refreshCloudExhibitions();
     select.replaceChildren();
     const placeholder = document.createElement('option');
@@ -251,6 +253,7 @@ let isAdminMode = false;
 // ------------------------------------------------------------
 
 let floorPlanJsonData = null;
+let savedArtworkCatalog = [];
 
 let wallPlanJsonData = {
     'wall_default': {
@@ -319,6 +322,7 @@ function getCustomProperties() {
         'shapeStroke',
         'shapeFill',
         'artworkName',
+        'artworkCatalogId',
         'description',
         'isPin',
         'pinName',
@@ -331,6 +335,7 @@ function getCustomProperties() {
         'pxWidth',
         'pxHeight',
         'crowdCountValue',
+        'crowdRadius',
         'isCrowdCircle',
         'crowdLinkId',
         'isFreePin',
@@ -338,6 +343,29 @@ function getCustomProperties() {
         'isGuard',
         'isFixture'
     ];
+}
+
+function configureArtworkTransform(artwork) {
+    if (!artwork?.isArtwork) return;
+    artwork.set({
+        lockScalingX: true,
+        lockScalingY: true,
+        lockScalingFlip: true,
+        lockSkewingX: true,
+        lockSkewingY: true
+    });
+    artwork.setControlsVisibility?.({
+        tl: false,
+        tr: false,
+        bl: false,
+        br: false,
+        ml: false,
+        mt: false,
+        mr: false,
+        mb: false,
+        mtr: true
+    });
+    artwork.setCoords();
 }
 
 // ============================================================
@@ -404,7 +432,8 @@ function getSerializedCanvasData() {
         currentViewMode: currentViewMode,
         selectedWallInfo: selectedWallInfo,
         floorPlanJsonData: floorPlanJsonData,
-        wallPlanJsonData: wallPlanJsonData
+        wallPlanJsonData: wallPlanJsonData,
+        savedArtworkCatalog: savedArtworkCatalog
     });
 }
 
@@ -581,6 +610,13 @@ function applyStateData(jsonString, callback) {
                 parsed.wallPlanJsonData;
         }
 
+        const hasArtworkCatalog = Array.isArray(parsed.savedArtworkCatalog);
+        savedArtworkCatalog = hasArtworkCatalog
+            ? parsed.savedArtworkCatalog
+            : [];
+        if (!hasArtworkCatalog) window.migrateArtworkCatalogFromPlans?.();
+        window.refreshArtworkCatalog?.();
+
         if (parsed.selectedWallInfo) {
             selectedWallInfo =
                 parsed.selectedWallInfo;
@@ -640,21 +676,32 @@ function restoreCustomProperties() {
 
     const objects = canvas.getObjects();
     const matchedCrowdCircles = new Set();
+    const legacyCircleObjects = objects.filter(obj => obj.type === 'circle');
+    const crowdCirclesByLinkId = new Map();
 
     objects.forEach(obj => {
+        if (!obj.isCrowdCircle || !obj.crowdLinkId) return;
+        const linked = crowdCirclesByLinkId.get(obj.crowdLinkId) || [];
+        linked.push(obj);
+        crowdCirclesByLinkId.set(obj.crowdLinkId, linked);
+    });
+
+    objects.forEach(obj => {
+
+        if (obj.isArtwork) configureArtworkTransform(obj);
 
         if (
             obj.isArtwork &&
             obj.crowdCountValue
         ) {
 
-            let circle = obj.crowdLinkId
-                ? objects.find(c => c.isCrowdCircle && c.crowdLinkId === obj.crowdLinkId && !matchedCrowdCircles.has(c))
-                : null;
+            const linkedCircles = obj.crowdLinkId
+                ? crowdCirclesByLinkId.get(obj.crowdLinkId) || []
+                : [];
+            let circle = linkedCircles.find(c => !matchedCrowdCircles.has(c)) || null;
             if (!circle) {
-                const candidates = objects.filter(c => !matchedCrowdCircles.has(c) &&
-                    ((c.isCrowdCircle && c.type === 'circle') ||
-                     (c.type === 'circle' && c.left === obj.left && c.top === obj.top)));
+                const candidates = legacyCircleObjects.filter(c => !matchedCrowdCircles.has(c) &&
+                    (c.isCrowdCircle || (c.left === obj.left && c.top === obj.top)));
                 circle = candidates.sort((a, b) =>
                     a.getCenterPoint().distanceFrom(obj.getCenterPoint()) -
                     b.getCenterPoint().distanceFrom(obj.getCenterPoint())
@@ -663,7 +710,27 @@ function restoreCustomProperties() {
 
             if (circle) {
                 matchedCrowdCircles.add(circle);
-                const radius = circle.radius || 40;
+                const diagonal = Math.sqrt(
+                    (Number(obj.pxWidth) || obj.getScaledWidth()) ** 2 +
+                    (Number(obj.pxHeight) || obj.getScaledHeight()) ** 2
+                );
+                const expectedRadius = ((diagonal / 2) + 25) * 1.1;
+                const points = circle.points || [];
+                const firstPoint = points[0];
+                const lastPoint = points[points.length - 1];
+                const inferredRadius = firstPoint && lastPoint
+                    ? Math.hypot(lastPoint.x - firstPoint.x, lastPoint.y - firstPoint.y) / 2
+                    : 0;
+                // Older saved plans did not serialize crowdRadius. Rebuild a radius
+                // that survives those plans even if a previous restore shrank the polygon.
+                const radius = Math.max(
+                    Number(circle.crowdRadius) || 0,
+                    Number(obj.crowdRadius) || 0,
+                    inferredRadius,
+                    expectedRadius,
+                    40
+                );
+                obj.crowdRadius = radius;
                 const fill = circle.fill;
                 const stroke = circle.stroke;
                 const strokeWidth = circle.strokeWidth || 2;
@@ -701,6 +768,7 @@ function restoreCustomProperties() {
 
 function createCrowdSemicircle(artwork, radius, fill, stroke = '#333', strokeWidth = 2) {
     if (!artwork.crowdLinkId) artwork.crowdLinkId = `crowd-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    artwork.crowdRadius = radius;
     const center = artwork.getCenterPoint();
     const angle = (artwork.angle || 0) * Math.PI / 180;
     const nx = Math.sin(angle), ny = Math.cos(angle);
@@ -753,7 +821,7 @@ function positionCrowdSemicircle(artwork) {
     crowd.setCoords();
 }
 
-function configureCrowdCircle(circle, artwork = null) {
+function configureCrowdCircle(circle) {
     if (!circle) return;
     circle.set({
         isCrowdCircle: true,
@@ -780,6 +848,7 @@ function applyFixtureEditability() {
             lockMovementX: !isAdminMode,
             lockMovementY: !isAdminMode
         });
+        if (obj.isArtwork) configureArtworkTransform(obj);
     });
     if (!isAdminMode && canvas.getActiveObjects().some(obj => obj.isFixture)) {
         canvas.discardActiveObject();

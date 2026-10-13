@@ -157,6 +157,66 @@ function initializeCanvasZoom() {
     viewport.addEventListener('pointerup', finishPan);
     viewport.addEventListener('pointercancel', finishPan);
 
+    // On phones in landscape, reserve one-finger gestures for Fabric object
+    // editing and use two fingers to pan/zoom the drawing viewport.
+    const touchPoints = new Map();
+    let touchGestureConsumed = false;
+    let previousTouchDistance = 0;
+
+    const getTouchGeometry = () => {
+        const points = [...touchPoints.values()];
+        if (points.length < 2) return null;
+        const rect = viewport.getBoundingClientRect();
+        const a = points[0];
+        const b = points[1];
+        return {
+            distance: Math.hypot(b.x - a.x, b.y - a.y),
+            center: {
+                x: (a.x + b.x) / 2 - rect.left,
+                y: (a.y + b.y) / 2 - rect.top
+            }
+        };
+    };
+
+    viewport.addEventListener('pointerdown', event => {
+        if (event.pointerType !== 'touch') return;
+        touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (touchPoints.size >= 2) {
+            touchGestureConsumed = true;
+            previousTouchDistance = getTouchGeometry()?.distance || 0;
+            event.preventDefault();
+            event.stopPropagation();
+            canvas.discardActiveObject();
+            canvas.requestRenderAll();
+        }
+    }, true);
+
+    viewport.addEventListener('pointermove', event => {
+        if (event.pointerType !== 'touch' || !touchPoints.has(event.pointerId)) return;
+        touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (!touchGestureConsumed) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const geometry = getTouchGeometry();
+        if (!geometry || !previousTouchDistance) return;
+        const factor = geometry.distance / previousTouchDistance;
+        setManualZoom(currentCanvasZoom * factor, geometry.center);
+        previousTouchDistance = geometry.distance;
+    }, true);
+
+    const finishTouchGesture = event => {
+        if (event.pointerType !== 'touch') return;
+        if (touchGestureConsumed) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        touchPoints.delete(event.pointerId);
+        if (touchPoints.size < 2) previousTouchDistance = 0;
+        if (touchPoints.size === 0) touchGestureConsumed = false;
+    };
+    viewport.addEventListener('pointerup', finishTouchGesture, true);
+    viewport.addEventListener('pointercancel', finishTouchGesture, true);
+
     const resizeObserver = window.ResizeObserver ? new ResizeObserver(() => {
         if (canvasZoomApiReady && !canvasZoomByView.has(getCanvasZoomKey())) fitCanvas();
     }) : null;

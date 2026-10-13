@@ -2,6 +2,51 @@
 // 📄 平面＋全壁面をまとめたマルチページPDF生成機能
 // ----------------------------------------------------
 
+function createPdfScaleMarkup(scalePxPerCm, imageWidthMm) {
+
+    const appScale = Number(scalePxPerCm) > 0
+        ? Number(scalePxPerCm)
+        : 0.5;
+
+    const canvasWidth = canvas.getWidth();
+    const targetWidthMm = 18;
+    const rawLengthCm =
+        (targetWidthMm * canvasWidth) /
+        (appScale * imageWidthMm);
+
+    const exponent = Math.floor(Math.log10(rawLengthCm));
+    const candidates = [];
+
+    for (let power = exponent - 1; power <= exponent + 1; power++) {
+        [1, 2, 5].forEach(multiplier => {
+            candidates.push(multiplier * (10 ** power));
+        });
+    }
+
+    const lengthCm = candidates
+        .filter(value => value * appScale * imageWidthMm / canvasWidth <= 22)
+        .sort((a, b) => {
+            const widthA = a * appScale * imageWidthMm / canvasWidth;
+            const widthB = b * appScale * imageWidthMm / canvasWidth;
+            return Math.abs(widthA - targetWidthMm) - Math.abs(widthB - targetWidthMm);
+        })[0] || rawLengthCm;
+
+    const barWidthMm = lengthCm * appScale * imageWidthMm / canvasWidth;
+    const label = lengthCm >= 100 && lengthCm % 100 === 0
+        ? `${lengthCm / 100} m`
+        : `${lengthCm} cm`;
+
+    return `
+        <div class="pdf-scale" aria-label="縮尺 ${label}">
+            <span class="pdf-scale-caption">縮尺</span>
+            <div class="pdf-scale-rule" style="height:${barWidthMm.toFixed(2)}mm">
+                <i></i><i></i>
+            </div>
+            <span class="pdf-scale-label">${label}</span>
+        </div>
+    `;
+}
+
 async function generateCombinedPdf() {
 
     const titleInput =
@@ -30,6 +75,12 @@ async function generateCombinedPdf() {
 
     const initialWall =
         { ...selectedWallInfo };
+
+    const drawingScale =
+        parseFloat(document.getElementById("scale")?.value) || 0.5;
+
+    const floorImageWidthMm = 165;
+    const wallImageWidthMm = 165;
 
 
     // ====================================================
@@ -121,7 +172,7 @@ async function generateCombinedPdf() {
                 if (obj.crowdCountValue) {
 
                     crowdStatus =
-                        `警戒人数: ${obj.crowdCountValue}人`;
+                        `${obj.crowdCountValue}人`;
 
                 }
 
@@ -337,12 +388,14 @@ async function generateCombinedPdf() {
             </div>
 
 
-            <div style="text-align: center;">
+            <div class="drawing-scale-row floor-scale-row">
 
                 <img
                     src="${floorCanvasUrl}"
-                    class="canvas-img"
+                    class="canvas-img canvas-img-floor"
                 />
+
+                ${createPdfScaleMarkup(drawingScale, floorImageWidthMm)}
 
             </div>
 
@@ -375,7 +428,7 @@ async function generateCombinedPdf() {
                         </th>
 
                         <th style="width: 20%;">
-                            混雑警戒状態
+                            混雑予想人数
                         </th>
 
                     </tr>
@@ -579,17 +632,14 @@ async function generateCombinedPdf() {
                     </div>
 
 
-                    <div
-                        style="
-                            text-align: center;
-                            margin-top: 20px;
-                        "
-                    >
+                    <div class="drawing-scale-row wall-scale-row">
 
                         <img
                             src="${wall.imgUrl}"
-                            class="canvas-img-large"
+                            class="canvas-img-large wall-canvas-img"
                         />
+
+                        ${createPdfScaleMarkup(drawingScale, wallImageWidthMm)}
 
                     </div>
 
@@ -631,7 +681,7 @@ async function generateCombinedPdf() {
 
                 @page {
                     size: A4 portrait;
-                    margin: 12mm;
+                    margin: 8mm;
                 }
 
 
@@ -658,7 +708,7 @@ async function generateCombinedPdf() {
 
                     min-height: 297mm;
 
-                    padding: 15mm;
+                    padding: 10mm 12mm;
 
                     margin: 10px auto;
 
@@ -714,9 +764,9 @@ async function generateCombinedPdf() {
                     border-bottom:
                         2px solid #2c3e50;
 
-                    padding-bottom: 8px;
+                    padding-bottom: 5px;
 
-                    margin-bottom: 16px;
+                    margin-bottom: 10px;
 
                 }
 
@@ -749,13 +799,13 @@ async function generateCombinedPdf() {
 
                     background: #f2f4f7;
 
-                    padding: 6px 10px;
+                    padding: 4px 8px;
 
                     border-left:
                         4px solid #2563eb;
 
                     margin:
-                        16px 0 8px 0;
+                        9px 0 5px 0;
 
                 }
 
@@ -789,6 +839,77 @@ async function generateCombinedPdf() {
 
                     border-radius: 4px;
 
+                }
+
+
+                .drawing-scale-row {
+                    display: flex;
+                    justify-content: center;
+                    align-items: flex-start;
+                    gap: 3mm;
+                    margin: 4px 0 7px;
+                }
+
+
+                .canvas-img-floor {
+                    flex: 0 0 ${floorImageWidthMm}mm;
+                    width: ${floorImageWidthMm}mm;
+                    max-height: none;
+                    object-fit: fill;
+                }
+
+
+                .wall-canvas-img {
+                    flex: 0 0 ${wallImageWidthMm}mm;
+                    width: ${wallImageWidthMm}mm;
+                    max-height: none;
+                    object-fit: fill;
+                }
+
+
+                .pdf-scale {
+                    flex: 0 0 12mm;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 1mm;
+                    color: #737a80;
+                    font-size: 8px;
+                    line-height: 1.2;
+                    padding-top: 1mm;
+                }
+
+
+                .pdf-scale-rule {
+                    position: relative;
+                    box-sizing: content-box;
+                    width: 0;
+                    border-left: 1px solid #737a80;
+                }
+
+
+                .pdf-scale-rule i {
+                    position: absolute;
+                    left: -1mm;
+                    width: 2mm;
+                    height: 1px;
+                    background: #737a80;
+                }
+
+
+                .pdf-scale-rule i:first-child {
+                    top: 0;
+                }
+
+
+                .pdf-scale-rule i:last-child {
+                    bottom: 0;
+                }
+
+
+                .pdf-scale-label {
+                    color: #626a70;
+                    font-size: 8px;
                 }
 
 

@@ -266,6 +266,17 @@
                 <h2>展示品の追加</h2>
 
                 <div class="form-group">
+                    <label for="savedArtworkSelect">保存済み展示品</label>
+                    <select id="savedArtworkSelect" class="form-control">
+                        <option value="">保存済み展示品はありません</option>
+                    </select>
+                </div>
+                <div class="form-row saved-artwork-actions">
+                    <button id="btnAddSavedArtwork" class="btn btn-secondary" type="button" disabled>選択した展示品を追加</button>
+                    <button id="btnDeleteSavedArtwork" class="btn btn-secondary" type="button" disabled>保存一覧から削除</button>
+                </div>
+
+                <div class="form-group">
                     <label for="displayType">
                         展示方法（タイプ）
                     </label>
@@ -331,7 +342,7 @@
                 <div class="form-group" id="depthGroup">
 
                     <label for="artworkDepth">
-                        作品の厚み / 奥行き (cm)
+                        <span id="artworkDepthLabel">厚み</span> (cm)
                     </label>
 
                     <input
@@ -346,7 +357,7 @@
                         id="typeHelpText"
                         class="field-note"
                     >
-                        ※壁面展示では「幅×厚み」の細長い形状で平面図に描画されます。
+                        平面図は幅×厚み、壁面図は幅×高さで表示します。
                     </p>
 
                 </div>
@@ -468,8 +479,12 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="editItemDepth">厚み / 奥行き (cm)</label>
+                            <label for="editItemDepth"><span id="editItemDepthLabel">厚み</span> (cm)</label>
                             <input id="editItemDepth" class="form-control" type="number" min="0.1" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label for="editItemAngle">回転角度 (°)</label>
+                            <input id="editItemAngle" class="form-control" type="number" min="-360" max="360" step="1">
                         </div>
                     </div>
                     <div class="form-group">
@@ -567,7 +582,6 @@
                 </div>
                 <div class="tool-group tool-group-edit">
                     <button class="tool-icon" type="button" data-tool="edit" aria-label="項目編集" data-tooltip="選択した展示物やピンを編集します。変更は自動保存されます。"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 17-.8 4 4-.8L19 8.4 15.6 5zM14.5 6.1l3.4 3.4M4 4h7"/></svg><span class="tool-label">編集</span></button>
-                    <button class="tool-icon" type="button" data-action="rotate" title="90度回転" aria-label="90度回転"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 8a8 8 0 1 0 1 6M20 4v5h-5M12 8v4l3 2"/></svg><span class="tool-label">回転</span></button>
                     <button class="tool-icon" type="button" data-tool="crowd" aria-label="混雑予測" data-tooltip="選択した作品の正面に表示する混雑人数を設定します。"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18a8 8 0 0 1 16 0M12 10v5m0 3h.01M3 21h18"/></svg><span class="tool-label">混雑</span></button>
                 </div>
                 <div class="tool-group tool-group-history">

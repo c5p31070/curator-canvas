@@ -6,9 +6,11 @@ function initializeCreationSettingsUi() {
     const displayTypeSelect = document.getElementById("displayType");
     const typeHelpText = document.getElementById("typeHelpText");
     const depthInput = document.getElementById("artworkDepth");
+    const depthLabel = document.getElementById('artworkDepthLabel');
 
     const updateDepthTooltip = () => {
         if (!depthInput || !displayTypeSelect) return;
+        if (depthLabel) depthLabel.textContent = displayTypeSelect.value === 'wall' ? '厚み' : '奥行き';
         depthInput.dataset.tooltip = displayTypeSelect.value === 'wall'
             ? '壁面展示では厚みとして扱い、平面図では幅と厚みで表示します。'
             : '床置展示では奥行きとして扱い、平面図では幅と奥行きで表示します。';
@@ -22,12 +24,12 @@ function initializeCreationSettingsUi() {
             if (displayTypeSelect.value === 'wall') {
 
                 typeHelpText.innerText =
-                    '※壁面展示では「幅×厚み」の細長い形状で平面図に描画されます。';
+                    '平面図は幅×厚み、壁面図は幅×高さで表示します。';
 
             } else {
 
                 typeHelpText.innerText =
-                    '※床置展示では「幅×奥行き」の領域で平面図に描画されます。';
+                    '平面図は幅×奥行き、壁面図は幅×高さで表示します。';
 
             }
             updateDepthTooltip();

@@ -12,6 +12,7 @@ function initializeToolPalette() {
         panels.forEach(panel => panel.classList.remove('is-open'));
 
         if (toggle && alreadyOpen) {
+            if (tool === 'draw' && isFreeDrawingMode) toggleFreeDrawingMode(false);
             buttons.forEach(button => {
                 button.classList.remove('active');
                 button.setAttribute('aria-pressed', 'false');
@@ -25,6 +26,9 @@ function initializeToolPalette() {
             button.classList.toggle('active', selected);
             button.setAttribute('aria-pressed', String(selected));
         });
+
+        if (tool === 'draw') toggleFreeDrawingMode(true);
+        else if (isFreeDrawingMode) toggleFreeDrawingMode(false);
 
         if (tool === 'setup' && !isAdminMode) {
             document.getElementById('btnToggleAdminMode')?.click();
@@ -40,10 +44,11 @@ function initializeToolPalette() {
             return;
         }
 
+        if (isFreeDrawingMode) toggleFreeDrawingMode(false);
+
         const actions = {
             floor: () => switchViewMode('floor'),
             wall: () => switchViewMode('wall'),
-            rotate: rotateActiveObject,
             undo,
             redo
         };

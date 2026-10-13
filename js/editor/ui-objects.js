@@ -1,3 +1,82 @@
+let pendingArtworkCatalogId = '';
+
+function refreshArtworkCatalog() {
+    const select = document.getElementById('savedArtworkSelect');
+    const addButton = document.getElementById('btnAddSavedArtwork');
+    const deleteButton = document.getElementById('btnDeleteSavedArtwork');
+    if (!select) return;
+    const selected = select.value;
+    select.replaceChildren();
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = savedArtworkCatalog.length ? '展示品を選択してください' : '保存済み展示品はありません';
+    select.appendChild(placeholder);
+    savedArtworkCatalog.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.id;
+        const typeLabel = item.displayType === 'wall' ? '壁面' : '床置';
+        const dimensions = item.displayType === 'wall'
+            ? `幅 ${item.cmWidth} × 高さ ${item.cmHeight} × 厚み ${item.cmDepth} cm`
+            : `幅 ${item.cmWidth} × 奥行 ${item.cmDepth} × 高さ ${item.cmHeight} cm`;
+        option.textContent = `${item.name} · ${typeLabel} · ${dimensions}`;
+        select.appendChild(option);
+    });
+    select.value = savedArtworkCatalog.some(item => item.id === selected) ? selected : '';
+    if (addButton) addButton.disabled = !select.value;
+    if (deleteButton) deleteButton.disabled = !select.value;
+}
+
+function upsertArtworkCatalogEntry(data, preferredId = '') {
+    const existing = savedArtworkCatalog.find(item => item.id === preferredId) ||
+        savedArtworkCatalog.find(item => item.displayType === data.displayType &&
+            item.name === data.name && Number(item.cmWidth) === Number(data.cmWidth) &&
+            Number(item.cmHeight) === Number(data.cmHeight) && Number(item.cmDepth) === Number(data.cmDepth));
+    const id = existing?.id || (window.crypto?.randomUUID?.() || `artwork_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+    const entry = { ...data, id };
+    if (existing) savedArtworkCatalog = savedArtworkCatalog.map(item => item.id === id ? entry : item);
+    else savedArtworkCatalog = [...savedArtworkCatalog, entry];
+    window.refreshArtworkCatalog();
+    return id;
+}
+
+window.refreshArtworkCatalog = refreshArtworkCatalog;
+window.updateArtworkCatalogEntry = obj => {
+    if (!obj?.artworkCatalogId) return;
+    if (!savedArtworkCatalog.some(item => item.id === obj.artworkCatalogId)) return;
+    upsertArtworkCatalogEntry({
+        name: obj.artworkName || '名称未設定',
+        description: obj.description || '',
+        displayType: obj.displayType || 'wall',
+        cmWidth: Number(obj.cmWidth) || 150,
+        cmHeight: Number(obj.cmHeight) || 100,
+        cmDepth: Number(obj.cmDepth) || 5
+    }, obj.artworkCatalogId);
+};
+window.migrateArtworkCatalogFromPlans = () => {
+    const registerPlan = raw => {
+        if (!raw) return;
+        let plan;
+        try { plan = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return; }
+        const visit = objects => (objects || []).forEach(obj => {
+            if (obj.isArtwork && !obj.isFixture) {
+                upsertArtworkCatalogEntry({
+                    name: obj.artworkName || '名称未設定',
+                    description: obj.description || '',
+                    displayType: obj.displayType || 'wall',
+                    cmWidth: Number(obj.cmWidth) || 150,
+                    cmHeight: Number(obj.cmHeight) || 100,
+                    cmDepth: Number(obj.cmDepth) || 5
+                }, obj.artworkCatalogId || '');
+            }
+            if (Array.isArray(obj.objects)) visit(obj.objects);
+        });
+        visit(plan.objects);
+    };
+    registerPlan(floorPlanJsonData);
+    Object.values(wallPlanJsonData || {}).forEach(wall => registerPlan(wall.json));
+    refreshArtworkCatalog();
+};
+
 function initializeObjectControlsUi() {
     const displayTypeSelect = document.getElementById("displayType");
     const scaleInput = document.getElementById("scale");
@@ -5,6 +84,37 @@ function initializeObjectControlsUi() {
     const addPinButton = document.getElementById("addPin");
     const updateCrowdButton = document.getElementById("updateCrowd");
     const pdfButton = document.getElementById("generatePdf");
+    const savedArtworkSelect = document.getElementById('savedArtworkSelect');
+    const addSavedArtworkButton = document.getElementById('btnAddSavedArtwork');
+    const deleteSavedArtworkButton = document.getElementById('btnDeleteSavedArtwork');
+    refreshArtworkCatalog();
+    savedArtworkSelect?.addEventListener('change', () => {
+        if (addSavedArtworkButton) addSavedArtworkButton.disabled = !savedArtworkSelect.value;
+        if (deleteSavedArtworkButton) deleteSavedArtworkButton.disabled = !savedArtworkSelect.value;
+    });
+
+    deleteSavedArtworkButton?.addEventListener('click', () => {
+        if (window.CURATOR_ROLE === 'viewer') return;
+        const item = savedArtworkCatalog.find(entry => entry.id === savedArtworkSelect?.value);
+        if (!item || !confirm(`「${item.name}」を保存済み一覧から削除しますか？配置済みの展示物はそのまま残ります。`)) return;
+        savedArtworkCatalog = savedArtworkCatalog.filter(entry => entry.id !== item.id);
+        refreshArtworkCatalog();
+        saveState();
+    });
+
+    addSavedArtworkButton?.addEventListener('click', () => {
+        const item = savedArtworkCatalog.find(entry => entry.id === savedArtworkSelect?.value);
+        if (!item || !addButton) return;
+        document.getElementById('artworkName').value = item.name;
+        document.getElementById('artworkDescription').value = item.description || '';
+        document.getElementById('displayType').value = item.displayType || 'wall';
+        document.getElementById('artworkWidth').value = item.cmWidth;
+        document.getElementById('artworkHeight').value = item.cmHeight;
+        document.getElementById('artworkDepth').value = item.cmDepth;
+        document.getElementById('displayType').dispatchEvent(new Event('change', { bubbles: true }));
+        pendingArtworkCatalogId = item.id;
+        addButton.click();
+    });
     // ----------------------------------------------------
     // 展示品（作品）の追加
     // ----------------------------------------------------
@@ -64,32 +174,23 @@ function initializeObjectControlsUi() {
                 isAdminMode &&
                 document.getElementById('addAsFixture')?.checked;
 
+            const catalogId = addAsFixture ? '' : upsertArtworkCatalogEntry({
+                name: nameText,
+                description: descriptionEl ? descriptionEl.value.trim() : '',
+                displayType,
+                cmWidth: cmW,
+                cmHeight: cmH,
+                cmDepth: cmD
+            }, pendingArtworkCatalogId);
+            pendingArtworkCatalogId = '';
+
             let pxW = cmW * currentScale;
-            let pxH;
-
-            if (currentViewMode === 'floor') {
-
-                if (displayType === 'wall') {
-
-                    pxH =
-                        Math.max(
-                            cmD * currentScale,
-                            8
-                        );
-
-                } else {
-
-                    pxH =
-                        cmH * currentScale;
-
-                }
-
-            } else {
-
-                pxH =
-                    cmH * currentScale;
-
-            }
+            const isFloorPlan = currentViewMode === 'floor';
+            // 平面図は幅×奥行き（壁面展示では厚み）、壁面図は幅×高さで描画。
+            const pxH = Math.max(
+                (isFloorPlan ? cmD : cmH) * currentScale,
+                isFloorPlan ? 8 : 6
+            );
 
             const rect = new fabric.Rect({
 
@@ -147,6 +248,7 @@ function initializeObjectControlsUi() {
 
                         isArtwork: true,
                         artworkName: nameText,
+                        artworkCatalogId: catalogId,
                         description: descriptionEl ? descriptionEl.value.trim() : '',
 
                         displayType: displayType,
@@ -161,6 +263,8 @@ function initializeObjectControlsUi() {
 
                     }
                 );
+
+            configureArtworkTransform(artworkGroup);
 
             canvas.add(artworkGroup);
 

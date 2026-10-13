@@ -8,6 +8,8 @@ function initializeItemDetailsUi() {
     const itemWidthInput = document.getElementById('editItemWidth');
     const itemHeightInput = document.getElementById('editItemHeight');
     const itemDepthInput = document.getElementById('editItemDepth');
+    const itemDepthLabel = document.getElementById('editItemDepthLabel');
+    const itemAngleInput = document.getElementById('editItemAngle');
     const itemTooltip = document.getElementById('canvasTooltip');
     const tooltipTitle = document.getElementById('canvasTooltipTitle');
     const tooltipMeta = document.getElementById('canvasTooltipMeta');
@@ -15,6 +17,7 @@ function initializeItemDetailsUi() {
     const canvasArea = document.querySelector('.canvas-container-wrapper');
     let hoveredItem = null;
     let saveTimer = null;
+    let rotationInputTimer = null;
     let pendingEditedObject = null;
 
     window.flushPendingItemEditHistory = () => {
@@ -49,9 +52,11 @@ function initializeItemDetailsUi() {
         const isArtwork = Boolean(selectedItemForEditing?.isArtwork);
         if (itemArtworkDimensions) itemArtworkDimensions.hidden = !isArtwork;
         if (isArtwork) {
+            if (itemDepthLabel) itemDepthLabel.textContent = selectedItemForEditing.displayType === 'floor' ? '奥行き' : '厚み';
             if (itemWidthInput) itemWidthInput.value = selectedItemForEditing.cmWidth ?? 150;
             if (itemHeightInput) itemHeightInput.value = selectedItemForEditing.cmHeight ?? 100;
             if (itemDepthInput) itemDepthInput.value = selectedItemForEditing.cmDepth ?? 5;
+            if (itemAngleInput) itemAngleInput.value = Math.round(selectedItemForEditing.angle || 0);
         }
     };
 
@@ -78,7 +83,9 @@ function initializeItemDetailsUi() {
         hoveredItem = obj;
         const name = getItemName(obj) || (obj.isArtwork ? '展示物' : 'ピン');
         const meta = obj.isArtwork && obj.cmWidth && obj.cmHeight
-            ? `${obj.cmWidth} × ${obj.cmHeight} cm`
+            ? (obj.displayType === 'floor'
+                ? `幅 ${obj.cmWidth} × 奥行 ${obj.cmDepth} × 高さ ${obj.cmHeight} cm`
+                : `幅 ${obj.cmWidth} × 高さ ${obj.cmHeight} × 厚み ${obj.cmDepth} cm`)
             : (obj.isGuard ? '警備員' : 'ピン');
         tooltipTitle.textContent = name;
         tooltipMeta.textContent = meta;
@@ -92,7 +99,7 @@ function initializeItemDetailsUi() {
     canvas.on('mouse:out', hideItemTooltip);
     canvas.on('mouse:down', hideItemTooltip);
 
-    const applyItemEdit = () => {
+    const applyItemEdit = (applyRotation = false) => {
             const obj = selectedItemForEditing;
             if (!isEditableCanvasItem(obj)) return false;
             const newName = (itemNameInput?.value || '').trim();
@@ -103,6 +110,29 @@ function initializeItemDetailsUi() {
             const newDescription = itemDescriptionInput?.value.trim() || '';
 
             if (obj.isArtwork) {
+                if (applyRotation) {
+                    const rawAngle = itemAngleInput?.value?.trim();
+                    const enteredAngle = Number(rawAngle);
+                    if (!rawAngle || !Number.isFinite(enteredAngle)) {
+                        if (itemEditorStatus) itemEditorStatus.textContent = '回転角度を数値で入力してください。';
+                        return false;
+                    }
+                    const previousAngle = obj.angle || 0;
+                    const nextAngle = ((enteredAngle % 360) + 360) % 360;
+                    obj.set('angle', nextAngle);
+                    obj.setCoords();
+                    if (checkCollisionWithWall(obj)) {
+                        obj.set('angle', previousAngle);
+                        obj.setCoords();
+                        if (itemAngleInput) itemAngleInput.value = Math.round(previousAngle);
+                        if (itemEditorStatus) itemEditorStatus.textContent = 'その角度では壁に接触します。';
+                        canvas.requestRenderAll();
+                        return false;
+                    }
+                    if (obj.crowdCircle) updateCrowdSemicircle(obj);
+                    if (itemAngleInput) itemAngleInput.value = Math.round(nextAngle);
+                }
+
                 const dimensions = {
                     width: Number(itemWidthInput?.value),
                     height: Number(itemHeightInput?.value),
@@ -139,6 +169,7 @@ function initializeItemDetailsUi() {
             }
 
             obj.description = newDescription;
+            if (obj.isArtwork) window.updateArtworkCatalogEntry?.(obj);
             obj.setCoords();
             canvas.requestRenderAll();
             if (saveTimer) clearTimeout(saveTimer);
@@ -155,6 +186,19 @@ function initializeItemDetailsUi() {
 
     [itemNameInput, itemDescriptionInput, itemWidthInput, itemHeightInput, itemDepthInput]
         .filter(Boolean)
-        .forEach(input => input.addEventListener('input', () => applyItemEdit(false)));
+        .forEach(input => input.addEventListener('input', () => applyItemEdit()));
+
+    itemAngleInput?.addEventListener('input', () => {
+        if (rotationInputTimer) clearTimeout(rotationInputTimer);
+        rotationInputTimer = setTimeout(() => {
+            rotationInputTimer = null;
+            applyItemEdit(true);
+        }, 250);
+    });
+    itemAngleInput?.addEventListener('change', () => {
+        if (rotationInputTimer) clearTimeout(rotationInputTimer);
+        rotationInputTimer = null;
+        applyItemEdit(true);
+    });
 
 }

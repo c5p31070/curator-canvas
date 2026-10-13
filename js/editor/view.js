@@ -68,6 +68,8 @@ function updateWallTabs() {
 
 async function handleWallSelectChange(wallId) {
 
+    if (isFreeDrawingMode) toggleFreeDrawingMode(false);
+
     if (
         !wallPlanJsonData[wallId] ||
         isTransitioning
@@ -146,6 +148,8 @@ async function switchViewMode(
     skipSave = false,
     callback = null
 ) {
+
+    if (isFreeDrawingMode) toggleFreeDrawingMode(false);
 
     if (isTransitioning) {
         return;
@@ -372,8 +376,8 @@ function renderWallRulers() {
     const wallHeight = bounds.height;
     const left = bounds.left;
     const top = bounds.top;
-    const horizontalY = top - 34;
-    const verticalX = left - 36;
+    const horizontalY = top - 16;
+    const verticalX = left - 16;
     const verticalOffset = 0;
     const tickStep = dimension => dimension <= 300 ? 10 : dimension <= 1000 ? 20 : 50;
     const majorStep = dimension => dimension <= 300 ? 50 : 100;
@@ -383,25 +387,25 @@ function renderWallRulers() {
     for (let cm = 0; cm <= widthCm; cm += tickStep(widthCm)) {
         const x = left + wallWidth * cm / widthCm;
         const major = cm % majorStep(widthCm) === 0;
-        horizontalTicks.push(`<line x1="${x}" y1="${horizontalY}" x2="${x}" y2="${horizontalY + (major ? 10 : 5)}" class="ruler-tick"/>`);
-        if (major) horizontalTicks.push(`<text x="${x}" y="${horizontalY - 4}" text-anchor="middle" class="ruler-label">${cm}</text>`);
+        horizontalTicks.push(`<line x1="${x}" y1="${horizontalY}" x2="${x}" y2="${horizontalY + (major ? 6 : 3)}" class="ruler-tick"/>`);
+        if (major) horizontalTicks.push(`<text x="${x}" y="${horizontalY - 3}" text-anchor="middle" class="ruler-label">${cm}</text>`);
     }
     if (widthCm % tickStep(widthCm) !== 0) {
         const x = left + wallWidth;
-        horizontalTicks.push(`<line x1="${x}" y1="${horizontalY}" x2="${x}" y2="${horizontalY + 10}" class="ruler-tick"/>`);
-        horizontalTicks.push(`<text x="${x}" y="${horizontalY - 4}" text-anchor="middle" class="ruler-label">${widthCm}</text>`);
+        horizontalTicks.push(`<line x1="${x}" y1="${horizontalY}" x2="${x}" y2="${horizontalY + 6}" class="ruler-tick"/>`);
+        horizontalTicks.push(`<text x="${x}" y="${horizontalY - 3}" text-anchor="middle" class="ruler-label">${widthCm}</text>`);
     }
 
     for (let cm = 0; cm <= heightCm; cm += tickStep(heightCm)) {
-        const y = top + wallHeight * cm / heightCm + verticalOffset;
+        const y = top + wallHeight * (heightCm - cm) / heightCm + verticalOffset;
         const major = cm % majorStep(heightCm) === 0;
-        verticalTicks.push(`<line x1="${verticalX}" y1="${y}" x2="${verticalX + (major ? 10 : 5)}" y2="${y}" class="ruler-tick"/>`);
-        if (major) verticalTicks.push(`<text x="${verticalX - 5}" y="${y + 3}" text-anchor="end" class="ruler-label">${cm}</text>`);
+        verticalTicks.push(`<line x1="${verticalX}" y1="${y}" x2="${verticalX + (major ? 6 : 3)}" y2="${y}" class="ruler-tick"/>`);
+        if (major) verticalTicks.push(`<text x="${verticalX - 3}" y="${y + 2}" text-anchor="end" class="ruler-label">${cm}</text>`);
     }
     if (heightCm % tickStep(heightCm) !== 0) {
-        const y = top + wallHeight + verticalOffset;
-        verticalTicks.push(`<line x1="${verticalX}" y1="${y}" x2="${verticalX + 10}" y2="${y}" class="ruler-tick"/>`);
-        verticalTicks.push(`<text x="${verticalX - 5}" y="${y + 3}" text-anchor="end" class="ruler-label">${heightCm}</text>`);
+        const y = top + verticalOffset;
+        verticalTicks.push(`<line x1="${verticalX}" y1="${y}" x2="${verticalX + 6}" y2="${y}" class="ruler-tick"/>`);
+        verticalTicks.push(`<text x="${verticalX - 3}" y="${y + 2}" text-anchor="end" class="ruler-label">${heightCm}</text>`);
     }
 
     const wrapperRect = wrapper.getBoundingClientRect();
@@ -418,8 +422,6 @@ function renderWallRulers() {
             ${horizontalTicks.join('')}
             <line x1="${verticalX}" y1="${top + verticalOffset}" x2="${verticalX}" y2="${top + wallHeight + verticalOffset}" class="ruler-line"/>
             ${verticalTicks.join('')}
-            <text x="${left + wallWidth / 2}" y="${horizontalY - 17}" text-anchor="middle" class="ruler-dimension">幅 ${widthCm} cm</text>
-            <text x="${verticalX - 32}" y="${top + wallHeight / 2 + verticalOffset}" text-anchor="middle" class="ruler-dimension" transform="rotate(-90 ${verticalX - 32} ${top + wallHeight / 2 + verticalOffset})">高さ ${heightCm} cm</text>
         </g>`;
     container.appendChild(svg);
 }
@@ -530,10 +532,10 @@ function applyArtworkDimensions(obj, scale) {
 
     const newPxW = (Number(obj.cmWidth) || 150) * scale;
     const isFloorPlan = currentViewMode === 'floor';
-    let newPxH = isFloorPlan && obj.displayType === 'wall'
-        ? (Number(obj.cmDepth) || 5) * scale
-        : (Number(obj.cmHeight) || 100) * scale;
-    newPxH = Math.max(newPxH, isFloorPlan && obj.displayType === 'wall' ? 8 : 6);
+    const newPxH = Math.max(
+        (isFloorPlan ? (Number(obj.cmDepth) || 5) : (Number(obj.cmHeight) || 100)) * scale,
+        isFloorPlan ? 8 : 6
+    );
 
     obj.pxWidth = newPxW;
     obj.pxHeight = newPxH;
@@ -549,6 +551,7 @@ function applyArtworkDimensions(obj, scale) {
     if (obj.crowdCircle) {
         const diagonal = Math.sqrt(newPxW ** 2 + newPxH ** 2);
         obj.crowdCircle.crowdRadius = ((diagonal / 2) + 25) * 1.1;
+        obj.crowdRadius = obj.crowdCircle.crowdRadius;
         updateCrowdSemicircle(obj);
     }
 }
