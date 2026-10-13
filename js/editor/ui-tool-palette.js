@@ -35,6 +35,8 @@ function initializeToolPalette() {
         }
     };
 
+    window.activateToolPanel = tool => activate(tool);
+
     palette.addEventListener('click', event => {
         const button = event.target.closest('.tool-icon');
         if (!button) return;

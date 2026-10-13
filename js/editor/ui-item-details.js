@@ -44,6 +44,7 @@ function initializeItemDetailsUi() {
             if (itemEditorStatus) itemEditorStatus.textContent = 'キャンバス上の展示物またはピンを選択してください。';
             return;
         }
+        window.activateToolPanel?.('edit');
         if (itemEditorStatus) {
             itemEditorStatus.textContent = selectedItemForEditing.isArtwork ? '展示物の情報を編集できます。' : 'ピンの情報を編集できます。';
         }

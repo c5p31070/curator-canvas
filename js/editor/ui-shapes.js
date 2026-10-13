@@ -28,6 +28,7 @@ function initializeShapeTools() {
 
     addButton.addEventListener('click', () => {
         if (window.CURATOR_ROLE === 'viewer') return;
+        if (isFreeDrawingMode) toggleFreeDrawingMode(false);
         const p = getParameters();
         const object = createShape(p.kind, p.length, p.head, p.stroke, p.fill);
         canvas.add(object);

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>展示配置エディタ - curator-canvas</title>
+    <title>展示配置エディタ - Curator-Canvas</title>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,7 +27,7 @@
 <body>
 
     <header>
-        <h1>curator-canvas</h1>
+        <h1>Curator-Canvas <span class="brand-subtitle">東京都美術館配置図アプリ</span></h1>
 
         <div class="account-controls">
             <span id="accountLabel"></span>
@@ -220,44 +220,47 @@
             </div>
 
             <div class="panel-section drawing-section tool-panel" data-tool-panel="draw">
-                <h2>フリーペイント</h2>
-                <p class="section-help">平面図や壁面図に、線・矢印・メモを書き込めます。</p>
-                <div class="form-row drawing-options">
-                    <div class="form-group">
-                        <label for="freeDrawColor">線の色</label>
-                        <input id="freeDrawColor" class="form-control-color" type="color" value="#26776f">
+                <h2>描画</h2>
+                <div class="drawing-subsection">
+                    <h3>フリーペイント</h3>
+                    <p class="section-help">平面図や壁面図に、線・矢印・メモを書き込めます。</p>
+                    <div class="form-row drawing-options">
+                        <div class="form-group">
+                            <label for="freeDrawColor">線の色</label>
+                            <input id="freeDrawColor" class="form-control-color" type="color" value="#26776f">
+                        </div>
+                        <div class="form-group">
+                            <label for="freeDrawWidth">線の太さ (px)</label>
+                            <input id="freeDrawWidth" class="form-control" type="number" value="4" min="1" max="30" step="1">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="freeDrawWidth">線の太さ (px)</label>
-                        <input id="freeDrawWidth" class="form-control" type="number" value="4" min="1" max="30" step="1">
-                    </div>
+                    <button id="btnToggleFreeDraw" class="btn btn-secondary" type="button" data-tooltip="平面図や壁面図に線・矢印・メモを書き込めます。">描き込みを開始</button>
                 </div>
-                <button id="btnToggleFreeDraw" class="btn btn-secondary" type="button" data-tooltip="平面図や壁面図に線・矢印・メモを書き込めます。">描き込みを開始</button>
-            </div>
 
-            <div class="panel-section drawing-section tool-panel" data-tool-panel="shapes">
-                <h2>図形</h2>
-                <p class="section-help">追加後、選択して移動・拡大縮小・回転できます。</p>
-                <div class="form-group">
-                    <label for="shapeKind">種類</label>
-                    <select id="shapeKind" class="form-control">
-                        <option value="rect">四角形</option>
-                        <option value="triangle">三角形</option>
-                        <option value="arrow">直線矢印</option>
-                        <option value="curvedArrow">曲線矢印</option>
-                    </select>
-                </div>
-                <div class="form-row drawing-options">
-                    <div class="form-group"><label for="shapeLength">長さ (px)</label><input id="shapeLength" class="form-control" type="number" value="180" min="20" max="1000"></div>
-                    <div class="form-group"><label for="shapeHeadSize">矢じり (px)</label><input id="shapeHeadSize" class="form-control" type="number" value="22" min="4" max="120"></div>
-                </div>
-                <div class="form-row drawing-options">
-                    <div class="form-group"><label for="shapeStroke">線</label><input id="shapeStroke" class="form-control-color" type="color" value="#d9e0e3"></div>
-                    <div class="form-group"><label for="shapeFill">塗り</label><input id="shapeFill" class="form-control-color" type="color" value="#52616b"></div>
-                </div>
-                <div class="form-row">
-                    <button id="btnAddShape" class="btn btn-secondary" type="button">図形を追加</button>
-                    <button id="btnUpdateShape" class="btn btn-secondary" type="button">選択図形を更新</button>
+                <div class="drawing-subsection">
+                    <h3>図形</h3>
+                    <p class="section-help">追加後、選択して移動・拡大縮小・回転できます。</p>
+                    <div class="form-group">
+                        <label for="shapeKind">種類</label>
+                        <select id="shapeKind" class="form-control">
+                            <option value="rect">四角形</option>
+                            <option value="triangle">三角形</option>
+                            <option value="arrow">直線矢印</option>
+                            <option value="curvedArrow">曲線矢印</option>
+                        </select>
+                    </div>
+                    <div class="form-row drawing-options">
+                        <div class="form-group"><label for="shapeLength">長さ (px)</label><input id="shapeLength" class="form-control" type="number" value="180" min="20" max="1000"></div>
+                        <div class="form-group"><label for="shapeHeadSize">矢じり (px)</label><input id="shapeHeadSize" class="form-control" type="number" value="22" min="4" max="120"></div>
+                    </div>
+                    <div class="form-row drawing-options">
+                        <div class="form-group"><label for="shapeStroke">線</label><input id="shapeStroke" class="form-control-color" type="color" value="#d9e0e3"></div>
+                        <div class="form-group"><label for="shapeFill">塗り</label><input id="shapeFill" class="form-control-color" type="color" value="#52616b"></div>
+                    </div>
+                    <div class="form-row">
+                        <button id="btnAddShape" class="btn btn-secondary" type="button">図形を追加</button>
+                        <button id="btnUpdateShape" class="btn btn-secondary" type="button">選択図形を更新</button>
+                    </div>
                 </div>
             </div>
 
@@ -575,8 +578,7 @@
                     <button class="tool-icon" type="button" data-action="wall" title="壁面図を表示" aria-label="壁面図を表示" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3zM7 4v16m10-16v16M3 9h4m10 6h4"/></svg><span class="tool-label">壁面図</span></button>
                 </div>
                 <div class="tool-group tool-group-create">
-                    <button class="tool-icon" type="button" data-tool="draw" title="フリーペイント" aria-label="フリーペイント"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1 11-11a2.1 2.1 0 0 0-3-3l-11 11zM14.5 6.5l3 3M4 20h16"/></svg><span class="tool-label">描画</span></button>
-                    <button class="tool-icon" type="button" data-tool="shapes" title="図形追加" aria-label="図形追加"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM16 4l5 8h-10zM4 19h16M14 15l6 4-6 4"/></svg><span class="tool-label">図形</span></button>
+                    <button class="tool-icon" type="button" data-tool="draw" title="描画・図形" aria-label="描画・図形"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1 11-11a2.1 2.1 0 0 0-3-3l-11 11zM14.5 6.5l3 3M4 20h16"/><path d="M4 4h6v6H4zM14 15l3 5 3-5z"/></svg><span class="tool-label">描画</span></button>
                     <button class="tool-icon" type="button" data-tool="artwork" title="展示物追加" aria-label="展示物追加"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM7 16l4-5 3 3 2-2 2 4M8 8h.01"/></svg><span class="tool-label">展示物追加</span></button>
                     <button class="tool-icon" type="button" data-tool="pins" title="ピン追加" aria-label="ピン追加"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span class="tool-label">ピン追加</span></button>
                 </div>

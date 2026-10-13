@@ -968,3 +968,156 @@ input:focus, select:focus, textarea:focus {
     border-radius: 0 !important;
     background: #8b9599 !important;
 }
+
+/* Keep the operation panel on one charcoal surface, with quiet separators. */
+.sidebar {
+    background: #292e31 !important;
+    border-color: #41484b !important;
+}
+.sidebar .panel-section,
+.sidebar .panel-section.workflow-section,
+.sidebar .panel-section.navigation-section,
+.sidebar .panel-section.drawing-section,
+.sidebar .panel-section.artwork-section,
+.sidebar .panel-section.pin-section,
+.sidebar .panel-section.config-section,
+.sidebar .panel-section.analysis-section,
+.sidebar .panel-section.data-section,
+.sidebar .panel-section.history-section,
+.sidebar .panel-section.edit-tools-section,
+.sidebar .panel-section.item-editor-section,
+.sidebar .panel-section.info-section,
+.sidebar .panel-section.mode-switch-section,
+.sidebar .admin-settings-panel:not([hidden]) {
+    background: transparent !important;
+    border: 0 !important;
+    border-bottom: 1px solid #41484b !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+.sidebar .panel-section:last-child,
+.sidebar .admin-settings-panel:not([hidden]):last-child {
+    border-bottom: 0 !important;
+}
+.sidebar .panel-section h2 {
+    border-left: 0 !important;
+    border-bottom: 1px solid #3a4245 !important;
+}
+
+/* Unify the editor panes; use borders instead of dark gaps between cards. */
+body {
+    background: #24282a !important;
+}
+header {
+    background: #281719 !important;
+    border-bottom: 1px solid #4b292e !important;
+}
+.main-layout {
+    gap: 0 !important;
+    padding: 0 !important;
+    background: #24282a !important;
+}
+.sidebar {
+    background: #262b30 !important;
+    border: 0 !important;
+    border-right: 2px solid #51595d !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    gap: 0 !important;
+}
+.canvas-container-wrapper {
+    background: #24282a !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+.tool-palette {
+    background: #2b3033 !important;
+    border: 0 !important;
+    border-bottom: 1px solid #51595d !important;
+}
+.wall-tabs {
+    background: #24282a !important;
+    gap: 5px !important;
+    padding: 4px 5px !important;
+    border-bottom-color: #41484b !important;
+}
+.wall-tabs .wall-tab,
+.wall-tabs .wall-tab:hover,
+.wall-tabs .wall-tab.active,
+.wall-tabs .wall-tab[aria-selected="true"] {
+    margin-top: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #b8c0c2 !important;
+}
+.wall-tabs .wall-tab + .wall-tab {
+    border-left: 1px solid #51595d !important;
+}
+.wall-tabs .wall-tab:hover {
+    color: #e1e5e6 !important;
+}
+.wall-tabs .wall-tab.active,
+.wall-tabs .wall-tab[aria-selected="true"] {
+    color: #f0f2f2 !important;
+}
+.wall-tabs .wall-tab.active::after,
+.wall-tabs .wall-tab[aria-selected="true"]::after {
+    right: 5px;
+    left: 5px;
+    background: #aeb8bb;
+}
+
+/* Use a restrained, utilitarian type style across the editor UI. */
+body,
+body :is(h1, h2, h3, label, button, input, select, textarea, output, p, span, strong, small) {
+    font-family: "Arial Narrow", "Yu Gothic UI", "Meiryo", sans-serif !important;
+}
+header h1,
+.panel-section h2,
+.wall-tab,
+.tool-icon,
+.sidebar label,
+.sidebar .btn,
+.account-controls,
+.account-controls button,
+.wall-info-banner,
+.save-status-text {
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+}
+.panel-section h2,
+header h1 {
+    font-family: "Arial Narrow", "Yu Gothic UI", "Meiryo", sans-serif !important;
+}
+header h1 .brand-subtitle {
+    display: inline-block;
+    margin-left: 8px;
+    color: #b8a9aa !important;
+    font-size: 10px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+    vertical-align: baseline;
+}
+.drawing-subsection + .drawing-subsection {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #41484b;
+}
+.drawing-subsection h3 {
+    margin: 0 0 5px;
+    color: #d0d5d6;
+    font-size: 11px;
+    font-weight: 400;
+}
+.canvas-viewport {
+    background: #24282a !important;
+    scrollbar-color: #51595d #24282a !important;
+}
+.canvas-viewport::-webkit-scrollbar-track {
+    background: #24282a !important;
+}
+.canvas-viewport::-webkit-scrollbar-thumb {
+    border-color: #24282a !important;
+}

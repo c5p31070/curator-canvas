@@ -581,7 +581,7 @@ async function generateCombinedPdf() {
 
 
             <div class="footer">
-                curator-canvas - 統合展示指示書 Page 1
+                Curator-Canvas - 統合展示指示書 Page 1
             </div>
 
         </div>
@@ -645,7 +645,7 @@ async function generateCombinedPdf() {
 
 
                     <div class="footer">
-                        curator-canvas - 統合展示指示書
+                        Curator-Canvas - 統合展示指示書
                         Page ${idx + 2}
                     </div>
 
@@ -673,7 +673,7 @@ async function generateCombinedPdf() {
 
             <title>
                 ${currentTitle}
-                - curator-canvas 統合指示書
+                - Curator-Canvas 統合指示書
             </title>
 
 
