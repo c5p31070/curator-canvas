@@ -49,7 +49,8 @@ function initializeCreationSettingsUi() {
         scaleInput.addEventListener("change", function() {
 
             const newScale =
-                parseFloat(scaleInput.value) || 0.5;
+                Number(scaleInput.value);
+            if (!setConfiguredScale(newScale)) return;
 
             applyScaleToAllArtworks(newScale);
 
@@ -105,11 +106,14 @@ function initializeCreationSettingsUi() {
 
     if (btnResetCurrentLayout) {
         btnResetCurrentLayout.addEventListener("click", function() {
-            if (!confirm("現在表示中の配置図にある展示物・ピン・フリーペイントをすべて消去しますか？")) return;
+            if (!confirm("現在表示中の配置図にある展示物・ピン・描画・図形・寸法線をすべて消去しますか？")) return;
+            window.cancelDimensionDrawing?.();
+            window.cancelLightingPlacement?.();
 
             const removable = canvas.getObjects().filter(obj =>
                 obj.isArtwork || obj.isPin || obj.isFreePin || obj.isGuard ||
-                obj.pinLabel !== undefined || obj.isCrowdCircle || obj.isFreeDrawing || obj.isShapeObject || obj.type === 'path'
+                obj.pinLabel !== undefined || obj.isCrowdCircle || obj.isFreeDrawing || obj.isShapeObject || obj.isDimension || obj.type === 'path' ||
+                (obj.isLightObject && obj.lightKind === 'spot')
             );
             canvas.discardActiveObject();
             canvas.remove(...removable);
@@ -151,7 +155,8 @@ function initializeCreationSettingsUi() {
             const selectedObjects = canvas.getActiveObjects();
             const deletableObjects = selectedObjects.filter(obj =>
                 obj.isArtwork || obj.isPin || obj.isFreePin || obj.isGuard || obj.pinLabel !== undefined ||
-                obj.isFreeDrawing || obj.isShapeObject || obj.type === 'path'
+                obj.isFreeDrawing || obj.isShapeObject || obj.isDimension || obj.type === 'path' ||
+                window.canDeleteLightingObject?.(obj)
             );
 
             if (deletableObjects.length > 0) {

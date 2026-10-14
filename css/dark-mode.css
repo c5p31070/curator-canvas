@@ -1042,6 +1042,9 @@ header {
     padding: 4px 5px !important;
     border-bottom-color: #41484b !important;
 }
+.wall-tabs[hidden] {
+    display: none !important;
+}
 .wall-tabs .wall-tab,
 .wall-tabs .wall-tab:hover,
 .wall-tabs .wall-tab.active,
@@ -1110,6 +1113,63 @@ header h1 .brand-subtitle {
     color: #d0d5d6;
     font-size: 11px;
     font-weight: 400;
+}
+.layout-variants-section {
+    margin-top: 9px;
+    padding-top: 8px;
+    border-top: 1px solid #41484b;
+}
+.layout-variants-section h3 {
+    margin: 0 0 5px;
+    font-size: 11px;
+    font-weight: 400;
+}
+
+/* Plan views behave visually as flat tabs within the tool strip. */
+.tool-group-views {
+    gap: 0;
+}
+.tool-group-views .tool-icon,
+.tool-group-views .tool-icon:hover,
+.tool-group-views .tool-icon:focus-visible,
+.tool-group-views .tool-icon.active,
+.tool-group-views .tool-icon[aria-pressed="true"] {
+    position: relative;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #929da2 !important;
+}
+.tool-group-views .tool-icon:hover,
+.tool-group-views .tool-icon.active,
+.tool-group-views .tool-icon[aria-pressed="true"] {
+    color: #d5dde0 !important;
+}
+.tool-group-views .tool-icon::after {
+    position: absolute;
+    right: 8px;
+    bottom: 0;
+    left: 8px;
+    height: 1px;
+    background: #9aa8ae;
+    content: '';
+    opacity: 0;
+    transition: opacity .15s ease;
+}
+.tool-group-views .tool-icon.active::after,
+.tool-group-views .tool-icon[aria-pressed="true"]::after,
+.tool-group-views .tool-icon:focus-visible::after {
+    opacity: 1;
+}
+.tool-group-views .tool-icon + .tool-icon::before {
+    position: absolute;
+    top: calc(50% - 7px);
+    left: 0;
+    width: 1px;
+    height: 14px;
+    background: #454f54;
+    content: '';
 }
 .canvas-viewport {
     background: #24282a !important;

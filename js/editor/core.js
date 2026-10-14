@@ -16,6 +16,46 @@ fabric.Object.prototype.transparentCorners = false;
 
 const STORAGE_KEY = 'curator_canvas_draft_data';
 const EXHIBITIONS_KEY = 'curator_canvas_saved_exhibitions';
+const SCALE_SETTINGS_KEY = 'curator_canvas_floor_scale';
+let configuredScale = loadConfiguredScale();
+if (configuredScale !== null) {
+    const input = document.getElementById('scale');
+    if (input) input.value = configuredScale;
+}
+
+function loadConfiguredScale() {
+    try {
+        const saved = localStorage.getItem(SCALE_SETTINGS_KEY);
+        const value = Number(saved);
+        if (saved !== null && Number.isFinite(value) && value > 0) return value;
+        // Preserve calibration from drafts created before scale had its own setting.
+        const legacy = Number(JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')?.scale);
+        if (Number.isFinite(legacy) && legacy > 0) {
+            localStorage.setItem(SCALE_SETTINGS_KEY, String(legacy));
+            return legacy;
+        }
+    } catch (error) {
+        console.warn('縮尺設定の読み込みに失敗しました。', error);
+    }
+    return null;
+}
+
+function setConfiguredScale(value) {
+    const scale = Number(value);
+    const input = document.getElementById('scale');
+    if (!Number.isFinite(scale) || scale <= 0) {
+        if (input) input.value = configuredScale ?? 0.5;
+        return false;
+    }
+    configuredScale = scale;
+    if (input) input.value = scale;
+    try {
+        localStorage.setItem(SCALE_SETTINGS_KEY, String(scale));
+    } catch (error) {
+        console.warn('縮尺設定の保存に失敗しました。', error);
+    }
+    return true;
+}
 let selectedExhibitionId = '';
 let cloudExhibitionCache = [];
 let cloudExhibitionRefreshPending = false;
@@ -47,20 +87,21 @@ async function refreshCloudExhibitions() {
 
 function queueCloudExhibitionSave(json) {
     if (!canEditSharedExhibitions() || !selectedExhibitionId || cloudExhibitionConflict) return;
+    const exhibitionId = selectedExhibitionId;
     if (cloudExhibitionSaveTimer) clearTimeout(cloudExhibitionSaveTimer);
     cloudExhibitionSaveTimer = setTimeout(async () => {
         cloudExhibitionSaveTimer = null;
-        const record = cloudExhibitionCache.find(item => item.id === selectedExhibitionId);
+        const record = cloudExhibitionCache.find(item => item.id === exhibitionId);
         if (!record) return;
         const parsed = JSON.parse(json);
-        const nextTitle = (document.getElementById('exhibitionTitle')?.value || record.title).trim() || record.title;
+        const nextTitle = (parsed.exhibitionTitle || record.title).trim() || record.title;
         const updatedAt = new Date().toISOString();
         const { data: updated, error } = await window.curatorSupabase.from('exhibitions').update({
             title: nextTitle,
             data: parsed,
             updated_by: window.CURATOR_USER.id,
             updated_at: updatedAt
-        }).eq('id', selectedExhibitionId).eq('team_id', window.CURATOR_TEAM.id)
+        }).eq('id', exhibitionId).eq('team_id', window.CURATOR_TEAM.id)
             .eq('updated_at', record.updated_at).select('id, updated_at').maybeSingle();
         if (error) {
             console.error('共有配置図の自動保存に失敗しました:', error);
@@ -122,6 +163,10 @@ async function saveExhibitionSnapshot() {
     if (!title) {
         alert('展覧会タイトルを入力してください。');
         return;
+    }
+    if (cloudExhibitionSaveTimer) {
+        clearTimeout(cloudExhibitionSaveTimer);
+        cloudExhibitionSaveTimer = null;
     }
     if (window.CURATOR_TEAM) {
         if (!canEditSharedExhibitions()) {
@@ -253,6 +298,16 @@ let isAdminMode = false;
 // ------------------------------------------------------------
 
 let floorPlanJsonData = null;
+const FLOOR_PLANS = {
+    lobby: { title: 'ロビー階', image: 'images/LBF.png' },
+    floor1: { title: '1階', image: 'images/floor1.png' }
+};
+let selectedFloorId = 'lobby';
+let floorPlanData = {
+    lobby: { json: null },
+    floor1: { json: null }
+};
+const floorBackgroundImages = new Map();
 let savedArtworkCatalog = [];
 
 let wallPlanJsonData = {
@@ -297,6 +352,7 @@ let isTransitioning = false;
 let isMeasuringMode = false;
 let isMeasuring = false;
 let isFreeDrawingMode = false;
+let isDimensionDrawingMode = false;
 let measureLine = null;
 let measureStartPt = null;
 
@@ -327,6 +383,12 @@ function getCustomProperties() {
         'isPin',
         'pinName',
         'isFreeDrawing',
+        'isDimension',
+        'isDimensionLabel',
+        'dimensionLengthPx',
+        'isLightObject', 'isLightRail', 'lightId', 'lightKind', 'lightName',
+        'lightOn', 'lightRailId', 'lightRailT', 'lightDirectionDeg',
+        'lightAimMode', 'lightAimTargetId', 'lightingTargetId',
         'isWallOutline',
         'displayType',
         'cmWidth',
@@ -382,7 +444,12 @@ function captureCurrentCanvasState() {
 
     if (currentViewMode === 'floor') {
 
-        floorPlanJsonData = jsonStr;
+        const floorJson = JSON.parse(jsonStr);
+        delete floorJson.backgroundImage;
+        floorPlanJsonData = JSON.stringify(floorJson);
+        floorPlanData[selectedFloorId] = {
+            json: floorPlanJsonData
+        };
 
     } else if (
         currentViewMode === 'wall' &&
@@ -422,19 +489,24 @@ function getSerializedCanvasData() {
 
     const scaleInput = document.getElementById("scale");
 
-    const currentScale = scaleInput
+    const currentScale = configuredScale ?? (scaleInput
         ? parseFloat(scaleInput.value) || 0.5
-        : 0.5;
+        : 0.5);
 
-    return JSON.stringify({
+    const data = {
         exhibitionTitle: exhibitionTitle,
         scale: currentScale,
         currentViewMode: currentViewMode,
         selectedWallInfo: selectedWallInfo,
         floorPlanJsonData: floorPlanJsonData,
+        selectedFloorId: selectedFloorId,
+        floorPlanData: floorPlanData,
         wallPlanJsonData: wallPlanJsonData,
         savedArtworkCatalog: savedArtworkCatalog
-    });
+    };
+    Object.assign(data, window.getLayoutVariantsData?.(data));
+    if (window.getVenueLightingData) data.venueLightingData = window.getVenueLightingData();
+    return JSON.stringify(data);
 }
 
 // ============================================================
@@ -484,6 +556,8 @@ function saveState() {
     if (
         isUndoRedoOperation ||
         isMeasuringMode ||
+        isDimensionDrawingMode ||
+        window.isLightingRenderBusy?.() || window.isLightingPlacementActive?.() ||
         isTransitioning
     ) {
         return;
@@ -491,9 +565,11 @@ function saveState() {
 
     const json = getSerializedCanvasData();
 
-    historyStack.push(json);
-
-    redoStack = [];
+    // Fabric events and UI commands can both save the same completed operation.
+    if (historyStack[historyStack.length - 1] !== json) {
+        historyStack.push(json);
+        redoStack = [];
+    }
 
     updateUndoRedoButtons();
 
@@ -507,11 +583,13 @@ function saveState() {
 function undo() {
 
     if (window.CURATOR_ROLE === 'viewer') return;
+    if (window.isLayoutVariantBusy?.()) return;
 
     // 編集欄の自動保存待ちがあれば、Undo対象として先に履歴へ確定する。
     if (typeof window.flushPendingItemEditHistory === 'function') {
         window.flushPendingItemEditHistory();
     }
+    window.flushPendingLightingEdit?.();
 
     if (historyStack.length <= 1) {
         return;
@@ -525,6 +603,7 @@ function undo() {
 
     const prevState =
         historyStack[historyStack.length - 1];
+    window.applyVenueLightingHistory?.(JSON.parse(prevState));
 
     applyStateData(prevState, function() {
 
@@ -543,6 +622,8 @@ function undo() {
 function redo() {
 
     if (window.CURATOR_ROLE === 'viewer') return;
+    if (window.isLayoutVariantBusy?.()) return;
+    window.flushPendingLightingEdit?.();
 
     if (redoStack.length === 0) {
         return;
@@ -551,6 +632,7 @@ function redo() {
     isUndoRedoOperation = true;
 
     const nextState = redoStack.pop();
+    window.applyVenueLightingHistory?.(JSON.parse(nextState));
 
     historyStack.push(nextState);
 
@@ -569,16 +651,23 @@ function redo() {
 // ============================================================
 
 function applyStateData(jsonString, callback) {
+    window.cancelDimensionDrawing?.();
+    window.cancelLightingPlacement?.();
 
     try {
 
         const parsed = JSON.parse(jsonString);
+        window.restoreVenueLightingData?.(parsed);
+        window.restoreLayoutVariants?.(parsed);
 
         const exhibitionTitle =
             parsed.exhibitionTitle || "";
 
-        const scaleValue =
-            parsed.scale || 0.5;
+        // Exhibition loads and Undo must not replace an explicitly configured scale.
+        if (configuredScale === null && Number(parsed.scale) > 0) {
+            setConfiguredScale(parsed.scale);
+        }
+        const scaleValue = configuredScale ?? 0.5;
 
         const titleInput =
             document.getElementById("exhibitionTitle");
@@ -593,17 +682,15 @@ function applyStateData(jsonString, callback) {
         const scaleInput =
             document.getElementById("scale");
 
-        if (
-            scaleInput &&
-            parsed.scale !== undefined
-        ) {
-            scaleInput.value = scaleValue;
-        }
-
-        if (parsed.floorPlanJsonData) {
-            floorPlanJsonData =
-                parsed.floorPlanJsonData;
-        }
+        selectedFloorId = FLOOR_PLANS[parsed.selectedFloorId] ? parsed.selectedFloorId : 'lobby';
+        floorPlanData = Object.fromEntries(Object.keys(FLOOR_PLANS).map(id => [id, {
+            json: parsed.floorPlanData
+                ? parsed.floorPlanData[id]?.json || null
+                : (id === 'lobby' ? parsed.floorPlanJsonData || null : null)
+        }]));
+        floorPlanJsonData = floorPlanData[selectedFloorId].json;
+        cachedBackgroundImage = floorBackgroundImages.get(selectedFloorId) || null;
+        if (scaleInput) scaleInput.value = scaleValue;
 
         if (parsed.wallPlanJsonData) {
             wallPlanJsonData =
@@ -629,7 +716,8 @@ function applyStateData(jsonString, callback) {
         switchViewMode(
             targetMode,
             true,
-            callback
+            callback,
+            true
         );
 
     } catch (e) {
@@ -764,6 +852,8 @@ function restoreCustomProperties() {
 
     applyFixtureEditability();
     applyWallOutlineLock();
+    window.refreshDimensionLabels?.();
+    window.refreshLighting?.();
 }
 
 function createCrowdSemicircle(artwork, radius, fill, stroke = '#333', strokeWidth = 2) {

@@ -4,7 +4,7 @@ let currentCanvasZoom = 1;
 let canvasZoomApiReady = false;
 
 function getCanvasZoomKey() {
-    if (currentViewMode === 'floor') return 'floor';
+    if (currentViewMode === 'floor') return `floor:${selectedFloorId}`;
     if (currentViewMode === 'wall') return `wall:${selectedWallInfo?.id || 'default'}`;
     return null;
 }

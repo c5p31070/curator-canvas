@@ -15,6 +15,8 @@ function getWallCollisionScore(obj) {
         !obj ||
         obj.isPin ||
         obj.isShapeObject ||
+        obj.isDimension ||
+        obj.isLightObject || obj.isLightRail || obj.isLightBeam ||
         obj.isFreePin ||
         obj.isGuard ||
         obj.pinLabel !== undefined ||
@@ -150,6 +152,10 @@ function rotateActiveObject() {
             "回転させたいオブジェクトをキャンバス上で選択してください。"
         );
 
+        return;
+    }
+    if (activeObj.isLightObject || activeObj.isLightRail) {
+        window.rotateLightingObject?.(activeObj);
         return;
     }
 
@@ -368,7 +374,10 @@ function getCrowdColor(count) {
 
 canvas.on(
     'object:modified',
-    saveState
+    function(event) {
+        window.persistLightingEquipmentChange?.(event.target);
+        saveState();
+    }
 );
 
 canvas.on(
@@ -388,6 +397,7 @@ canvas.on(
 canvas.on(
     'object:removed',
     function(e) {
+        window.handleLightingObjectRemoved?.(e.target);
 
         if (
             !isUndoRedoOperation &&
@@ -548,9 +558,6 @@ canvas.on(
                 return;
             }
 
-            const scaleInput =
-                document.getElementById("scale");
-
             {
 
                 const realLengthCmStr =
@@ -579,9 +586,9 @@ canvas.on(
                                 ) * 1000
                             ) / 1000;
 
-                        if (scaleInput) {
-                            scaleInput.value =
-                                calculatedScale;
+                        if (!setConfiguredScale(calculatedScale)) {
+                            toggleMeasuringMode(false);
+                            return;
                         }
 
                         alert(
@@ -671,6 +678,8 @@ function updateFreeDrawingBrush() {
 
 function toggleFreeDrawingMode(enable) {
     const nextMode = enable === undefined ? !isFreeDrawingMode : Boolean(enable);
+    if (nextMode) window.cancelDimensionDrawing?.();
+    if (nextMode) window.cancelLightingPlacement?.();
     if (nextMode && isMeasuringMode) toggleMeasuringMode(false);
 
     isFreeDrawingMode = nextMode;
@@ -706,6 +715,8 @@ function toggleMeasuringMode(enable) {
         );
 
     if (isMeasuringMode) {
+        window.cancelDimensionDrawing?.();
+        window.cancelLightingPlacement?.();
 
         if (isFreeDrawingMode) toggleFreeDrawingMode(false);
 

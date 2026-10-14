@@ -7,6 +7,8 @@ function initializeToolPalette() {
     const buttons = [...palette.querySelectorAll('[data-tool]')];
 
     const activate = (tool, toggle = false) => {
+        window.cancelDimensionDrawing?.();
+        window.cancelLightingPlacement?.();
         const targets = panels.filter(panel => panel.dataset.toolPanel === tool);
         const alreadyOpen = targets.length > 0 && targets.every(panel => panel.classList.contains('is-open'));
         panels.forEach(panel => panel.classList.remove('is-open'));
@@ -33,6 +35,10 @@ function initializeToolPalette() {
         if (tool === 'setup' && !isAdminMode) {
             document.getElementById('btnToggleAdminMode')?.click();
         }
+        if (tool === 'lighting' && currentViewMode !== 'floor') {
+            switchViewMode('floor').then(() => window.refreshLightingControls?.());
+        }
+        if (tool === 'lighting') window.refreshLightingControls?.();
     };
 
     window.activateToolPanel = tool => activate(tool);
@@ -47,12 +53,15 @@ function initializeToolPalette() {
         }
 
         if (isFreeDrawingMode) toggleFreeDrawingMode(false);
+        window.cancelDimensionDrawing?.();
+        window.cancelLightingPlacement?.();
 
         const actions = {
             floor: () => switchViewMode('floor'),
             wall: () => switchViewMode('wall'),
             undo,
-            redo
+            redo,
+            'light-visibility': () => window.toggleLightingVisibility?.()
         };
         actions[button.dataset.action]?.();
     });
@@ -134,7 +143,7 @@ function initializeUiTooltips() {
     document.addEventListener('focusin', event => schedule(event.target.closest?.('[data-tooltip]')));
     document.addEventListener('focusout', event => {
         const target = event.target.closest?.('[data-tooltip]');
-        if (target === activeTarget && !target.contains(event.relatedTarget)) hide();
+        if (target && target === activeTarget && !target.contains(event.relatedTarget)) hide();
         else if (pendingShow) {
             clearTimeout(pendingShow);
             pendingShow = null;

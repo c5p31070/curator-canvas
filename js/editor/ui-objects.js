@@ -72,7 +72,7 @@ window.migrateArtworkCatalogFromPlans = () => {
         });
         visit(plan.objects);
     };
-    registerPlan(floorPlanJsonData);
+    Object.values(floorPlanData).forEach(floor => registerPlan(floor.json));
     Object.values(wallPlanJsonData || {}).forEach(wall => registerPlan(wall.json));
     refreshArtworkCatalog();
 };

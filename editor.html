@@ -83,6 +83,13 @@
                     <input id="addAsFixture" type="checkbox">
                     これから追加する物を管理者設定の備品として登録
                 </label>
+                <div class="drawing-subsection">
+                    <h3>天井の照明設備</h3>
+                    <div class="form-row">
+                        <button id="btnPlaceFixedLight" class="btn btn-secondary" type="button" data-tooltip="平面図を続けてクリックし、固定ライトを連続登録します。Escで終了します。">固定ライト</button>
+                        <button id="btnDrawLightRail" class="btn btn-secondary" type="button" aria-pressed="false" data-tooltip="平面図でドラッグを繰り返し、ライトレールを連続登録します。Escで終了します。">ライトレール</button>
+                    </div>
+                </div>
             </div>
 
             <!-- データ保存・復元セクション -->
@@ -107,6 +114,22 @@
                 <div class="btn-group section-actions">
                     <button id="btnLoadExhibition" class="btn btn-dark">配置図を開く</button>
                     <button id="btnDeleteExhibition" class="btn btn-danger">保存を削除</button>
+                </div>
+
+                <div class="layout-variants-section">
+                    <h3>配置案</h3>
+                    <div class="form-group">
+                        <label for="layoutVariants">表示する案</label>
+                        <select id="layoutVariants" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="newLayoutVariantName">新しい案の名前</label>
+                        <input id="newLayoutVariantName" class="form-control" type="text" maxlength="80">
+                    </div>
+                    <div class="form-row">
+                        <button id="btnSaveLayoutVariant" class="btn btn-secondary" type="button" data-tooltip="現在の配置を別案として保存します。名前が空欄なら配置案B、配置案Cのように付けます。">別案を保存</button>
+                        <button id="btnDeleteLayoutVariant" class="btn btn-secondary" type="button">案を削除</button>
+                    </div>
                 </div>
 
                 <div id="saveStatus" class="save-status-text">
@@ -222,6 +245,10 @@
             <div class="panel-section drawing-section tool-panel" data-tool-panel="draw">
                 <h2>描画</h2>
                 <div class="drawing-subsection">
+                    <h3>寸法線</h3>
+                    <button id="btnAddDimension" class="btn btn-secondary" type="button" aria-pressed="false" data-tooltip="図面上で始点から終点までドラッグして、実寸の寸法線を追加します。Escでキャンセルします。">寸法線を追加</button>
+                </div>
+                <div class="drawing-subsection">
                     <h3>フリーペイント</h3>
                     <p class="section-help">平面図や壁面図に、線・矢印・メモを書き込めます。</p>
                     <div class="form-row drawing-options">
@@ -260,6 +287,41 @@
                     <div class="form-row">
                         <button id="btnAddShape" class="btn btn-secondary" type="button">図形を追加</button>
                         <button id="btnUpdateShape" class="btn btn-secondary" type="button">選択図形を更新</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section tool-panel lighting-panel" data-tool-panel="lighting">
+                <h2>照明</h2>
+                <label class="lighting-visibility"><input id="lightingVisibility" type="checkbox" checked>照明を表示</label>
+                <div class="form-group">
+                    <label for="lightRailSelect">ライトレール</label>
+                    <select id="lightRailSelect" class="form-control"></select>
+                </div>
+                <button id="btnPlaceSpotlight" class="btn btn-secondary" type="button" data-tooltip="図面をクリックすると、選択したレール上の近い位置に配置します。">スポットライトを追加</button>
+                <div class="drawing-subsection">
+                    <h3>ライト設定</h3>
+                    <div class="form-group">
+                        <label for="lightObjectSelect">ライト</label>
+                        <select id="lightObjectSelect" class="form-control"></select>
+                    </div>
+                    <div id="lightSettingsFields" hidden>
+                        <label><input id="lightPower" type="checkbox" checked>点灯</label>
+                        <div id="spotlightDirectionFields" hidden>
+                            <div class="form-group">
+                                <label for="lightAimMode">光の向き</label>
+                                <select id="lightAimMode" class="form-control"><option value="free">角度で指定</option><option value="artwork">作品中央にスナップ</option></select>
+                                <button id="btnPickLightTarget" class="btn btn-secondary" type="button" data-tooltip="図面上の作品をクリックして、光をその中央へ向けます。Escでキャンセルします。">作品をクリックしてスナップ</button>
+                            </div>
+                            <div class="form-group" id="lightAngleField">
+                                <label for="lightDirection">方向（°）</label>
+                                <input id="lightDirection" class="form-control" type="number" value="0" step="1" data-tooltip="0°は右、90°は下、180°は左、270°は上です。">
+                            </div>
+                            <div class="form-group" id="lightTargetField" hidden>
+                                <label for="lightTargetSelect">向ける作品</label>
+                                <select id="lightTargetSelect" class="form-control"></select>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -578,11 +640,13 @@
                     <button class="tool-icon" type="button" data-action="wall" title="壁面図を表示" aria-label="壁面図を表示" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3zM7 4v16m10-16v16M3 9h4m10 6h4"/></svg><span class="tool-label">壁面図</span></button>
                 </div>
                 <div class="tool-group tool-group-create">
-                    <button class="tool-icon" type="button" data-tool="draw" title="描画・図形" aria-label="描画・図形"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1 11-11a2.1 2.1 0 0 0-3-3l-11 11zM14.5 6.5l3 3M4 20h16"/><path d="M4 4h6v6H4zM14 15l3 5 3-5z"/></svg><span class="tool-label">描画</span></button>
-                    <button class="tool-icon" type="button" data-tool="artwork" title="展示物追加" aria-label="展示物追加"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM7 16l4-5 3 3 2-2 2 4M8 8h.01"/></svg><span class="tool-label">展示物追加</span></button>
-                    <button class="tool-icon" type="button" data-tool="pins" title="ピン追加" aria-label="ピン追加"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span class="tool-label">ピン追加</span></button>
+                    <button class="tool-icon" type="button" data-tool="draw" title="描画・図形・寸法線" aria-label="描画・図形・寸法線"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1 11-11a2.1 2.1 0 0 0-3-3l-11 11zM14.5 6.5l3 3M4 20h16"/><path d="M4 4h6v6H4zM14 15l3 5 3-5z"/></svg><span class="tool-label">描画</span></button>
+                    <button class="tool-icon" type="button" data-tool="artwork" title="展示物" aria-label="展示物"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM7 16l4-5 3 3 2-2 2 4M8 8h.01"/></svg><span class="tool-label">展示物</span></button>
+                    <button class="tool-icon" type="button" data-tool="pins" title="ピン" aria-label="ピン"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span class="tool-label">ピン</span></button>
                 </div>
                 <div class="tool-group tool-group-edit">
+                    <button class="tool-icon" type="button" data-tool="lighting" title="照明" aria-label="照明"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18M9 4v4l6 3-4 7-7-4 5-6M16 14l5 3m-7 2 2 3"/></svg><span class="tool-label">照明</span></button>
+                    <button class="tool-icon" type="button" data-action="light-visibility" title="照明表示の切り替え" aria-label="照明表示の切り替え" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span class="tool-label">照明表示</span></button>
                     <button class="tool-icon" type="button" data-tool="edit" aria-label="項目編集" data-tooltip="選択した展示物やピンを編集します。変更は自動保存されます。"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 17-.8 4 4-.8L19 8.4 15.6 5zM14.5 6.1l3.4 3.4M4 4h7"/></svg><span class="tool-label">編集</span></button>
                     <button class="tool-icon" type="button" data-tool="crowd" aria-label="混雑予測" data-tooltip="選択した作品の正面に表示する混雑人数を設定します。"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18a8 8 0 0 1 16 0M12 10v5m0 3h.01M3 21h18"/></svg><span class="tool-label">混雑</span></button>
                 </div>
@@ -597,6 +661,7 @@
                 </div>
             </nav>
 
+            <nav id="floorTabs" class="wall-tabs" role="tablist" aria-label="平面図の階を選択"></nav>
             <nav id="wallTabs" class="wall-tabs" role="tablist" aria-label="壁面を選択" hidden></nav>
 
             <div id="wallInfoBanner" class="wall-info-banner">
@@ -636,8 +701,11 @@
 
     <!-- メインJS読み込み -->
     <script src="js/editor/core.js" defer></script>
+    <script src="js/editor/layout-variants.js" defer></script>
     <script src="js/editor/view.js" defer></script>
     <script src="js/editor/interaction.js" defer></script>
+    <script src="js/editor/dimensions.js" defer></script>
+    <script src="js/editor/lighting.js" defer></script>
     <script src="js/editor/pdf.js" defer></script>
     <script src="js/editor/ui-navigation.js" defer></script>
     <script src="js/editor/ui-controls.js" defer></script>

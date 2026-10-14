@@ -28,6 +28,8 @@ function initializeShapeTools() {
 
     addButton.addEventListener('click', () => {
         if (window.CURATOR_ROLE === 'viewer') return;
+        window.cancelDimensionDrawing?.();
+        window.cancelLightingPlacement?.();
         if (isFreeDrawingMode) toggleFreeDrawingMode(false);
         const p = getParameters();
         const object = createShape(p.kind, p.length, p.head, p.stroke, p.fill);

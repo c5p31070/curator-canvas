@@ -21,6 +21,8 @@ function initializeNavigationUi() {
             el.hidden = !enabled;
         });
         applyFixtureEditability();
+        window.cancelLightingPlacement?.();
+        window.refreshLighting?.();
     };
     setAdminMode(false);
     updateWallDropdownOptions();

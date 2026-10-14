@@ -2,13 +2,13 @@
 // 📄 平面＋全壁面をまとめたマルチページPDF生成機能
 // ----------------------------------------------------
 
-function createPdfScaleMarkup(scalePxPerCm, imageWidthMm) {
+function createPdfScaleMarkup(scalePxPerCm, imageWidthMm, sourceWidthPx = canvas.getWidth()) {
 
     const appScale = Number(scalePxPerCm) > 0
         ? Number(scalePxPerCm)
         : 0.5;
 
-    const canvasWidth = canvas.getWidth();
+    const canvasWidth = sourceWidthPx;
     const targetWidthMm = 18;
     const rawLengthCm =
         (targetWidthMm * canvasWidth) /
@@ -72,6 +72,7 @@ async function generateCombinedPdf() {
 
     const initialMode =
         currentViewMode;
+    const initialFloor = selectedFloorId;
 
     const initialWall =
         { ...selectedWallInfo };
@@ -97,15 +98,19 @@ async function generateCombinedPdf() {
     );
 
 
-    const floorCanvasUrl =
-        canvas.toDataURL({
-            format: 'png',
-            quality: 1.0
+    const floorCaptureList = [];
+    const floorObjects = [];
+    for (const [id, floor] of Object.entries(FLOOR_PLANS)) {
+        await handleFloorSelectChange(id, true);
+        floorCaptureList.push({
+            title: floor.title,
+            imgUrl: canvas.toDataURL({ format: 'png', quality: 1.0 }),
+            sourceWidthPx: canvas.getWidth(),
+            scale: drawingScale
         });
-
-
-    const floorObjects =
-        canvas.getObjects();
+        floorObjects.push(...canvas.getObjects().map(obj => ({ obj, floorTitle: floor.title })));
+    }
+    const floorCanvasUrl = floorCaptureList[0].imgUrl;
 
 
     const artworkList = [];
@@ -118,7 +123,7 @@ async function generateCombinedPdf() {
     // ====================================================
 
     floorObjects.forEach(
-        (obj, index) => {
+        ({ obj, floorTitle }, index) => {
 
 
             // ------------------------------------------------
@@ -135,7 +140,7 @@ async function generateCombinedPdf() {
 
                 const name =
                     textObj
-                        ? textObj.text
+                        ? `${textObj.text} (${floorTitle})`
                         : `作品 ${index + 1}`;
 
 
@@ -261,6 +266,9 @@ async function generateCombinedPdf() {
 
         const wallData =
             wallPlanJsonData[key];
+        captureCurrentCanvasState();
+        const scaleInput = document.getElementById('scale');
+        if (scaleInput) scaleInput.value = drawingScale;
 
 
         selectedWallInfo = {
@@ -282,6 +290,8 @@ async function generateCombinedPdf() {
 
         await switchViewMode(
             'wall',
+            true,
+            null,
             true
         );
 
@@ -297,6 +307,13 @@ async function generateCombinedPdf() {
                 quality: 1.0
             });
 
+        const wallOutline = canvas.getObjects().find(obj => obj.isWallOutline);
+        // The vertical scale bar must match the captured wall, including older
+        // saved walls whose pixel dimensions predate the current scale setting.
+        const wallScale = wallOutline && Number(wallData.heightCm) > 0
+            ? Number(wallOutline.height) * Math.abs(Number(wallOutline.scaleY) || 1) / Number(wallData.heightCm)
+            : drawingScale;
+
 
         wallCaptureList.push({
 
@@ -310,7 +327,9 @@ async function generateCombinedPdf() {
                 wallData.heightCm,
 
             imgUrl:
-                wallImgUrl
+                wallImgUrl,
+            scale: wallScale,
+            sourceWidthPx: canvas.getWidth()
 
         });
 
@@ -318,6 +337,7 @@ async function generateCombinedPdf() {
 
 
     // 元の表示状態に戻す
+    await handleFloorSelectChange(initialFloor, true);
 
     selectedWallInfo =
         initialWall;
@@ -373,7 +393,7 @@ async function generateCombinedPdf() {
             <div class="header">
 
                 <div class="title">
-                    ${currentTitle} (平面配置図)
+                    ${currentTitle} (平面配置図: ${floorCaptureList[0].title})
                 </div>
 
                 <div class="date">
@@ -384,7 +404,7 @@ async function generateCombinedPdf() {
 
 
             <div class="section-title">
-                1. 全体平面配置図
+                1. 平面配置図: ${floorCaptureList[0].title}
             </div>
 
 
@@ -395,7 +415,7 @@ async function generateCombinedPdf() {
                     class="canvas-img canvas-img-floor"
                 />
 
-                ${createPdfScaleMarkup(drawingScale, floorImageWidthMm)}
+                ${createPdfScaleMarkup(floorCaptureList[0].scale, floorImageWidthMm, floorCaptureList[0].sourceWidthPx)}
 
             </div>
 
@@ -593,6 +613,23 @@ async function generateCombinedPdf() {
     // 壁面ページ
     // ====================================================
 
+    floorCaptureList.slice(1).forEach((floor, index) => {
+        pagesHtml += `
+            <div class="page page-break">
+                <div class="header">
+                    <div class="title">${currentTitle} (平面配置図: ${floor.title})</div>
+                    <div class="date">発行日: ${today}</div>
+                </div>
+                <div class="section-title">平面配置図: ${floor.title}</div>
+                <div class="drawing-scale-row floor-scale-row">
+                    <img src="${floor.imgUrl}" class="canvas-img canvas-img-floor" />
+                    ${createPdfScaleMarkup(floor.scale, floorImageWidthMm, floor.sourceWidthPx)}
+                </div>
+                <div class="footer">Curator-Canvas - 統合展示指示書 Page ${index + 2}</div>
+            </div>
+        `;
+    });
+
     wallCaptureList.forEach(
         (wall, idx) => {
 
@@ -639,14 +676,14 @@ async function generateCombinedPdf() {
                             class="canvas-img-large wall-canvas-img"
                         />
 
-                        ${createPdfScaleMarkup(drawingScale, wallImageWidthMm)}
+                        ${createPdfScaleMarkup(wall.scale, wallImageWidthMm, wall.sourceWidthPx)}
 
                     </div>
 
 
                     <div class="footer">
                         Curator-Canvas - 統合展示指示書
-                        Page ${idx + 2}
+                        Page ${idx + floorCaptureList.length + 1}
                     </div>
 
                 </div>

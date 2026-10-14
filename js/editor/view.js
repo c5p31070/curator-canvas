@@ -43,11 +43,12 @@ function updateWallDropdownOptions() {
 }
 
 function updateWallTabs() {
+    updateFloorTabs();
     const tabList = document.getElementById('wallTabs');
     if (!tabList) return;
 
     tabList.replaceChildren();
-    tabList.hidden = false;
+    tabList.hidden = currentViewMode !== 'wall';
     Object.entries(wallPlanJsonData).forEach(([id, wall], index) => {
         const button = document.createElement('button');
         button.type = 'button';
@@ -62,11 +63,45 @@ function updateWallTabs() {
     });
 }
 
+function updateFloorTabs() {
+    const tabList = document.getElementById('floorTabs');
+    if (!tabList) return;
+    tabList.hidden = currentViewMode !== 'floor';
+    tabList.replaceChildren();
+    Object.entries(FLOOR_PLANS).forEach(([id, floor]) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'wall-tab';
+        button.setAttribute('role', 'tab');
+        button.setAttribute('aria-selected', String(id === selectedFloorId));
+        button.classList.toggle('active', id === selectedFloorId);
+        button.textContent = floor.title;
+        button.addEventListener('click', () => handleFloorSelectChange(id));
+        tabList.appendChild(button);
+    });
+}
+
+async function handleFloorSelectChange(floorId, skipSave = false) {
+    if (!FLOOR_PLANS[floorId] || isTransitioning) return;
+    if (selectedFloorId === floorId && currentViewMode === 'floor') return;
+    window.cancelDimensionDrawing?.();
+    window.cancelLightingPlacement?.();
+    window.flushPendingItemEditHistory?.();
+    captureCurrentCanvasState();
+    selectedFloorId = floorId;
+    floorPlanJsonData = floorPlanData[floorId].json;
+    cachedBackgroundImage = floorBackgroundImages.get(floorId) || null;
+    await switchViewMode('floor', true, null, true);
+    if (!skipSave) saveState();
+}
+
 // ------------------------------------------------------------
 // 壁面選択変更
 // ------------------------------------------------------------
 
 async function handleWallSelectChange(wallId) {
+    window.cancelDimensionDrawing?.();
+    window.cancelLightingPlacement?.();
 
     if (isFreeDrawingMode) toggleFreeDrawingMode(false);
 
@@ -84,10 +119,9 @@ async function handleWallSelectChange(wallId) {
         return;
     }
 
-    isTransitioning = true;
-
     // 現在の壁を保存
     captureCurrentCanvasState();
+    isTransitioning = true;
 
     // 新しい壁を選択
     const targetWall =
@@ -137,6 +171,7 @@ async function handleWallSelectChange(wallId) {
     isTransitioning = false;
 
     saveState();
+    window.refreshCanvasZoomForView?.(false);
 }
 
 // ============================================================
@@ -146,8 +181,11 @@ async function handleWallSelectChange(wallId) {
 async function switchViewMode(
     mode,
     skipSave = false,
-    callback = null
+    callback = null,
+    skipCapture = false
 ) {
+    window.cancelDimensionDrawing?.();
+    window.cancelLightingPlacement?.();
 
     if (isFreeDrawingMode) toggleFreeDrawingMode(false);
 
@@ -158,14 +196,14 @@ async function switchViewMode(
     if (
         currentViewMode === mode &&
         !skipSave &&
-        !callback
+        !callback &&
+        !skipCapture
     ) {
         return;
     }
 
+    if (!skipCapture) captureCurrentCanvasState();
     isTransitioning = true;
-
-    captureCurrentCanvasState();
 
     currentViewMode = mode;
 
@@ -182,6 +220,7 @@ async function switchViewMode(
         document.getElementById("wallInfoBanner");
 
     if (mode === 'floor') {
+        floorPlanJsonData = floorPlanData[selectedFloorId].json;
 
         updateWallTabs();
         updateViewModeToolState('floor');
@@ -202,12 +241,17 @@ async function switchViewMode(
             loadBackgroundImage(resolve)
         );
 
-        if (floorPlanJsonData) {
+        let floorJson = floorPlanJsonData
+            ? (typeof floorPlanJsonData === 'string' ? JSON.parse(floorPlanJsonData) : { ...floorPlanJsonData })
+            : { objects: [] };
+        floorJson = window.prepareFloorLighting?.(floorJson, selectedFloorId) || floorJson;
+        if (floorPlanJsonData || floorJson.objects?.length) {
 
             await new Promise(resolve => {
 
+                delete floorJson.backgroundImage;
                 canvas.loadFromJSON(
-                    floorPlanJsonData,
+                    floorJson,
                     function() {
 
                         ensureBackgroundImage(
@@ -216,6 +260,7 @@ async function switchViewMode(
                                 canvas.renderAll();
 
                                 restoreCustomProperties();
+                                syncFloorArtworkScale();
 
                                 resolve();
                             }
@@ -229,6 +274,7 @@ async function switchViewMode(
             await new Promise(resolve =>
                 ensureBackgroundImage(resolve)
             );
+            window.refreshLighting?.();
         }
 
     } else if (mode === 'wall') {
@@ -556,6 +602,23 @@ function applyArtworkDimensions(obj, scale) {
     }
 }
 
+function syncFloorArtworkScale() {
+    const scale = parseFloat(document.getElementById('scale')?.value) || 0.5;
+    canvas.getObjects().forEach(obj => {
+        if (!obj.isArtwork) return;
+        const width = (Number(obj.cmWidth) || 150) * scale;
+        const height = Math.max((Number(obj.cmDepth) || 5) * scale, 8);
+        // Preserve existing crowd geometry when the size already matches.
+        if (Math.abs(Number(obj.pxWidth) - width) > 0.01 ||
+            Math.abs(Number(obj.pxHeight) - height) > 0.01 ||
+            !Number.isFinite(Number(obj.pxWidth)) || !Number.isFinite(Number(obj.pxHeight))) {
+            applyArtworkDimensions(obj, scale);
+        }
+    });
+    canvas.renderAll();
+    window.refreshLighting?.();
+}
+
 function applyScaleToAllArtworks(newScale) {
 
     canvas.getObjects().forEach(obj => {
@@ -566,6 +629,8 @@ function applyScaleToAllArtworks(newScale) {
 
         applyArtworkDimensions(obj, newScale);
     });
+    window.refreshDimensionLabels?.();
+    window.refreshLighting?.();
 
     canvas.renderAll();
 
@@ -577,93 +642,33 @@ function applyScaleToAllArtworks(newScale) {
 // ============================================================
 
 function loadBackgroundImage(callback) {
-
-    if (cachedBackgroundImage) {
-
-        canvas.setBackgroundImage(
-            cachedBackgroundImage,
-            function() {
-
-                canvas.renderAll();
-
-                if (callback) {
-                    callback();
-                }
-            }
-        );
-
-        return;
-    }
-
-    fabric.Image.fromURL(
-        'images/zumen02.png',
-        function(img) {
-
-            if (img) {
-
-                img.set({
-
-                    scaleX:
-                        canvas.width / img.width,
-
-                    scaleY:
-                        canvas.height / img.height,
-
-                    originX: 'left',
-
-                    originY: 'top'
-                });
-
-                cachedBackgroundImage = img;
-
-                canvas.setBackgroundImage(
-                    img,
-                    function() {
-
-                        canvas.renderAll();
-
-                        wallCanvas.width =
-                            canvas.width;
-
-                        wallCanvas.height =
-                            canvas.height;
-
-                        wallCtx.drawImage(
-                            img._element,
-                            0,
-                            0,
-                            img.width,
-                            img.height,
-                            0,
-                            0,
-                            canvas.width,
-                            canvas.height
-                        );
-
-                        isWallDataLoaded = true;
-
-                        if (callback) {
-                            callback();
-                        }
-                    }
-                );
-
-            } else {
-
-                console.warn(
-                    "背景画像 'images/zumen02.png' の読み込みに失敗しました。"
-                );
-
-                if (callback) {
-                    callback();
-                }
-            }
-
-        },
-        {
-            crossOrigin: 'anonymous'
+    const floorId = selectedFloorId;
+    const applyImage = img => {
+        if (!img || !img.width || !img.height) {
+            console.warn(`背景画像 '${FLOOR_PLANS[floorId].image}' の読み込みに失敗しました。`);
+            callback?.();
+            return;
         }
-    );
+        const fit = Math.min(canvas.width / img.width, canvas.height / img.height);
+        const left = (canvas.width - img.width * fit) / 2;
+        const top = (canvas.height - img.height * fit) / 2;
+        img.set({ scaleX: fit, scaleY: fit, left, top, originX: 'left', originY: 'top' });
+        floorBackgroundImages.set(floorId, img);
+        cachedBackgroundImage = img;
+        canvas.setBackgroundImage(img, () => {
+            wallCanvas.width = canvas.width;
+            wallCanvas.height = canvas.height;
+            wallCtx.fillStyle = '#ffffff';
+            wallCtx.fillRect(0, 0, wallCanvas.width, wallCanvas.height);
+            wallCtx.drawImage(img._element, left, top, img.width * fit, img.height * fit);
+            isWallDataLoaded = true;
+            canvas.renderAll();
+            callback?.();
+        });
+    };
+    const cached = floorBackgroundImages.get(floorId);
+    if (cached) applyImage(cached);
+    else fabric.Image.fromURL(FLOOR_PLANS[floorId].image, applyImage, { crossOrigin: 'anonymous' });
 }
 
 // ============================================================
@@ -671,5 +676,5 @@ function loadBackgroundImage(callback) {
 // ============================================================
 
 loadBackgroundImage(function() {
-    loadSavedData();
+    switchViewMode('floor', true, loadSavedData, true);
 });
