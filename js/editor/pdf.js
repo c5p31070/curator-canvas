@@ -48,6 +48,15 @@ function createPdfScaleMarkup(scalePxPerCm, imageWidthMm, sourceWidthPx = canvas
 }
 
 async function generateCombinedPdf() {
+    if (window.isCombinedPdfBusy) return;
+    // Confirm the common scale before taking any drawing captures.
+    if (window.refreshTeamFloorScale && !await window.refreshTeamFloorScale()) return;
+    window.isCombinedPdfBusy = true;
+    try { return await renderCombinedPdf(); }
+    finally { window.isCombinedPdfBusy = false; }
+}
+
+async function renderCombinedPdf() {
 
     const titleInput =
         document.getElementById("exhibitionTitle");

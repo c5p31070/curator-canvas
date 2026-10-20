@@ -515,7 +515,7 @@ canvas.on(
 
 canvas.on(
     'mouse:up',
-    function(e) {
+    async function(e) {
 
         draggingOutOfWallCollision = false;
 
@@ -586,17 +586,13 @@ canvas.on(
                                 ) * 1000
                             ) / 1000;
 
-                        if (!setConfiguredScale(calculatedScale)) {
+                        if (!await window.saveTeamFloorScale(calculatedScale)) {
                             toggleMeasuringMode(false);
                             return;
                         }
 
                         alert(
                             `縮尺スケールを [ ${calculatedScale} px/cm ] に自動更新しました！\n（配置済みの展示物サイズを一括適用します）`
-                        );
-
-                        applyScaleToAllArtworks(
-                            calculatedScale
                         );
 
                     } else {

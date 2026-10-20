@@ -4,6 +4,7 @@
 create table if not exists public.teams (
     id uuid primary key default gen_random_uuid(),
     name text not null,
+    floor_scale double precision not null default 0.5 check (floor_scale > 0 and floor_scale < 1000000),
     created_by uuid not null references auth.users(id) on delete restrict,
     created_at timestamptz not null default now()
 );
@@ -67,12 +68,21 @@ alter table public.exhibitions enable row level security;
 
 revoke all on public.teams, public.team_members, public.exhibitions from anon, authenticated;
 grant select on public.teams, public.team_members to authenticated;
+grant update (floor_scale) on public.teams to authenticated;
 grant select, insert, update, delete on public.exhibitions to authenticated;
 
 drop policy if exists "team members can view their team" on public.teams;
 create policy "team members can view their team"
     on public.teams for select to authenticated
     using ((select public.is_team_member(id)));
+
+drop policy if exists "editors can update team scale" on public.teams;
+create policy "editors can update team scale"
+    on public.teams for update to authenticated
+    using ((select public.current_team_role(id)) in ('owner', 'editor'))
+    with check ((select public.current_team_role(id)) in ('owner', 'editor'));
+
+-- For Realtime notifications, also run migrations/20261020_shared_floor_scale.sql.
 
 drop policy if exists "team members can view membership" on public.team_members;
 create policy "team members can view membership"

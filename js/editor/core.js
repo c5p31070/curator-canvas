@@ -24,6 +24,7 @@ if (configuredScale !== null) {
 }
 
 function loadConfiguredScale() {
+    if (window.CURATOR_SUPABASE_CONFIG) return null;
     try {
         const saved = localStorage.getItem(SCALE_SETTINGS_KEY);
         const value = Number(saved);
@@ -43,14 +44,15 @@ function loadConfiguredScale() {
 function setConfiguredScale(value) {
     const scale = Number(value);
     const input = document.getElementById('scale');
-    if (!Number.isFinite(scale) || scale <= 0) {
+    if (!Number.isFinite(scale) || scale <= 0 || scale >= 1000000) {
         if (input) input.value = configuredScale ?? 0.5;
         return false;
     }
     configuredScale = scale;
     if (input) input.value = scale;
     try {
-        localStorage.setItem(SCALE_SETTINGS_KEY, String(scale));
+        // Signed-in teams always obtain this value from the server.
+        if (!window.CURATOR_SUPABASE_CONFIG) localStorage.setItem(SCALE_SETTINGS_KEY, String(scale));
     } catch (error) {
         console.warn('縮尺設定の保存に失敗しました。', error);
     }
@@ -179,6 +181,7 @@ async function saveExhibitionSnapshot() {
 
 async function persistExhibitionSnapshot() {
     if (window.CURATOR_ROLE === 'viewer') return alert('閲覧者は展覧会を保存できません。');
+    if (window.refreshTeamFloorScale && !await window.refreshTeamFloorScale()) return;
     const title = (document.getElementById('exhibitionTitle')?.value || '').trim();
     if (!title) {
         alert('展覧会タイトルを入力してください。');
@@ -270,6 +273,7 @@ async function persistExhibitionSnapshot() {
 
 async function loadExhibitionSnapshot(id) {
     if (exhibitionWriteBusy || isTransitioning) return;
+    if (window.refreshTeamFloorScale && !await window.refreshTeamFloorScale()) return;
     const record = window.CURATOR_TEAM
         ? cloudExhibitionCache.find(item => item.id === id)
         : getSavedExhibitions().find(item => item.id === id);
@@ -699,7 +703,7 @@ function applyStateData(jsonString, callback) {
             parsed.exhibitionTitle || "";
 
         // Exhibition loads and Undo must not replace an explicitly configured scale.
-        if (configuredScale === null && Number(parsed.scale) > 0) {
+        if (!window.CURATOR_SUPABASE_CONFIG && configuredScale === null && Number(parsed.scale) > 0) {
             setConfiguredScale(parsed.scale);
         }
         const scaleValue = configuredScale ?? 0.5;

@@ -1114,6 +1114,26 @@ header h1 .brand-subtitle {
     font-size: 11px;
     font-weight: 400;
 }
+.team-scale-notice {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px;
+    background: #302b23;
+    border-bottom: 1px solid #66573e;
+    color: #d9c9a9;
+    font-size: 11px;
+}
+.team-scale-notice[hidden] { display: none; }
+.team-scale-notice button {
+    padding: 3px 7px;
+    border: 1px solid #756548;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
 @media (max-width: 900px) {
     .current-exhibition-name { margin: 0 6px; font-size: 10px; }
 }

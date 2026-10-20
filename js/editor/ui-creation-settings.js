@@ -46,13 +46,11 @@ function initializeCreationSettingsUi() {
 
     if (scaleInput) {
 
-        scaleInput.addEventListener("change", function() {
+        scaleInput.addEventListener("change", async function() {
 
             const newScale =
                 Number(scaleInput.value);
-            if (!setConfiguredScale(newScale)) return;
-
-            applyScaleToAllArtworks(newScale);
+            await window.saveTeamFloorScale(newScale);
 
         });
 

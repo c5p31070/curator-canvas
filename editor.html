@@ -36,6 +36,11 @@
         </div>
     </header>
 
+    <div id="teamScaleNotice" class="team-scale-notice" role="status" hidden>
+        <span id="teamScaleNoticeText"></span>
+        <button id="btnRetryTeamScale" type="button">再読み込み</button>
+    </div>
+
     <div class="main-layout">
 
         <!-- サイドパネル -->
@@ -143,7 +148,8 @@
 
                 <!-- 縮尺設定セクション -->
                     <div class="panel-section admin-only config-section tool-panel" data-tool-panel="setup" hidden>
-                    <h2>縮尺設定（平面図）</h2>
+                    <h2>縮尺設定（平面図・チーム共通）</h2>
+                    <p id="teamScaleStatus" class="field-note" role="status"></p>
 
                     <button
                         id="btnMeasureScale"
@@ -160,7 +166,7 @@
                             id="scale"
                             class="form-control"
                             value="0.5"
-                            data-tooltip="縮尺を変更すると、配置済みの展示物にも反映されます。"
+                            data-tooltip="チーム全員の平面図に共通の縮尺です。変更は全展覧会に適用されます。"
                             step="0.01"
                             min="0.01"
                         >
@@ -679,6 +685,7 @@
 
     <!-- メインJS読み込み -->
     <script src="js/editor/core.js" defer></script>
+    <script src="js/editor/shared-scale.js" defer></script>
     <script src="js/editor/exhibition-save-ui.js" defer></script>
     <script src="js/editor/layout-variants.js" defer></script>
     <script src="js/editor/view.js" defer></script>

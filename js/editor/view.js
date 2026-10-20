@@ -646,6 +646,9 @@ function loadBackgroundImage(callback) {
 // 初期読み込み
 // ============================================================
 
-loadBackgroundImage(function() {
-    switchViewMode('floor', true, loadSavedData, true);
+document.addEventListener('DOMContentLoaded', async function() {
+    await window.TEAM_SCALE_READY;
+    loadBackgroundImage(function() {
+        switchViewMode('floor', true, loadSavedData, true);
+    });
 });
