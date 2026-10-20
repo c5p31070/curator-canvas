@@ -1103,6 +1103,20 @@ header h1 .brand-subtitle {
     letter-spacing: 0 !important;
     vertical-align: baseline;
 }
+.current-exhibition-name {
+    flex: 1 1 0;
+    min-width: 0;
+    margin: 0 16px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #aa9093;
+    font-size: 11px;
+    font-weight: 400;
+}
+@media (max-width: 900px) {
+    .current-exhibition-name { margin: 0 6px; font-size: 10px; }
+}
 .drawing-subsection + .drawing-subsection {
     margin-top: 10px;
     padding-top: 8px;

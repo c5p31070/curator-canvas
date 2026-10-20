@@ -5,6 +5,11 @@ function refreshExhibitionSaveUi() {
     const input = document.getElementById('exhibitionTitle');
     const save = document.getElementById('btnSaveData');
     const draftName = (input?.value || '').trim();
+    const headerName = document.getElementById('currentExhibitionName');
+    if (headerName) {
+        headerName.textContent = draftName || '名称未設定';
+        headerName.title = draftName || '名称未設定';
+    }
     if (input) input.disabled = exhibitionWriteBusy || readOnly;
     if (save) {
         save.textContent = record && draftName && draftName !== record.title ? '名前を付けて保存' : '展覧会を保存';
