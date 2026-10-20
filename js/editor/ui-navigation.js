@@ -60,39 +60,21 @@ function initializeNavigationUi() {
     const btnDeleteExhibition = document.getElementById('btnDeleteExhibition');
     if (savedExhibitions) {
         savedExhibitions.addEventListener('change', e => {
-            selectedExhibitionId = e.target.value;
+            window.refreshExhibitionSaveUi?.();
         });
     }
     if (btnLoadExhibition) {
         btnLoadExhibition.addEventListener('click', () => {
-            if (!selectedExhibitionId) {
+            const id = savedExhibitions?.value;
+            if (!id) {
                 alert('呼び出す展覧会を選択してください。');
                 return;
             }
-            loadExhibitionSnapshot(selectedExhibitionId);
+            loadExhibitionSnapshot(id);
         });
     }
     if (btnDeleteExhibition) {
         btnDeleteExhibition.addEventListener('click', deleteExhibitionSnapshot);
-    }
-
-    // ----------------------------------------------------
-    // 壁面選択
-    // ----------------------------------------------------
-
-    const wallListSelect = document.getElementById("wallListSelect");
-
-    if (wallListSelect) {
-        wallListSelect.addEventListener("change", function(e) {
-            handleWallSelectChange(e.target.value);
-        });
-    }
-
-    const floorWallListSelect = document.getElementById('floorWallListSelect');
-    if (floorWallListSelect) {
-        floorWallListSelect.addEventListener('change', e => {
-            handleWallSelectChange(e.target.value);
-        });
     }
 
     const btnApplyWallSize = document.getElementById("btnApplyWallSize");

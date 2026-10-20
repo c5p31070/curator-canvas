@@ -6,7 +6,10 @@ function initializeCanvasControlsUi() {
     const titleInput = document.getElementById("exhibitionTitle");
 
     if (titleInput) {
-        titleInput.addEventListener("input", saveState);
+        titleInput.addEventListener("input", () => {
+            saveState();
+            window.refreshExhibitionSaveUi?.();
+        });
     }
 
     // ----------------------------------------------------

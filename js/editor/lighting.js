@@ -151,11 +151,23 @@ function refreshLighting(updateControls = true) {
                 radius: spot ? 5 : 4,
                 lockMovementX: !editablePosition, lockMovementY: !editablePosition,
                 lockScalingX: true, lockScalingY: true, lockRotation: true,
-                fill: light.lightOn === false ? '#737b80' : (spot ? '#a5b6be' : '#c0af89'),
+                fill: light.lightOn === false ? '#737b80' : (spot ? '#a5b6be' : '#f2ce54'),
                 opacity: light.lightOn === false ? 0.65 : 1 });
             light.setControlsVisibility({ tl: false, tr: false, bl: false, br: false, ml: false, mt: false, mr: false, mb: false, mtr: false });
             light.setCoords();
             if (!spot) return;
+            if (light.lightAimMode === 'down') {
+                if (!lightingVisible || light.lightOn === false) return;
+                const center = light.getCenterPoint();
+                const beam = new fabric.Circle({
+                    left: center.x, top: center.y, originX: 'center', originY: 'center', radius: 18,
+                    fill: 'rgba(183,156,93,0.12)', stroke: 'rgba(143,122,73,0.36)', strokeWidth: 0.7,
+                    isLightBeam: true, excludeFromExport: true, selectable: false, evented: false
+                });
+                canvas.add(beam);
+                beam.moveTo(0);
+                return;
+            }
             const direction = lightingDirection(light);
             if (!lightingVisible || light.lightOn === false || direction.length < 1) return;
             const p = light.getCenterPoint();
@@ -214,13 +226,13 @@ function refreshLightingControls() {
     const snap = light?.lightAimMode === 'artwork';
     const angleField = document.getElementById('lightAngleField');
     const targetField = document.getElementById('lightTargetField');
-    if (angleField) angleField.hidden = snap;
+    if (angleField) angleField.hidden = snap || light?.lightAimMode === 'down';
     if (targetField) targetField.hidden = !snap;
     const power = document.getElementById('lightPower');
     const mode = document.getElementById('lightAimMode');
     const angle = document.getElementById('lightDirection');
     if (power) power.checked = light?.lightOn !== false;
-    if (mode) mode.value = snap ? 'artwork' : 'free';
+    if (mode) mode.value = light?.lightAimMode === 'down' ? 'down' : (snap ? 'artwork' : 'free');
     if (angle) angle.value = Math.round(Number(light?.lightDirectionDeg) || 0);
     ['lightPower', 'lightAimMode', 'lightDirection', 'lightTargetSelect'].forEach(id => {
         const input = document.getElementById(id);
@@ -308,7 +320,7 @@ function createLight(point, kind, rail = null) {
     return new fabric.Circle({
         left: position.x, top: position.y, originX: 'center', originY: 'center',
         radius: kind === 'fixed' ? 4 : 5, stroke: '#53616a', strokeWidth: 1,
-        fill: kind === 'fixed' ? '#c0af89' : '#a5b6be',
+        fill: kind === 'fixed' ? '#f2ce54' : '#a5b6be',
         isLightObject: true, isFixture: kind === 'fixed', lightId: crypto.randomUUID(),
         lightKind: kind, lightName: `${kind === 'fixed' ? '固定ライト' : 'スポットライト'} ${count}`,
         lightOn: true, lightRailId: rail?.lightId || null, lightRailT: position.t ?? null,
@@ -361,6 +373,8 @@ function applyLightSettings(debounce = false) {
         if (mode === 'free') {
             light.lightDirectionDeg = ((angle % 360) + 360) % 360;
             light.lightAimTargetId = null;
+        } else if (mode === 'down') {
+            light.lightAimTargetId = null;
         } else {
             const targetValue = document.getElementById('lightTargetSelect').value;
             const artworks = canvas.getObjects().filter(obj => obj.isArtwork);
@@ -393,6 +407,7 @@ window.handleLightingObjectRemoved = obj => {
 window.rotateLightingObject = obj => {
     if (lightingReadOnly()) return;
     if (obj.isLightObject && obj.lightKind === 'spot') {
+        if (obj.lightAimMode === 'down') return;
         obj.lightAimMode = 'free'; obj.lightAimTargetId = null;
         obj.lightDirectionDeg = ((Number(obj.lightDirectionDeg) || 0) + 90) % 360;
     } else if (obj.isLightRail && isAdminMode) obj.rotate((obj.angle || 0) + 90);
@@ -420,15 +435,25 @@ canvas.on('mouse:down', event => {
         if (rail?.isLightRail) finishLightingPlacement(createLight(point, 'spot', rail));
     }
 });
+function lightRailEndPoint(event) {
+    const point = canvas.getPointer(event.e);
+    if (!event.e.shiftKey || !lightingRailStart) return point;
+    const dx = point.x - lightingRailStart.x;
+    const dy = point.y - lightingRailStart.y;
+    return Math.abs(dx) >= Math.abs(dy)
+        ? { x: point.x, y: lightingRailStart.y }
+        : { x: lightingRailStart.x, y: point.y };
+}
+
 canvas.on('mouse:move', event => {
     if (lightingPlacementMode !== 'rail' || !lightingRailStart) return;
     if (lightingRailPreview) canvas.remove(lightingRailPreview);
-    lightingRailPreview = createLightRail(lightingRailStart, canvas.getPointer(event.e), true);
+    lightingRailPreview = createLightRail(lightingRailStart, lightRailEndPoint(event), true);
     canvas.add(lightingRailPreview); canvas.requestRenderAll();
 });
 canvas.on('mouse:up', event => {
     if (lightingPlacementMode !== 'rail' || !lightingRailStart) return;
-    const end = canvas.getPointer(event.e);
+    const end = lightRailEndPoint(event);
     if (Math.hypot(end.x - lightingRailStart.x, end.y - lightingRailStart.y) < 8) {
         if (lightingRailPreview) canvas.remove(lightingRailPreview);
         lightingRailPreview = null; lightingRailStart = null; return;

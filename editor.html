@@ -40,20 +40,6 @@
         <!-- サイドパネル -->
         <aside class="sidebar">
 
-            <!-- 展覧会基本情報セクション -->
-            <div class="panel-section info-section tool-panel" data-tool-panel="info">
-                <h2>展覧会情報</h2>
-
-                <div class="form-group">
-                    <label for="exhibitionTitle">展覧会タイトル</label>
-                    <input
-                        type="text"
-                        id="exhibitionTitle"
-                        class="form-control"
-                    >
-                </div>
-            </div>
-
             <div class="panel-section mode-switch-section workflow-section tool-panel" data-tool-panel="setup">
                 <h2>作業モード</h2>
                 <p id="modeDescription" class="mode-description">配置図を作成します。壁を選んで展示物を配置してください。</p>
@@ -87,7 +73,7 @@
                     <h3>天井の照明設備</h3>
                     <div class="form-row">
                         <button id="btnPlaceFixedLight" class="btn btn-secondary" type="button" data-tooltip="平面図を続けてクリックし、固定ライトを連続登録します。Escで終了します。">固定ライト</button>
-                        <button id="btnDrawLightRail" class="btn btn-secondary" type="button" aria-pressed="false" data-tooltip="平面図でドラッグを繰り返し、ライトレールを連続登録します。Escで終了します。">ライトレール</button>
+                        <button id="btnDrawLightRail" class="btn btn-secondary" type="button" aria-pressed="false" data-tooltip="ドラッグで連続登録。Shiftで水平・垂直に固定、Escで終了します。">ライトレール</button>
                     </div>
                 </div>
             </div>
@@ -95,6 +81,11 @@
             <!-- データ保存・復元セクション -->
             <div class="panel-section data-section tool-panel" data-tool-panel="data">
                 <h2>データ保存・復元</h2>
+
+                <div class="form-group">
+                    <label for="exhibitionTitle">保存する展覧会名</label>
+                    <input type="text" id="exhibitionTitle" class="form-control" data-tooltip="開いている展覧会と違う名前で保存すると、別の展覧会として新規保存します。">
+                </div>
 
                 <div class="btn-group section-actions">
                     <button id="btnSaveData" class="btn btn-primary">
@@ -114,6 +105,15 @@
                 <div class="btn-group section-actions">
                     <button id="btnLoadExhibition" class="btn btn-dark">配置図を開く</button>
                     <button id="btnDeleteExhibition" class="btn btn-danger">保存を削除</button>
+                </div>
+
+                <div class="layout-variants-section" id="renameExhibitionSection">
+                    <h3>名前を編集</h3>
+                    <div class="form-group">
+                        <label for="renameExhibitionTitle">新しい展覧会名</label>
+                        <input id="renameExhibitionTitle" class="form-control" type="text" disabled>
+                    </div>
+                    <button id="btnRenameExhibition" class="btn btn-secondary" type="button" disabled data-tooltip="現在開いている保存済み展覧会の名前だけを変更します。">名前を変更</button>
                 </div>
 
                 <div class="layout-variants-section">
@@ -170,31 +170,10 @@
                     </div>
                 </div>
 
-                <!-- 利用者向けの壁面選択 -->
-                <div class="panel-section navigation-section tool-panel" data-tool-panel="walls">
-                    <h2>壁面配置図</h2>
-                    <label for="floorWallListSelect">壁面</label>
-                    <select id="floorWallListSelect" class="form-control" data-tooltip="壁を選択すると、その壁面図に切り替わります。"></select>
-                </div>
-
             </div>
 
             <!-- 壁面図コントロール -->
             <div id="wallPlanControls">
-
-                <div class="panel-section navigation-section tool-panel" data-tool-panel="walls">
-                    <h2>壁面の選択・切り替え</h2>
-
-                    <div class="form-group">
-                        <label for="wallListSelect">
-                            表示する壁面を選択
-                        </label>
-
-                        <select id="wallListSelect" class="form-control">
-                            <!-- JSで動的に追加されます -->
-                        </select>
-                    </div>
-                </div>
 
                 <div class="panel-section admin-only config-section tool-panel" data-tool-panel="setup" hidden>
                     <h2>壁面の寸法（選択中）</h2>
@@ -310,7 +289,7 @@
                         <div id="spotlightDirectionFields" hidden>
                             <div class="form-group">
                                 <label for="lightAimMode">光の向き</label>
-                                <select id="lightAimMode" class="form-control"><option value="free">角度で指定</option><option value="artwork">作品中央にスナップ</option></select>
+                                <select id="lightAimMode" class="form-control"><option value="free">角度で指定</option><option value="artwork">作品中央にスナップ</option><option value="down">真下を照らす</option></select>
                                 <button id="btnPickLightTarget" class="btn btn-secondary" type="button" data-tooltip="図面上の作品をクリックして、光をその中央へ向けます。Escでキャンセルします。">作品をクリックしてスナップ</button>
                             </div>
                             <div class="form-group" id="lightAngleField">
@@ -631,9 +610,7 @@
 
             <nav class="tool-palette" aria-label="機能">
                 <div class="tool-group tool-group-setup">
-                    <button class="tool-icon" type="button" data-tool="info" title="展覧会情報" aria-label="展覧会情報"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v13H4zM8 9h8M8 12h8M8 15h5"/></svg><span class="tool-label">情報</span></button>
                     <button class="tool-icon" type="button" data-tool="setup" title="作業モード・縮尺設定" aria-label="作業モード・縮尺設定"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16M9 4v4m7 2v4m-5 2v4"/></svg><span class="tool-label">作業モード</span></button>
-                    <button class="tool-icon" type="button" data-tool="walls" title="壁面選択" aria-label="壁面選択"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3zM9 4v16m6-16v16M3 10h6m6 4h6"/></svg><span class="tool-label">壁面</span></button>
                 </div>
                 <div class="tool-group tool-group-views" aria-label="図面表示">
                     <button class="tool-icon" type="button" data-action="floor" title="平面図を表示" aria-label="平面図を表示" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3zM8 4v6h5V4m3 16v-6h5"/><path d="M8 14h3m-3 3h6"/></svg><span class="tool-label">平面図</span></button>
@@ -701,6 +678,7 @@
 
     <!-- メインJS読み込み -->
     <script src="js/editor/core.js" defer></script>
+    <script src="js/editor/exhibition-save-ui.js" defer></script>
     <script src="js/editor/layout-variants.js" defer></script>
     <script src="js/editor/view.js" defer></script>
     <script src="js/editor/interaction.js" defer></script>

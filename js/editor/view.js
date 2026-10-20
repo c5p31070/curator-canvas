@@ -5,40 +5,11 @@
 // ============================================================
 
 // ------------------------------------------------------------
-// 壁面ドロップダウン更新
+// 壁面選択タブ更新（既存の呼び出し元と共通）
 // ------------------------------------------------------------
 
 function updateWallDropdownOptions() {
 
-    const selectEls = [
-        document.getElementById("wallListSelect"),
-        document.getElementById("floorWallListSelect")
-    ].filter(Boolean);
-
-    if (selectEls.length === 0) return;
-
-    const keys =
-        Object.keys(wallPlanJsonData);
-    selectEls.forEach(selectEl => {
-        selectEl.replaceChildren();
-        const isFloorSelector = selectEl.id === 'floorWallListSelect';
-        if (isFloorSelector) {
-            const placeholder = document.createElement('option');
-            placeholder.value = '';
-            placeholder.textContent = '壁面を選択してください';
-            placeholder.selected = true;
-            selectEl.appendChild(placeholder);
-        }
-        keys.forEach(key => {
-            const wall = wallPlanJsonData[key];
-            const opt = document.createElement('option');
-            opt.value = key;
-            opt.text = `${wall.title} (${wall.widthCm} × ${wall.heightCm} cm)`;
-            opt.selected = !isFloorSelector && key === selectedWallInfo.id;
-            selectEl.appendChild(opt);
-        });
-        if (isFloorSelector) selectEl.value = '';
-    });
     updateWallTabs();
 }
 

@@ -66,7 +66,7 @@ function initializeToolPalette() {
         actions[button.dataset.action]?.();
     });
 
-    activate('walls');
+    activate('artwork');
     updateViewModeToolState(currentViewMode);
 }
 
