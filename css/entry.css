@@ -26,6 +26,24 @@ body.entry-page {
 .entry-kicker { margin: 0 0 8px; color: #929da3; font-size: 11px; }
 .entry-main h1 { margin: 0; color: #e2e6e8; font-size: 26px; font-weight: 400; letter-spacing: 0; }
 .entry-login h1 { font-size: 22px; }
+.entry-home .btn-start { margin-top: 24px; }
+.entry-home {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    align-items: center;
+    gap: 48px;
+    width: min(860px, calc(100% - 48px));
+    padding: 32px 0;
+    border-top: 1px solid #41484b;
+    border-bottom: 1px solid #41484b;
+}
+.entry-home h1 { font-size: clamp(28px, 4vw, 38px); line-height: 1.25; }
+.entry-home .entry-kicker { margin-bottom: 12px; color: #a6afb4; }
+.entry-plan-decoration { display: block; width: 100%; height: auto; }
+@media (max-width: 660px) {
+    .entry-home { grid-template-columns: 1fr; gap: 32px; }
+    .entry-plan-decoration { width: min(240px, 100%); justify-self: end; }
+}
 .entry-intro { margin: 12px 0 22px; color: #aab3b8; font-size: 12px; }
 .entry-features {
     display: flex;
@@ -86,7 +104,7 @@ body.entry-page {
     .entry-header { padding: 8px 12px; }
     .entry-brand span { display: block; margin-left: 0; }
     .entry-main { margin-top: 44px; }
-    .entry-main h1 { font-size: 22px; }
+    .entry-login h1 { font-size: 22px; }
     .entry-features span { padding-right: 9px; padding-left: 9px; font-size: 10px; }
 }
 @media (max-height: 500px) and (orientation: landscape) {

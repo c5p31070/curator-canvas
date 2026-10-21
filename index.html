@@ -31,13 +31,32 @@
     </header>
 
     <main class="entry-main entry-home">
-        <p class="entry-kicker">展示企画・レイアウトツール</p>
-        <h1>展示配置ワークスペース</h1>
-        <p class="entry-intro">平面図・壁面図を使った作品配置と、照明・混雑予想の検討をチームで行います。</p>
-        <div class="entry-features" aria-label="主な機能">
-            <span>平面図・壁面図</span><span>照明・混雑予想</span><span>保存・チーム共有</span>
+        <div class="entry-home-content">
+            <p class="entry-kicker">展覧会配置図作成アプリ</p>
+            <h1>Curator-Canvas</h1>
+            <a href="login.html" class="btn-start">ログインして配置図を開く <span aria-hidden="true">→</span></a>
         </div>
-        <a href="login.html" class="btn-start">ログインして配置図を開く <span aria-hidden="true">→</span></a>
+        <svg class="entry-plan-decoration" viewBox="0 0 280 220" fill="none" aria-hidden="true">
+            <defs>
+                <pattern id="entryPlanGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                    <path d="M20 0H0V20" stroke="#32383b" stroke-width="0.6"/>
+                </pattern>
+            </defs>
+            <path fill="url(#entryPlanGrid)" d="M0 0h280v220H0z"/>
+            <g stroke="#69767d" stroke-width="2">
+                <path d="M30 160V30h220v150h-70m-45 0H30v-20M30 110h65m35 0h50V30m0 80h70"/>
+            </g>
+            <g stroke="#8cabb7" fill="#45616c" stroke-width="1">
+                <path d="M50 36h38v5H50zM111 36h38v5h-38zM36 55h5v30h-5zM202 36h28v5h-28zM239 62h5v29h-5z"/>
+                <path d="M68 143h24v17H68zM206 143h20v20h-20z"/>
+            </g>
+            <path d="M156 196v-43h-24v-10" stroke="#aa955f" stroke-width="1" stroke-dasharray="4 4"/>
+            <path d="m128 148 4-5 4 5" stroke="#aa955f" stroke-width="1"/>
+            <g stroke="#515d64" stroke-width="0.7">
+                <path d="M30 14h220M30 10v8m220-8v8M264 30v150m-4-150h8m-8 150h8"/>
+            </g>
+            <path d="M0 12V0h12M268 220h12v-12" stroke="#88535c" stroke-width="1"/>
+        </svg>
     </main>
 
 </body>
