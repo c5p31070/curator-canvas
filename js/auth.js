@@ -102,7 +102,7 @@
             });
             document.querySelectorAll('.tool-icon').forEach(control => {
                 control.disabled = !['walls', 'info', 'data', 'team', 'crowd', 'lighting'].includes(control.dataset.tool);
-                if (control.dataset.action) control.disabled = control.dataset.action !== 'light-visibility';
+                if (control.dataset.action) control.disabled = !['floor', 'wall', 'light-visibility'].includes(control.dataset.action);
             });
             if (typeof canvas !== 'undefined') {
                 canvas.selection = false;
