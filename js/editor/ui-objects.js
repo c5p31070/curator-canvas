@@ -78,6 +78,13 @@ window.migrateArtworkCatalogFromPlans = () => {
 };
 
 function initializeObjectControlsUi() {
+    const pinKindInput = document.getElementById('pinIcon');
+    const refreshPinNumberField = () => {
+        const field = document.getElementById('pinNumberField');
+        if (field) field.hidden = pinKindInput?.value !== 'number';
+    };
+    pinKindInput?.addEventListener('change', refreshPinNumberField);
+    refreshPinNumberField();
     const displayTypeSelect = document.getElementById("displayType");
     const scaleInput = document.getElementById("scale");
     const addButton = document.getElementById("addArtwork");
@@ -192,22 +199,16 @@ function initializeObjectControlsUi() {
                 isFloorPlan ? 8 : 6
             );
 
+            const appearance = getArtworkAppearance({ displayType, isFixture: Boolean(addAsFixture) });
             const rect = new fabric.Rect({
 
                 width: pxW,
                 height: pxH,
 
-                fill:
-                    displayType === 'wall'
-                        ? 'rgba(231, 76, 60, 0.85)'
-                        : 'rgba(52, 152, 219, 0.8)',
-
-                stroke:
-                    displayType === 'wall'
-                        ? '#c0392b'
-                        : '#2980b9',
-
-                strokeWidth: 2,
+                fill: appearance.fill,
+                stroke: appearance.stroke,
+                strokeWidth: 1.5,
+                strokeDashArray: appearance.dash,
 
                 originX: 'center',
                 originY: 'center'
@@ -223,7 +224,7 @@ function initializeObjectControlsUi() {
                             ? 11
                             : 14,
 
-                    fill: '#ffffff',
+                    fill: appearance.text,
 
                     fontFamily: 'sans-serif',
 
@@ -289,6 +290,35 @@ function initializeObjectControlsUi() {
             "click",
             function() {
 
+                if (window.CURATOR_ROLE === 'viewer') return;
+                if (document.getElementById('pinIcon')?.value === 'number') {
+                    const numberInput = document.getElementById('pinNumber');
+                    const number = Number(numberInput.value);
+                    if (!Number.isInteger(number) || number < 1 || number > 999) {
+                        alert('番号は1〜999の整数で入力してください。');
+                        return;
+                    }
+                    const name = document.getElementById('pinText')?.value.trim() || `番号 ${number}`;
+                    const color = document.getElementById('pinColor')?.value || '#ef4444';
+                    const text = new fabric.Text(String(number), { fontSize: 12, fontFamily: 'sans-serif',
+                        fill: color, originX: 'center', originY: 'center' });
+                    const ring = new fabric.Circle({ radius: Math.max(10, text.width / 2 + 4),
+                        fill: 'rgba(255,255,255,0)', stroke: color, strokeWidth: 1,
+                        originX: 'center', originY: 'center' });
+                    const center = canvas.getCenter();
+                    const pin = new fabric.Group([ring, text], { left: center.left, top: center.top,
+                        originX: 'center', originY: 'center', isPin: true, isFreePin: true,
+                        isNumberPin: true, pinType: 'number', pinNumber: number, pinName: name,
+                        pinLabel: `(${number}) ${name}`, description: document.getElementById('pinDescription')?.value.trim() || '',
+                        isFixture: Boolean(isAdminMode && document.getElementById('addAsFixture')?.checked) });
+                    pinCount++;
+                    canvas.add(pin);
+                    canvas.setActiveObject(pin);
+                    canvas.requestRenderAll();
+                    saveState();
+                    numberInput.value = Math.min(999, number + 1);
+                    return;
+                }
                 pinCount++;
 
                 const textInput =

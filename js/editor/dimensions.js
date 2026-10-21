@@ -104,6 +104,7 @@ function cancelDimensionDrawing() {
 window.cancelDimensionDrawing = cancelDimensionDrawing;
 
 function startDimensionDrawing() {
+    window.endShapeFreeTransform?.();
     if (window.CURATOR_ROLE === 'viewer') return;
     window.cancelLightingPlacement?.();
     if (isDimensionDrawingMode) return cancelDimensionDrawing();

@@ -674,6 +674,7 @@ function updateFreeDrawingBrush() {
 
 function toggleFreeDrawingMode(enable) {
     const nextMode = enable === undefined ? !isFreeDrawingMode : Boolean(enable);
+    if (nextMode) window.endShapeFreeTransform?.();
     if (nextMode) window.cancelDimensionDrawing?.();
     if (nextMode) window.cancelLightingPlacement?.();
     if (nextMode && isMeasuringMode) toggleMeasuringMode(false);

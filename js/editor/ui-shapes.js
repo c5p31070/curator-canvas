@@ -46,8 +46,8 @@ function initializeShapeTools() {
         const p = getParameters();
         const center = selected.getCenterPoint();
         const replacement = createShape(p.kind, p.length, p.head, p.stroke, p.fill);
-        replacement.setPositionByOrigin(center, 'center', 'center');
         replacement.set('angle', selected.angle || 0);
+        replacement.setPositionByOrigin(center, 'center', 'center');
         canvas.remove(selected);
         canvas.add(replacement);
         canvas.setActiveObject(replacement);

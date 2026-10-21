@@ -141,6 +141,7 @@ async function switchViewMode(
     callback = null,
     skipCapture = false
 ) {
+    window.endShapeFreeTransform?.();
     window.cancelDimensionDrawing?.();
     window.cancelLightingPlacement?.();
 

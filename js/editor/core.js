@@ -17,6 +17,8 @@ fabric.Object.prototype.transparentCorners = false;
 const STORAGE_KEY = 'curator_canvas_draft_data';
 const EXHIBITIONS_KEY = 'curator_canvas_saved_exhibitions';
 const SCALE_SETTINGS_KEY = 'curator_canvas_floor_scale';
+let crowdVisible = true;
+try { crowdVisible = localStorage.getItem('curator_canvas_crowd_visible') !== 'false'; } catch {}
 let configuredScale = loadConfiguredScale();
 if (configuredScale !== null) {
     const input = document.getElementById('scale');
@@ -341,13 +343,11 @@ let isAdminMode = false;
 let floorPlanJsonData = null;
 const FLOOR_PLANS = {
     lobby: { title: 'ロビー階', image: 'images/LBF.png' },
-    floor1: { title: '1階', image: 'images/floor1.png' }
+    floor1: { title: '1階', image: 'images/floor1.png' },
+    floor2: { title: '2階', image: 'images/floor2.png' }
 };
 let selectedFloorId = 'lobby';
-let floorPlanData = {
-    lobby: { json: null },
-    floor1: { json: null }
-};
+let floorPlanData = Object.fromEntries(Object.keys(FLOOR_PLANS).map(id => [id, { json: null }]));
 const floorBackgroundImages = new Map();
 let savedArtworkCatalog = [];
 
@@ -423,6 +423,7 @@ function getCustomProperties() {
         'description',
         'isPin',
         'pinName',
+        'pinType', 'isNumberPin', 'pinNumber',
         'isFreeDrawing',
         'isDimension',
         'isDimensionLabel',
@@ -448,9 +449,21 @@ function getCustomProperties() {
     ];
 }
 
+function getArtworkAppearance(artwork) {
+    if (artwork.isFixture) return { fill: '#d4d9de', stroke: '#66727d', text: '#26323b', dash: [4, 3] };
+    return artwork.displayType === 'floor'
+        ? { fill: '#f3d58b', stroke: '#94702f', text: '#42341b', dash: null }
+        : { fill: '#a9dce9', stroke: '#427c91', text: '#193e4c', dash: null };
+}
+
 function configureArtworkTransform(artwork) {
     if (!artwork?.isArtwork) return;
+    const appearance = getArtworkAppearance(artwork);
+    artwork.item?.(0)?.set({ fill: appearance.fill, stroke: appearance.stroke,
+        strokeWidth: 1.5, strokeDashArray: appearance.dash });
+    artwork.item?.(1)?.set({ fill: appearance.text });
     artwork.set({
+        dirty: true,
         lockScalingX: true,
         lockScalingY: true,
         lockScalingFlip: true,
@@ -877,7 +890,8 @@ function restoreCustomProperties() {
             }
         }
 
-        if (obj.isPin || obj.isFreePin || obj.isGuard || obj.pinLabel !== undefined) {
+        if (obj.isNumberPin) resizeNumberPin(obj);
+        if (!obj.isNumberPin && (obj.isPin || obj.isFreePin || obj.isGuard || obj.pinLabel !== undefined)) {
             const iconBackground = obj.item?.(0);
             const labelBackground = obj.item?.(2);
             const label = obj.item?.(3);
@@ -897,6 +911,7 @@ function restoreCustomProperties() {
 
     applyFixtureEditability();
     applyWallOutlineLock();
+    canvas.getObjects().filter(obj => obj.isCrowdCircle).forEach(configureCrowdCircle);
     window.refreshDimensionLabels?.();
     window.refreshLighting?.();
 }
@@ -956,10 +971,32 @@ function positionCrowdSemicircle(artwork) {
     crowd.setCoords();
 }
 
+function resizeNumberPin(pin) {
+    const text = pin.item?.(1);
+    const ring = pin.item?.(0);
+    if (!text || !ring) return;
+    text.set('fontSize', 12);
+    text.initDimensions();
+    ring.set({ radius: Math.max(10, text.width / 2 + 4), strokeWidth: 1 });
+    pin.addWithUpdate();
+    pin.setCoords();
+}
+
+function setCrowdVisibility(visible) {
+    crowdVisible = Boolean(visible);
+    try { localStorage.setItem('curator_canvas_crowd_visible', String(crowdVisible)); }
+    catch (error) { console.warn('混雑予想の表示設定を保存できませんでした。', error); }
+    canvas.getObjects().filter(obj => obj.isCrowdCircle).forEach(configureCrowdCircle);
+    const input = document.getElementById('crowdVisibility');
+    if (input) input.checked = crowdVisible;
+    canvas.requestRenderAll();
+}
+
 function configureCrowdCircle(circle) {
     if (!circle) return;
     circle.set({
         isCrowdCircle: true,
+        visible: crowdVisible,
         selectable: false,
         evented: false,
         hasControls: false,

@@ -7,6 +7,7 @@ function initializeToolPalette() {
     const buttons = [...palette.querySelectorAll('[data-tool]')];
 
     const activate = (tool, toggle = false) => {
+        if (tool !== 'draw') window.endShapeFreeTransform?.();
         window.cancelDimensionDrawing?.();
         window.cancelLightingPlacement?.();
         const targets = panels.filter(panel => panel.dataset.toolPanel === tool);
@@ -14,6 +15,7 @@ function initializeToolPalette() {
         panels.forEach(panel => panel.classList.remove('is-open'));
 
         if (toggle && alreadyOpen) {
+            window.endShapeFreeTransform?.();
             if (tool === 'draw' && isFreeDrawingMode) toggleFreeDrawingMode(false);
             buttons.forEach(button => {
                 button.classList.remove('active');

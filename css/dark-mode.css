@@ -1137,6 +1137,19 @@ header h1 .brand-subtitle {
     font-size: 11px;
 }
 .diagram-load-notice[hidden], .diagram-load-notice button[hidden] { display: none; }
+.artwork-color-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px 10px;
+    margin: 0 0 9px;
+    color: #abb3b8;
+    font-size: 10px;
+}
+.artwork-color-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.artwork-color-legend i { display: inline-block; width: 9px; height: 9px; border: 1px solid transparent; }
+.artwork-swatch-wall { background: #a9dce9; }
+.artwork-swatch-floor { background: #f3d58b; }
+.artwork-color-legend .artwork-swatch-fixture { background: #d4d9de; border: 1px dashed #66727d; }
 .team-scale-notice button {
     padding: 3px 7px;
     border: 1px solid #756548;

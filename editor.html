@@ -274,6 +274,7 @@
                         <button id="btnAddShape" class="btn btn-secondary" type="button">図形を追加</button>
                         <button id="btnUpdateShape" class="btn btn-secondary" type="button">選択図形を更新</button>
                     </div>
+                    <button id="btnShapeFreeTransform" class="btn btn-secondary" type="button" aria-pressed="false" data-tooltip="オンにして図形を選択。水色の点で頂点、黄色の点で曲線を調整します。Escで終了します。">自由変形</button>
                 </div>
             </div>
 
@@ -315,6 +316,11 @@
             <!-- 展示品追加セクション -->
             <div class="panel-section artwork-section tool-panel" data-tool-panel="artwork">
                 <h2>展示品の追加</h2>
+                <div class="artwork-color-legend" aria-label="展示物の色分け">
+                    <span><i class="artwork-swatch-wall" aria-hidden="true"></i>壁面展示</span>
+                    <span><i class="artwork-swatch-floor" aria-hidden="true"></i>床置き</span>
+                    <span><i class="artwork-swatch-fixture" aria-hidden="true"></i>固定設備</span>
+                </div>
 
                 <div class="form-group">
                     <label for="savedArtworkSelect">保存済み展示品</label>
@@ -453,6 +459,7 @@
                             <option value="📍">
                                 ピン
                             </option>
+                            <option value="number">番号（①）</option>
 
                             <option value="🚩">
                                 フラグ
@@ -485,6 +492,10 @@
                         </select>
                     </div>
 
+                    <div id="pinNumberField" class="form-group" hidden>
+                        <label for="pinNumber">番号</label>
+                        <input id="pinNumber" class="form-control" type="number" value="1" min="1" max="999" step="1">
+                    </div>
                     <div class="form-group">
                         <label for="pinColor">
                             ピンの色
@@ -514,6 +525,10 @@
                 <h2>選択中の項目を編集</h2>
                 <p id="itemEditorStatus" class="section-help">キャンバス上の展示物またはピンを選択してください。</p>
                 <div id="itemEditorFields" hidden>
+                    <div id="itemPinNumberField" class="form-group" hidden>
+                        <label for="editItemPinNumber">番号</label>
+                        <input id="editItemPinNumber" class="form-control" type="number" min="1" max="999" step="1">
+                    </div>
                     <div class="form-group">
                         <label for="editItemName">名前 / ラベル</label>
                         <input id="editItemName" class="form-control" type="text">
@@ -571,6 +586,7 @@
             <div class="panel-section analysis-section tool-panel" data-tool-panel="crowd">
 
                     <h2>混雑予測</h2>
+                <label class="lighting-visibility"><input id="crowdVisibility" type="checkbox" checked>混雑予想を表示</label>
 
                 <p class="field-note field-note-tight">
                     選択中の作品の直前に滞留する人数を入力（15人で赤）
@@ -701,6 +717,7 @@
     <script src="js/editor/ui-controls.js" defer></script>
     <script src="js/editor/shape-engine.js" defer></script>
     <script src="js/editor/ui-shapes.js" defer></script>
+    <script src="js/editor/shape-free-transform.js" defer></script>
     <script src="js/editor/ui-item-details.js" defer></script>
     <script src="js/editor/ui-creation-settings.js" defer></script>
     <script src="js/editor/ui-objects.js" defer></script>

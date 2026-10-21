@@ -1,4 +1,9 @@
 function initializeCanvasControlsUi() {
+    const crowdVisibility = document.getElementById('crowdVisibility');
+    if (crowdVisibility) {
+        crowdVisibility.checked = crowdVisible;
+        crowdVisibility.addEventListener('change', () => setCrowdVisibility(crowdVisibility.checked));
+    }
     // ----------------------------------------------------
     // 展覧会タイトル
     // ----------------------------------------------------

@@ -10,6 +10,8 @@ function initializeItemDetailsUi() {
     const itemDepthInput = document.getElementById('editItemDepth');
     const itemDepthLabel = document.getElementById('editItemDepthLabel');
     const itemAngleInput = document.getElementById('editItemAngle');
+    const itemPinNumberInput = document.getElementById('editItemPinNumber');
+    const itemPinNumberField = document.getElementById('itemPinNumberField');
     const itemTooltip = document.getElementById('canvasTooltip');
     const tooltipTitle = document.getElementById('canvasTooltipTitle');
     const tooltipMeta = document.getElementById('canvasTooltipMeta');
@@ -51,6 +53,8 @@ function initializeItemDetailsUi() {
         if (itemNameInput) itemNameInput.value = getItemName(selectedItemForEditing);
         if (itemDescriptionInput) itemDescriptionInput.value = selectedItemForEditing.description || '';
         const isArtwork = Boolean(selectedItemForEditing?.isArtwork);
+        if (itemPinNumberField) itemPinNumberField.hidden = !selectedItemForEditing.isNumberPin;
+        if (itemPinNumberInput && selectedItemForEditing.isNumberPin) itemPinNumberInput.value = selectedItemForEditing.pinNumber;
         if (itemArtworkDimensions) itemArtworkDimensions.hidden = !isArtwork;
         if (isArtwork) {
             if (itemDepthLabel) itemDepthLabel.textContent = selectedItemForEditing.displayType === 'floor' ? '奥行き' : '厚み';
@@ -155,6 +159,19 @@ function initializeItemDetailsUi() {
                     label.initDimensions();
                     obj.addWithUpdate();
                 }
+            } else if (obj.isNumberPin) {
+                const number = Number(itemPinNumberInput?.value);
+                if (!Number.isInteger(number) || number < 1 || number > 999) {
+                    if (itemEditorStatus) itemEditorStatus.textContent = '番号は1〜999の整数で入力してください。';
+                    return false;
+                }
+                obj.pinName = newName;
+                obj.pinNumber = number;
+                obj.pinLabel = `(${number}) ${newName}`;
+                const text = obj.item(1);
+                text.set('text', String(number));
+                text.initDimensions();
+                resizeNumberPin(obj);
             } else {
                 obj.pinName = newName;
                 const label = obj.item(3);
@@ -186,7 +203,7 @@ function initializeItemDetailsUi() {
             return true;
     };
 
-    [itemNameInput, itemDescriptionInput, itemWidthInput, itemHeightInput, itemDepthInput]
+    [itemNameInput, itemDescriptionInput, itemWidthInput, itemHeightInput, itemDepthInput, itemPinNumberInput]
         .filter(Boolean)
         .forEach(input => input.addEventListener('input', () => applyItemEdit()));
 
