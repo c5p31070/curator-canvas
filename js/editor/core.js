@@ -180,6 +180,7 @@ async function saveExhibitionSnapshot() {
 }
 
 async function persistExhibitionSnapshot() {
+    if (window.isDiagramReady && !window.isDiagramReady()) return alert('図面の読み込み完了後に保存してください。');
     if (window.CURATOR_ROLE === 'viewer') return alert('閲覧者は展覧会を保存できません。');
     if (window.refreshTeamFloorScale && !await window.refreshTeamFloorScale()) return;
     const title = (document.getElementById('exhibitionTitle')?.value || '').trim();
@@ -285,8 +286,9 @@ async function loadExhibitionSnapshot(id) {
     const data = typeof record.data === 'string' ? JSON.parse(record.data) : { ...record.data };
     data.exhibitionTitle = record.title;
     const snapshot = JSON.stringify(data);
-    applyStateData(snapshot, function() {
+    applyStateData(snapshot, function(loaded) {
         isUndoRedoOperation = false;
+        if (loaded === false) return;
         historyStack = [getSerializedCanvasData()];
         redoStack = [];
         updateUndoRedoButtons();
@@ -475,7 +477,7 @@ function configureArtworkTransform(artwork) {
 
 function captureCurrentCanvasState() {
 
-    if (isTransitioning) return;
+    if (isTransitioning || (window.isDiagramReady && !window.isDiagramReady())) return;
 
     const jsonStr = JSON.stringify(
         canvas.toJSON(getCustomProperties())
@@ -553,6 +555,7 @@ function getSerializedCanvasData() {
 // ============================================================
 
 function saveLocalStorage() {
+    if (window.isDiagramReady && !window.isDiagramReady()) return;
 
     try {
 
@@ -591,6 +594,7 @@ function saveLocalStorage() {
 // ============================================================
 
 function saveState() {
+    if (window.isDiagramReady && !window.isDiagramReady()) return;
 
     if (
         isUndoRedoOperation ||
@@ -689,7 +693,7 @@ function redo() {
 // 保存データを現在の状態へ適用
 // ============================================================
 
-function applyStateData(jsonString, callback) {
+async function applyStateData(jsonString, callback) {
     window.cancelDimensionDrawing?.();
     window.cancelLightingPlacement?.();
 
@@ -753,12 +757,13 @@ function applyStateData(jsonString, callback) {
 
         const targetMode = parsed.currentViewMode === 'wall' ? 'wall' : 'floor';
 
-        switchViewMode(
+        const loaded = await switchViewMode(
             targetMode,
             true,
-            callback,
+            null,
             true
         );
+        callback?.(loaded);
 
     } catch (e) {
 
@@ -768,7 +773,7 @@ function applyStateData(jsonString, callback) {
         );
 
         if (callback) {
-            callback();
+            callback(false);
         }
     }
 }

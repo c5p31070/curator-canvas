@@ -1125,6 +1125,18 @@ header h1 .brand-subtitle {
     font-size: 11px;
 }
 .team-scale-notice[hidden] { display: none; }
+.diagram-load-notice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 9px 12px;
+    border-bottom: 1px solid #51595d;
+    background: #262b30;
+    color: #bbc1c5;
+    font-size: 11px;
+}
+.diagram-load-notice[hidden], .diagram-load-notice button[hidden] { display: none; }
 .team-scale-notice button {
     padding: 3px 7px;
     border: 1px solid #756548;

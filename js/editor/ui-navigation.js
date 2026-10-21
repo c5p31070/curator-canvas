@@ -133,12 +133,8 @@ function initializeNavigationUi() {
                 heightCm: nextWall.heightCm
             };
 
-            isTransitioning = true;
-            updateWallDropdownOptions();
-            updateWallBannerText();
-            await renderWallCanvas();
-            isTransitioning = false;
-            saveState();
+            const loaded = await switchViewMode('wall', false, null, true);
+            if (!loaded) return;
 
             const status = document.getElementById('saveStatus');
             if (status) status.innerText = `「${wall.title}」を削除しました。`;

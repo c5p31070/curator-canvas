@@ -4,6 +4,31 @@
 // 平面図・壁面図・背景画像・壁面管理
 // ============================================================
 
+let diagramReady = false;
+let initialDiagramLoaded = false;
+const floorImageRequests = new Map();
+window.isDiagramReady = () => diagramReady;
+
+function showDiagramStatus(message = '', failed = false) {
+    const notice = document.getElementById('diagramLoadNotice');
+    if (!notice) return;
+    notice.hidden = !message;
+    document.getElementById('diagramLoadMessage').textContent = message;
+    document.getElementById('btnRetryDiagram').hidden = !failed;
+    const viewport = document.getElementById('canvasViewport');
+    if (viewport) viewport.inert = Boolean(message);
+}
+
+function loadCanvasState(json, afterLoad = null) {
+    return new Promise((resolve, reject) => {
+        const data = typeof json === 'string' ? JSON.parse(json) : json;
+        canvas.loadFromJSON(data, () => {
+            try { afterLoad?.(); resolve(); }
+            catch (error) { reject(error); }
+        });
+    });
+}
+
 // ------------------------------------------------------------
 // 壁面選択タブ更新（既存の呼び出し元と共通）
 // ------------------------------------------------------------
@@ -54,7 +79,7 @@ function updateFloorTabs() {
 
 async function handleFloorSelectChange(floorId, skipSave = false) {
     if (!FLOOR_PLANS[floorId] || isTransitioning) return;
-    if (selectedFloorId === floorId && currentViewMode === 'floor') return;
+    if (selectedFloorId === floorId && currentViewMode === 'floor' && diagramReady) return;
     window.cancelDimensionDrawing?.();
     window.cancelLightingPlacement?.();
     window.flushPendingItemEditHistory?.();
@@ -62,8 +87,8 @@ async function handleFloorSelectChange(floorId, skipSave = false) {
     selectedFloorId = floorId;
     floorPlanJsonData = floorPlanData[floorId].json;
     cachedBackgroundImage = floorBackgroundImages.get(floorId) || null;
-    await switchViewMode('floor', true, null, true);
-    if (!skipSave) saveState();
+    const loaded = await switchViewMode('floor', true, null, true);
+    if (loaded && !skipSave) saveState();
 }
 
 // ------------------------------------------------------------
@@ -85,15 +110,13 @@ async function handleWallSelectChange(wallId) {
 
     if (
         selectedWallInfo.id === wallId &&
-        currentViewMode === 'wall'
+        currentViewMode === 'wall' && diagramReady
     ) {
         return;
     }
 
     // 現在の壁を保存
     captureCurrentCanvasState();
-    isTransitioning = true;
-
     // 新しい壁を選択
     const targetWall =
         wallPlanJsonData[wallId];
@@ -105,44 +128,7 @@ async function handleWallSelectChange(wallId) {
         heightCm: targetWall.heightCm
     };
 
-    currentViewMode = 'wall';
-    updateWallTabs();
-
-    const floorControls =
-        document.getElementById("floorPlanControls");
-
-    const wallControls =
-        document.getElementById("wallPlanControls");
-
-    const wallBanner =
-        document.getElementById("wallInfoBanner");
-
-    updateViewModeToolState('wall');
-
-    if (floorControls) {
-        floorControls.style.display = "none";
-    }
-
-    if (wallControls) {
-        wallControls.style.display = "block";
-    }
-
-    if (wallBanner) {
-        wallBanner.style.display = "block";
-    }
-
-    updateWallDropdownOptions();
-
-    updateWallBannerText();
-
-    await new Promise(resolve =>
-        renderWallCanvas(resolve)
-    );
-
-    isTransitioning = false;
-
-    saveState();
-    window.refreshCanvasZoomForView?.(false);
+    return switchViewMode('wall', false, null, true);
 }
 
 // ============================================================
@@ -161,25 +147,27 @@ async function switchViewMode(
     if (isFreeDrawingMode) toggleFreeDrawingMode(false);
 
     if (isTransitioning) {
-        return;
+        return false;
     }
 
     if (
         currentViewMode === mode &&
         !skipSave &&
         !callback &&
-        !skipCapture
+        !skipCapture && diagramReady
     ) {
-        return;
+        return true;
     }
 
     if (!skipCapture) captureCurrentCanvasState();
     isTransitioning = true;
+    diagramReady = false;
+    showDiagramStatus('図面を読み込み中…');
 
+    try {
     currentViewMode = mode;
 
     removeWallRulers();
-    canvas.clear();
 
     const floorControls =
         document.getElementById("floorPlanControls");
@@ -208,9 +196,9 @@ async function switchViewMode(
             wallBanner.style.display = "none";
         }
 
-        await new Promise(resolve =>
-            loadBackgroundImage(resolve)
-        );
+        // Fetch before clearing the previous canvas so a network error cannot erase it.
+        const background = await getFloorBackgroundImage(selectedFloorId);
+        canvas.clear();
 
         let floorJson = floorPlanJsonData
             ? (typeof floorPlanJsonData === 'string' ? JSON.parse(floorPlanJsonData) : { ...floorPlanJsonData })
@@ -218,33 +206,15 @@ async function switchViewMode(
         floorJson = window.prepareFloorLighting?.(floorJson, selectedFloorId) || floorJson;
         if (floorPlanJsonData || floorJson.objects?.length) {
 
-            await new Promise(resolve => {
-
-                delete floorJson.backgroundImage;
-                canvas.loadFromJSON(
-                    floorJson,
-                    function() {
-
-                        ensureBackgroundImage(
-                            function() {
-
-                                canvas.renderAll();
-
-                                restoreCustomProperties();
-                                syncFloorArtworkScale();
-
-                                resolve();
-                            }
-                        );
-                    }
-                );
-            });
+            delete floorJson.backgroundImage;
+            await loadCanvasState(floorJson);
+            applyFloorBackgroundImage(background);
+            restoreCustomProperties();
+            syncFloorArtworkScale();
 
         } else {
 
-            await new Promise(resolve =>
-                ensureBackgroundImage(resolve)
-            );
+            applyFloorBackgroundImage(background);
             window.refreshLighting?.();
         }
 
@@ -269,13 +239,19 @@ async function switchViewMode(
 
         updateWallBannerText();
 
-        await new Promise(resolve =>
-            renderWallCanvas(resolve)
-        );
+        await renderWallCanvas();
 
     }
 
-    isTransitioning = false;
+    diagramReady = true;
+    showDiagramStatus();
+    } catch (error) {
+        console.error('図面の読み込みに失敗しました:', error);
+        showDiagramStatus('図面を読み込めませんでした。再試行してください。', true);
+        return false;
+    } finally {
+        isTransitioning = false;
+    }
 
     if (!skipSave) {
         saveState();
@@ -288,32 +264,8 @@ async function switchViewMode(
     if (window.refreshCanvasZoomForView) {
         requestAnimationFrame(() => window.refreshCanvasZoomForView(false));
     }
-}
-
-// ============================================================
-// 背景画像確保
-// ============================================================
-
-function ensureBackgroundImage(callback) {
-
-    if (cachedBackgroundImage) {
-
-        canvas.setBackgroundImage(
-            cachedBackgroundImage,
-            function() {
-
-                canvas.renderAll();
-
-                if (callback) {
-                    callback();
-                }
-            }
-        );
-
-    } else {
-
-        loadBackgroundImage(callback);
-    }
+    window.applyCuratorRoleRestrictions?.();
+    return true;
 }
 
 // ============================================================
@@ -507,19 +459,9 @@ async function renderWallCanvas(callback = null) {
         wallItem.json
     ) {
 
-        await new Promise(resolve => {
-
-            canvas.loadFromJSON(
-                wallItem.json,
-                function() {
-
-                    canvas.renderAll();
-
-                    restoreCustomProperties();
-
-                    resolve();
-                }
-            );
+        await loadCanvasState(wallItem.json, () => {
+            canvas.renderAll();
+            restoreCustomProperties();
         });
 
     } else {
@@ -612,21 +554,57 @@ function applyScaleToAllArtworks(newScale) {
 // 背景図面読み込み
 // ============================================================
 
-function loadBackgroundImage(callback) {
-    const floorId = selectedFloorId;
-    const applyImage = img => {
-        if (!img || !img.width || !img.height) {
-            console.warn(`背景画像 '${FLOOR_PLANS[floorId].image}' の読み込みに失敗しました。`);
-            callback?.();
-            return;
+function requestFloorImage(url) {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        let timer;
+        const finish = (error = null) => {
+            clearTimeout(timer);
+            image.onload = image.onerror = null;
+            if (error) { image.src = ''; reject(error); }
+            else {
+                try { resolve(new fabric.Image(image)); }
+                catch (creationError) { reject(creationError); }
+            }
+        };
+        image.crossOrigin = 'anonymous';
+        image.onload = () => image.naturalWidth > 0 && image.naturalHeight > 0
+            ? finish() : finish(new Error('Invalid floor image'));
+        image.onerror = () => finish(new Error(`図面画像を取得できません: ${url}`));
+        timer = setTimeout(() => finish(new Error('図面画像の取得がタイムアウトしました。')), 12000);
+        image.src = url;
+    });
+}
+
+async function getFloorBackgroundImage(floorId) {
+    if (floorBackgroundImages.has(floorId)) return floorBackgroundImages.get(floorId);
+    if (floorImageRequests.has(floorId)) return floorImageRequests.get(floorId);
+    const request = (async () => {
+        let lastError;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                const image = await requestFloorImage(FLOOR_PLANS[floorId].image);
+                floorBackgroundImages.set(floorId, image);
+                return image;
+            } catch (error) {
+                lastError = error;
+                if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 400 * (attempt + 1)));
+            }
         }
+        throw lastError;
+    })();
+    floorImageRequests.set(floorId, request);
+    try { return await request; }
+    finally { floorImageRequests.delete(floorId); }
+}
+
+function applyFloorBackgroundImage(img) {
         const fit = Math.min(canvas.width / img.width, canvas.height / img.height);
         const left = (canvas.width - img.width * fit) / 2;
         const top = (canvas.height - img.height * fit) / 2;
         img.set({ scaleX: fit, scaleY: fit, left, top, originX: 'left', originY: 'top' });
-        floorBackgroundImages.set(floorId, img);
         cachedBackgroundImage = img;
-        canvas.setBackgroundImage(img, () => {
+        canvas.setBackgroundImage(img);
             wallCanvas.width = canvas.width;
             wallCanvas.height = canvas.height;
             wallCtx.fillStyle = '#ffffff';
@@ -634,12 +612,6 @@ function loadBackgroundImage(callback) {
             wallCtx.drawImage(img._element, left, top, img.width * fit, img.height * fit);
             isWallDataLoaded = true;
             canvas.renderAll();
-            callback?.();
-        });
-    };
-    const cached = floorBackgroundImages.get(floorId);
-    if (cached) applyImage(cached);
-    else fabric.Image.fromURL(FLOOR_PLANS[floorId].image, applyImage, { crossOrigin: 'anonymous' });
 }
 
 // ============================================================
@@ -647,8 +619,33 @@ function loadBackgroundImage(callback) {
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', async function() {
-    await window.TEAM_SCALE_READY;
-    loadBackgroundImage(function() {
-        switchViewMode('floor', true, loadSavedData, true);
+    const initializeDrawing = async () => {
+        if (isTransitioning) return;
+        try {
+            showDiagramStatus('図面を読み込み中…');
+            let scaleReady;
+            try { scaleReady = await window.TEAM_SCALE_READY; }
+            catch (error) {
+                console.error('共有設定の初期化に失敗しました:', error);
+                scaleReady = false;
+            }
+            if (scaleReady === false && !await window.refreshTeamFloorScale?.()) {
+                showDiagramStatus('共有縮尺を読み込めません。通信状態を確認して再試行してください。', true);
+                return;
+            }
+            const loaded = await switchViewMode(currentViewMode, true, null, true);
+            if (loaded && !initialDiagramLoaded) {
+                initialDiagramLoaded = true;
+                loadSavedData();
+            }
+        } catch (error) {
+            console.error('図面の初期化に失敗しました:', error);
+            showDiagramStatus('図面を読み込めませんでした。再試行してください。', true);
+        }
+    };
+    document.getElementById('btnRetryDiagram')?.addEventListener('click', initializeDrawing);
+    window.addEventListener('online', () => {
+        if (!diagramReady) initializeDrawing();
     });
+    await initializeDrawing();
 });
