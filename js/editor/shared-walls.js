@@ -213,6 +213,19 @@
         if (saved) window.applyVenueWallsToPlans();
         return saved;
     };
+    window.deleteVenueWallsForFloor = async (floorId, expectedIds) => {
+        if (!ready || !editable() || busy || !FLOOR_PLANS[floorId]) return false;
+        if (pending && !await flush()) return false;
+        const next = clone(walls);
+        for (const id of expectedIds) {
+            if (!next[id] || next[id].floorId !== floorId) return false;
+            delete next[id];
+        }
+        if (!expectedIds.length) return true;
+        const saved = await publish(next);
+        if (saved) window.applyVenueWallsToPlans();
+        return saved;
+    };
     window.queueVenueWallFixtureChange = object => {
         if (!object?.isFixture || object.isLightObject || object.isLightRail || !ready || rendering ||
             !isAdminMode || !editable() || isTransitioning || isUndoRedoOperation || currentViewMode !== 'wall') return;

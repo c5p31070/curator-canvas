@@ -550,6 +550,35 @@ function applyLightSettings(debounce = false) {
 window.canDeleteLightingObject = obj => !lightingReadOnly() && Boolean(
     (obj.isLightObject && (obj.lightKind === 'spot' || isAdminMode)) || (obj.isLightRail && isAdminMode)
 );
+function removeVenueLightingObjects(objects) {
+    if (!objects.length) return true;
+    if (!isAdminMode || lightingReadOnly() || currentViewMode !== 'floor' || isTransitioning || isUndoRedoOperation) return false;
+    if (objects.some(object => !isVenueEquipment(object) || !canvas.getObjects().includes(object))) return false;
+    const railIds = new Set(objects.filter(object => object.isLightRail).map(object => object.lightId));
+    const spots = canvas.getObjects().filter(object => object.isLightObject && object.lightKind === 'spot' && railIds.has(object.lightRailId));
+    const restoring = isUndoRedoOperation;
+    lightingRenderBusy = true;
+    isUndoRedoOperation = true;
+    try {
+        canvas.discardActiveObject();
+        canvas.remove(...objects, ...spots);
+    } finally {
+        lightingRenderBusy = false;
+        isUndoRedoOperation = restoring;
+    }
+    window.persistLightingEquipmentChange(objects[0]);
+    refreshLighting();
+    saveState();
+    window.refreshVenuePresetList?.();
+    return true;
+}
+window.deleteVenueLightingForFloor = (floorId, expectedIds) => {
+    if (selectedFloorId !== floorId || currentViewMode !== 'floor') return false;
+    const ids = new Set(expectedIds);
+    const objects = canvas.getObjects().filter(object => isVenueEquipment(object) && ids.has(object.lightId));
+    if (objects.length !== ids.size) return false;
+    return removeVenueLightingObjects(objects);
+};
 window.deleteVenueLightingPreset = async (floorId, lightId) => {
     if (!isAdminMode || lightingReadOnly() || isTransitioning || isUndoRedoOperation || !FLOOR_PLANS[floorId]) return false;
     cancelLightingPlacement();
@@ -561,21 +590,7 @@ window.deleteVenueLightingPreset = async (floorId, lightId) => {
     const spots = object.isLightRail ? canvas.getObjects().filter(light => light.isLightObject && light.lightKind === 'spot' && light.lightRailId === object.lightId) : [];
     const message = `「${object.lightName || (object.isLightRail ? 'ライトレール' : '固定ライト')}」を事前設定から削除しますか？${spots.length ? `\nこのレール上のスポットライト ${spots.length}個も削除します。` : ''}`;
     if (!confirm(message)) return false;
-    const restoring = isUndoRedoOperation;
-    lightingRenderBusy = true;
-    isUndoRedoOperation = true;
-    try {
-        canvas.discardActiveObject();
-        canvas.remove(object, ...spots);
-    } finally {
-        lightingRenderBusy = false;
-        isUndoRedoOperation = restoring;
-    }
-    window.persistLightingEquipmentChange(object);
-    refreshLighting();
-    saveState();
-    window.refreshVenuePresetList?.();
-    return true;
+    return removeVenueLightingObjects([object]);
 };
 window.handleLightingObjectRemoved = obj => {
     if (lightingRenderBusy || isTransitioning || isUndoRedoOperation) return;
