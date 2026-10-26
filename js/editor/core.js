@@ -5,6 +5,11 @@
 // ============================================================
 
 // Fabric.js キャンバス
+const editorStorage = window.CURATOR_GUEST?.storage || {
+    getItem: key => window.localStorage.getItem(key),
+    setItem: (key, value) => window.localStorage.setItem(key, value),
+    removeItem: key => window.localStorage.removeItem(key)
+};
 const canvas = new fabric.Canvas('canvas');
 canvas.selectionColor = 'rgba(178, 187, 190, 0.10)';
 canvas.selectionBorderColor = '#879195';
@@ -18,7 +23,7 @@ const STORAGE_KEY = 'curator_canvas_draft_data';
 const EXHIBITIONS_KEY = 'curator_canvas_saved_exhibitions';
 const SCALE_SETTINGS_KEY = 'curator_canvas_floor_scale';
 let crowdVisible = true;
-try { crowdVisible = localStorage.getItem('curator_canvas_crowd_visible') !== 'false'; } catch {}
+try { crowdVisible = editorStorage.getItem('curator_canvas_crowd_visible') !== 'false'; } catch {}
 let configuredScale = loadConfiguredScale();
 if (configuredScale !== null) {
     const input = document.getElementById('scale');
@@ -28,13 +33,13 @@ if (configuredScale !== null) {
 function loadConfiguredScale() {
     if (window.CURATOR_SUPABASE_CONFIG) return null;
     try {
-        const saved = localStorage.getItem(SCALE_SETTINGS_KEY);
+        const saved = editorStorage.getItem(SCALE_SETTINGS_KEY);
         const value = Number(saved);
         if (saved !== null && Number.isFinite(value) && value > 0) return value;
         // Preserve calibration from drafts created before scale had its own setting.
-        const legacy = Number(JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')?.scale);
+        const legacy = Number(JSON.parse(editorStorage.getItem(STORAGE_KEY) || 'null')?.scale);
         if (Number.isFinite(legacy) && legacy > 0) {
-            localStorage.setItem(SCALE_SETTINGS_KEY, String(legacy));
+            editorStorage.setItem(SCALE_SETTINGS_KEY, String(legacy));
             return legacy;
         }
     } catch (error) {
@@ -55,7 +60,7 @@ function setConfiguredScale(value) {
     window.refreshWorkspaceScaleBar?.();
     try {
         // Signed-in teams always obtain this value from the server.
-        if (!window.CURATOR_SUPABASE_CONFIG) localStorage.setItem(SCALE_SETTINGS_KEY, String(scale));
+        if (!window.CURATOR_SUPABASE_CONFIG) editorStorage.setItem(SCALE_SETTINGS_KEY, String(scale));
     } catch (error) {
         console.warn('縮尺設定の保存に失敗しました。', error);
     }
@@ -142,7 +147,7 @@ function queueCloudExhibitionSave(json) {
 
 function getSavedExhibitions() {
     try {
-        const data = JSON.parse(localStorage.getItem(EXHIBITIONS_KEY) || '[]');
+        const data = JSON.parse(editorStorage.getItem(EXHIBITIONS_KEY) || '[]');
         return Array.isArray(data) ? data : [];
     } catch (e) {
         console.error('保存済み展覧会の読み込みに失敗しました:', e);
@@ -248,7 +253,7 @@ async function persistExhibitionSnapshot() {
         cloudExhibitionConflict = false;
         if (source && saveAs) window.rebaseExhibitionHistoryTitle?.(source.title, title);
         cloudExhibitionCache = [record, ...cloudExhibitionCache.filter(item => item.id !== id)];
-        localStorage.setItem(STORAGE_KEY, snapshot);
+        editorStorage.setItem(STORAGE_KEY, snapshot);
         refreshExhibitionList(false);
         const status = document.getElementById('saveStatus');
         if (status) status.innerText = saveAs ? `「${title}」を新しい展覧会としてチームに保存しました` : `「${title}」をチームに保存しました`;
@@ -262,8 +267,8 @@ async function persistExhibitionSnapshot() {
     if (index >= 0) exhibitions[index] = next;
     else exhibitions.push(next);
     try {
-        localStorage.setItem(EXHIBITIONS_KEY, JSON.stringify(exhibitions));
-        localStorage.setItem(STORAGE_KEY, snapshot);
+        editorStorage.setItem(EXHIBITIONS_KEY, JSON.stringify(exhibitions));
+        editorStorage.setItem(STORAGE_KEY, snapshot);
         selectedExhibitionId = id;
         if (source && saveAs) window.rebaseExhibitionHistoryTitle?.(source.title, title);
         refreshExhibitionList();
@@ -323,7 +328,7 @@ async function deleteExhibitionSnapshot() {
         refreshExhibitionList(false);
         return;
     }
-    localStorage.setItem(EXHIBITIONS_KEY, JSON.stringify(getSavedExhibitions().filter(item => item.id !== targetId)));
+    editorStorage.setItem(EXHIBITIONS_KEY, JSON.stringify(getSavedExhibitions().filter(item => item.id !== targetId)));
     if (selectedExhibitionId === targetId) selectedExhibitionId = '';
     refreshExhibitionList();
 }
@@ -585,7 +590,7 @@ function saveLocalStorage() {
 
         const json = getSerializedCanvasData();
 
-        localStorage.setItem(STORAGE_KEY, json);
+        editorStorage.setItem(STORAGE_KEY, json);
         queueCloudExhibitionSave(json);
 
         const statusEl = document.getElementById("saveStatus");
@@ -1000,7 +1005,7 @@ function resizeNumberPin(pin) {
 
 function setCrowdVisibility(visible) {
     crowdVisible = Boolean(visible);
-    try { localStorage.setItem('curator_canvas_crowd_visible', String(crowdVisible)); }
+    try { editorStorage.setItem('curator_canvas_crowd_visible', String(crowdVisible)); }
     catch (error) { console.warn('混雑予想の表示設定を保存できませんでした。', error); }
     canvas.getObjects().filter(obj => obj.isCrowdCircle).forEach(configureCrowdCircle);
     const input = document.getElementById('crowdVisibility');

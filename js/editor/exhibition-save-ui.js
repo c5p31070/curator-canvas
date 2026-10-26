@@ -81,12 +81,12 @@ async function renameCurrentExhibition() {
         } else {
             const renamed = records.find(item => item.id === record.id);
             Object.assign(renamed, { title, data: typeof record.data === 'string' ? JSON.stringify(data) : data, updatedAt });
-            localStorage.setItem(EXHIBITIONS_KEY, JSON.stringify(records));
+            editorStorage.setItem(EXHIBITIONS_KEY, JSON.stringify(records));
         }
         const draft = document.getElementById('exhibitionTitle');
         if (draft?.value.trim() === oldTitle) draft.value = title;
         window.rebaseExhibitionHistoryTitle(oldTitle, title);
-        localStorage.setItem(STORAGE_KEY, getSerializedCanvasData());
+        editorStorage.setItem(STORAGE_KEY, getSerializedCanvasData());
         refreshExhibitionList(false);
         const status = document.getElementById('saveStatus');
         if (status) status.textContent = `「${oldTitle}」を「${title}」に変更しました`;

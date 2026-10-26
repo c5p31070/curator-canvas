@@ -1,6 +1,6 @@
 // Ceiling geometry belongs to the venue; spotlights and power belong to each layout.
 let lightingVisible = true;
-try { lightingVisible = localStorage.getItem('curator_canvas_lighting_visible') !== 'false'; } catch {}
+try { lightingVisible = editorStorage.getItem('curator_canvas_lighting_visible') !== 'false'; } catch {}
 let lightingRenderBusy = false;
 let lightingPlacementMode = null;
 let lightingRailStart = null;
@@ -44,8 +44,8 @@ function equipmentPlanForFloor(state, id) {
 
 function loadVenueLightingData() {
     try {
-        const saved = JSON.parse(localStorage.getItem(VENUE_LIGHTING_KEY) || 'null');
-        const draft = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+        const saved = JSON.parse(editorStorage.getItem(VENUE_LIGHTING_KEY) || 'null');
+        const draft = JSON.parse(editorStorage.getItem(STORAGE_KEY) || 'null');
         const data = saved || draft?.venueLightingData || {};
         Object.keys(FLOOR_PLANS).forEach(id => {
             if (Array.isArray(data[id]?.objects)) return;
@@ -53,13 +53,13 @@ function loadVenueLightingData() {
             const legacy = equipmentFromPlan(equipmentPlanForFloor(draft, id));
             if (legacy.length) data[id] = { objects: legacy };
         });
-        if (Object.keys(data).length) localStorage.setItem(VENUE_LIGHTING_KEY, JSON.stringify(data));
+        if (Object.keys(data).length) editorStorage.setItem(VENUE_LIGHTING_KEY, JSON.stringify(data));
         return data;
     } catch (error) { console.warn('会場照明設定を読み込めませんでした。', error); return {}; }
 }
 
 function persistVenueLighting() {
-    try { localStorage.setItem(VENUE_LIGHTING_KEY, JSON.stringify(venueLightingData)); }
+    try { editorStorage.setItem(VENUE_LIGHTING_KEY, JSON.stringify(venueLightingData)); }
     catch (error) { console.warn('会場照明設定を保存できませんでした。', error); }
     window.refreshVenuePresetList?.();
 }
@@ -382,7 +382,7 @@ function toggleLightingVisibility(value = !lightingVisible) {
         cancelLightingPlacement();
         if (canvas.getActiveObject()?.isLightObject || canvas.getActiveObject()?.isLightRail) canvas.discardActiveObject();
     }
-    try { localStorage.setItem('curator_canvas_lighting_visible', String(lightingVisible)); } catch {}
+    try { editorStorage.setItem('curator_canvas_lighting_visible', String(lightingVisible)); } catch {}
     refreshLighting();
 }
 window.toggleLightingVisibility = toggleLightingVisibility;

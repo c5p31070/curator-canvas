@@ -4,7 +4,7 @@
     let selected = null;
     const faceLabelStorageKey = 'curator_canvas_movable_wall_faces_visible';
     let faceLabelsVisible = true;
-    try { faceLabelsVisible = localStorage.getItem(faceLabelStorageKey) !== 'false'; } catch {}
+    try { faceLabelsVisible = editorStorage.getItem(faceLabelStorageKey) !== 'false'; } catch {}
     let faceLabelOverlay = null;
     let faceLabelFrame = null;
     const canEdit = () => window.CURATOR_ROLE !== 'viewer';
@@ -116,10 +116,12 @@
         wall.cmHeight = heightCm;
         wall.item(0).set({ width, height: depth, fill: '#30373d', stroke: '#171d22' });
         const label = wall.item(1);
-        label.set({ text: circled(wall.movableWallNumber), fill: '#edf2f5',
-            fontSize: Math.min(14, depth * .95), visible: depth >= 6 && width >= 12 });
+        // Keep the name readable even on thin walls without enlarging the
+        // physical group's bounds used for dimensions, snapping and collision.
+        label.set({ text: wall.movableWallName, fill: '#edf2f5',
+            fontSize: 9, fontFamily: 'sans-serif', visible: true,
+            stroke: '#30373d', strokeWidth: 1, paintFirst: 'stroke' });
         label.initDimensions();
-        if (label.width > width - 6) label.set('fontSize', label.fontSize * Math.max(1, width - 6) / label.width);
         wall.set({ width: width + 1, height: depth + 1, dirty: true,
             lockScalingX: true, lockScalingY: true, lockScalingFlip: true, lockSkewingX: true, lockSkewingY: true,
             selectable: canEdit(), evented: true, lockMovementX: !canEdit(), lockMovementY: !canEdit(), lockRotation: !canEdit() });
@@ -352,7 +354,7 @@
             visibility.checked = faceLabelsVisible;
             visibility.addEventListener('change', () => {
                 faceLabelsVisible = visibility.checked;
-                try { localStorage.setItem(faceLabelStorageKey, String(faceLabelsVisible)); } catch {}
+                try { editorStorage.setItem(faceLabelStorageKey, String(faceLabelsVisible)); } catch {}
                 scheduleFaceLabels();
             });
         }

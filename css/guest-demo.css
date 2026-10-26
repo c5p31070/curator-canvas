@@ -1,0 +1,17 @@
+#guestDemoEntry {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid #41484b;
+}
+#guestDemoEntry .btn-start {
+    width: 100%;
+    background: #30383e;
+    border-color: #58636a;
+    text-align: center;
+    text-decoration: none;
+}
+#guestDemoEntry .btn-start:hover { background: #3b454d; }
+#guestDemoEntry p { margin: 8px 0 0; color: #9da8af; font-size: 11px; line-height: 1.7; }
+.guest-demo :is([data-tool="setup"], [data-tool="team"], [data-tool="lighting"], [data-action="light-visibility"],
+    [data-tool-panel="setup"], [data-tool-panel="team"], [data-tool-panel="lighting"], #adminSettingsPanel,
+    .admin-only, .fixture-option) { display: none !important; }

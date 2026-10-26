@@ -3,7 +3,7 @@
     const storageKey = 'curator_canvas_workspace_grid';
     let settings = { visible: true, snap: false, spacingCm: 50 };
     try {
-        const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
+        const saved = JSON.parse(editorStorage.getItem(storageKey) || 'null');
         if (saved) settings = { visible: saved.visible !== false, snap: saved.snap === true,
             spacingCm: Number.isInteger(saved.spacingCm) && saved.spacingCm >= 1 && saved.spacingCm <= 1000 ? saved.spacingCm : 50 };
     } catch {}
@@ -127,7 +127,7 @@
                 return;
             }
             settings = { visible: visible.checked, snap: snap.checked, spacingCm: value };
-            try { localStorage.setItem(storageKey, JSON.stringify(settings)); } catch {}
+            try { editorStorage.setItem(storageKey, JSON.stringify(settings)); } catch {}
             scheduleGrid();
         };
         [visible, snap, spacing].forEach(input => input.addEventListener('change', change));

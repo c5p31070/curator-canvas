@@ -6,6 +6,7 @@
     <title>ログイン - Curator-Canvas</title>
     <link rel="stylesheet" href="css/entry.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/guest-demo.js"></script>
     <script src="js/supabase-config.js"></script>
     <script src="js/auth.js"></script>
 </head>
@@ -34,6 +35,10 @@
             <button class="btn-start" type="submit">設定して続ける</button>
         </form>
         <p id="authStatus" class="auth-status" role="status"></p>
+        <div id="guestDemoEntry" hidden>
+            <a class="btn-start" href="editor.html?guest=1">ゲストで試す</a>
+            <p>アカウント不要。体験用の壁・縮尺で操作でき、作業内容はこのブラウザーだけに保存されます。</p>
+        </div>
         <a class="auth-back" href="index.html">トップへ戻る</a>
     </main>
 </body>

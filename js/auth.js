@@ -1,4 +1,8 @@
 (function () {
+    if (window.CURATOR_GUEST?.active) {
+        window.CURATOR_GUEST.initializeAuth();
+        return;
+    }
     const client = window.curatorSupabase;
     const isLoginPage = /(^|\/)login\.html$/.test(location.pathname);
     if (!client) return;

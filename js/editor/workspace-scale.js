@@ -3,7 +3,7 @@
     const key = 'curator_canvas_workspace_scale_visible';
     let visible = true;
     let frame = null;
-    try { visible = localStorage.getItem(key) !== 'false'; } catch {}
+    try { visible = editorStorage.getItem(key) !== 'false'; } catch {}
 
     function update() {
         frame = null;
@@ -44,7 +44,7 @@
             input.checked = visible;
             input.addEventListener('change', () => {
                 visible = input.checked;
-                try { localStorage.setItem(key, String(visible)); } catch {}
+                try { editorStorage.setItem(key, String(visible)); } catch {}
                 scheduleUpdate();
             });
         }

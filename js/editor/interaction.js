@@ -309,7 +309,7 @@ function loadSavedData() {
     }
 
     const savedData =
-        localStorage.getItem(STORAGE_KEY);
+        editorStorage.getItem(STORAGE_KEY);
 
     if (savedData) {
 

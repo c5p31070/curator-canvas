@@ -28,7 +28,7 @@
         if (text) text.textContent = message;
     };
     const backup = () => {
-        try { localStorage.setItem(storageKey(), JSON.stringify({ walls, revision })); } catch {}
+        try { editorStorage.setItem(storageKey(), JSON.stringify({ walls, revision })); } catch {}
     };
     function template(wall) {
         const plan = parsePlan(wall.json);
@@ -52,7 +52,7 @@
         if (!data?.wallPlanJsonData) return;
         legacyWalls = normalize(data.venueWallData || data.wallPlanJsonData);
     };
-    try { window.rememberLegacyVenueWalls(JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')); } catch {}
+    try { window.rememberLegacyVenueWalls(JSON.parse(editorStorage.getItem(STORAGE_KEY) || 'null')); } catch {}
     const currentWalls = () => pending || publishing || walls;
     window.getVenueWallData = () => clone(currentWalls());
     window.beginVenueWallRender = () => { rendering++; };
@@ -160,7 +160,7 @@
                 if (error) throw error;
                 if (!data) {
                     // Never replace another member's newer venue configuration.
-                    try { localStorage.setItem(`${storageKey()}_unsaved`, JSON.stringify(next)); } catch {}
+                    try { editorStorage.setItem(`${storageKey()}_unsaved`, JSON.stringify(next)); } catch {}
                     pending = null;
                     publishing = null;
                     conflicted = true;
@@ -180,7 +180,7 @@
         } catch (error) {
             console.error('共通壁の保存に失敗しました:', error);
             if (!pending) pending = clone(next);
-            try { localStorage.setItem(`${storageKey()}_unsaved`, JSON.stringify(pending)); } catch {}
+            try { editorStorage.setItem(`${storageKey()}_unsaved`, JSON.stringify(pending)); } catch {}
             status('固定壁の共有保存に失敗しました。通信状態を確認して再試行してください。', true);
             return false;
         } finally {
@@ -235,7 +235,7 @@
         const next = clone(currentWalls());
         next[id] = template(definition);
         pending = next;
-        try { localStorage.setItem(`${storageKey()}_unsaved`, JSON.stringify(next)); } catch {}
+        try { editorStorage.setItem(`${storageKey()}_unsaved`, JSON.stringify(next)); } catch {}
         status('共通壁の変更を保存待ち…');
         clearTimeout(timer);
         timer = setTimeout(flush, 700);
@@ -257,7 +257,7 @@
             await publish({ ...walls, ...legacyWalls });
         });
         if (!cloud()) {
-            try { walls = normalize(JSON.parse(localStorage.getItem(storageKey()) || 'null')?.walls || legacyWalls); } catch { walls = clone(legacyWalls); }
+            try { walls = normalize(JSON.parse(editorStorage.getItem(storageKey()) || 'null')?.walls || legacyWalls); } catch { walls = clone(legacyWalls); }
             if (!Object.keys(walls).length) walls = normalize(wallPlanJsonData);
             ready = true;
             backup();

@@ -43,9 +43,10 @@ function initializeItemDetailsUi() {
     const isEditableCanvasItem = obj => Boolean(
         obj && (obj.isArtwork || obj.isPin || obj.isFreePin || obj.isGuard || obj.pinLabel !== undefined)
     );
-    const getItemName = obj => obj.isArtwork
-        ? (obj.artworkName || obj.item(1)?.text || '')
-        : (obj.pinName || obj.item(3)?.text || '');
+    const isInspectableCanvasItem = obj => isEditableCanvasItem(obj) || Boolean(obj?.isMovableWall);
+    const getItemName = obj => obj.isMovableWall ? (obj.movableWallName || '移動壁')
+        : obj.isArtwork ? (obj.artworkName || obj.item(1)?.text || '')
+            : (obj.pinName || obj.item(3)?.text || '');
     const updateSelectedItemEditor = obj => {
         selectedItemForEditing = isEditableCanvasItem(obj) ? obj : null;
         if (itemEditorFields) itemEditorFields.hidden = !selectedItemForEditing;
@@ -92,18 +93,23 @@ function initializeItemDetailsUi() {
     };
     canvas.on('mouse:over', e => {
         const obj = e.target;
-        if (!isEditableCanvasItem(obj) || !itemTooltip) return hideItemTooltip();
+        if (!isInspectableCanvasItem(obj) || !itemTooltip) return hideItemTooltip();
         hoveredItem = obj;
         const name = getItemName(obj) || (obj.isArtwork ? '展示物' : 'ピン');
-        const meta = obj.isArtwork && obj.cmWidth && obj.cmHeight
+        const meta = obj.isMovableWall
+            ? `幅 ${obj.cmWidth} × 厚さ ${obj.cmDepth} × 高さ ${obj.cmHeight || 440} cm`
+            : obj.isArtwork && obj.cmWidth && obj.cmHeight
             ? (obj.displayType === 'floor'
                 ? `幅 ${obj.cmWidth} × 奥行 ${obj.cmDepth} × 高さ ${obj.cmHeight} cm`
                 : `幅 ${obj.cmWidth} × 高さ ${obj.cmHeight} × 厚み ${obj.cmDepth} cm`)
             : (obj.isGuard ? '警備員' : 'ピン');
         tooltipTitle.textContent = name;
         tooltipMeta.textContent = meta;
-        tooltipDescription.textContent = obj.description || '';
-        tooltipDescription.hidden = !obj.description;
+        const description = obj.isMovableWall
+            ? `${FLOOR_PLANS[obj.movableFloorId]?.title || 'ロビー階'} / 回転 ${Number((obj.angle || 0).toFixed(1))}°`
+            : obj.description || '';
+        tooltipDescription.textContent = description;
+        tooltipDescription.hidden = !description;
         positionTooltip(e.e);
     });
     canvas.on('mouse:move', e => {

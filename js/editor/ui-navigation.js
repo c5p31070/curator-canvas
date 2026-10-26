@@ -22,6 +22,7 @@ function initializeNavigationUi() {
     const modeDescription = document.getElementById('modeDescription');
     const adminModeBanner = document.getElementById('adminModeBanner');
     const setAdminMode = enabled => {
+        if (enabled && window.CURATOR_GUEST?.active) return;
         isAdminMode = enabled;
         document.body.classList.toggle('admin-mode', enabled);
         if (adminPanel) adminPanel.hidden = !enabled;
