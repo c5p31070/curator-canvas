@@ -35,7 +35,7 @@ function initializeNavigationUi() {
         btnAddWall.addEventListener('click', async () => {
             const name = (document.getElementById('newWallTitle')?.value || '').trim();
             const width = parseFloat(document.getElementById('newWallWidthCm')?.value);
-            const height = parseFloat(document.getElementById('newWallHeightCm')?.value);
+            const height = FIXED_WALL_HEIGHT_CM;
             if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
                 alert('壁の長さと高さを1cm以上で入力してください。');
                 return;
@@ -43,7 +43,7 @@ function initializeNavigationUi() {
             captureCurrentCanvasState();
             const id = `wall_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
             const title = name || `壁面 ${Object.keys(wallPlanJsonData).length + 1}`;
-            wallPlanJsonData[id] = { title, widthCm: width, heightCm: height, json: null };
+            wallPlanJsonData[id] = { title, widthCm: width, heightCm: height, floorId: selectedFloorId, json: null };
             updateWallDropdownOptions();
             await handleWallSelectChange(id);
             const status = document.getElementById('saveStatus');
@@ -78,9 +78,22 @@ function initializeNavigationUi() {
     }
 
     const btnApplyWallSize = document.getElementById("btnApplyWallSize");
+    document.getElementById('wallFloorSelect')?.addEventListener('change', event => {
+        const wall = wallPlanJsonData[selectedWallInfo.id];
+        const floorId = event.target.value;
+        if (!wall || wall.movableWallId || window.CURATOR_ROLE === 'viewer' || !FLOOR_PLANS[floorId]) return;
+        captureCurrentCanvasState();
+        wall.floorId = floorId;
+        selectedFloorId = floorId;
+        floorPlanJsonData = floorPlanData[floorId].json;
+        cachedBackgroundImage = floorBackgroundImages.get(floorId) || null;
+        updateWallTabs();
+        saveState();
+    });
 
     if (btnApplyWallSize) {
         btnApplyWallSize.addEventListener("click", async function() {
+            if (wallPlanJsonData[selectedWallInfo.id]?.movableWallId) return alert('移動壁の寸法は平面図の移動壁を選択して変更してください。');
 
             const wInput = document.getElementById("wallWidthCm");
             const hInput = document.getElementById("wallHeightCm");
@@ -88,7 +101,7 @@ function initializeNavigationUi() {
             if (wInput && hInput) {
 
                 const newW = parseFloat(wInput.value) || 600;
-                const newH = parseFloat(hInput.value) || 300;
+                const newH = FIXED_WALL_HEIGHT_CM;
 
                 selectedWallInfo.widthCm = newW;
                 selectedWallInfo.heightCm = newH;
@@ -114,6 +127,7 @@ function initializeNavigationUi() {
             const wallId = selectedWallInfo?.id;
             const wall = wallPlanJsonData[wallId];
             if (!wall) return;
+            if (wall.movableWallId) return window.deleteMovableWallByFace?.(wallId);
 
             const wallIds = Object.keys(wallPlanJsonData);
             if (wallIds.length <= 1) {

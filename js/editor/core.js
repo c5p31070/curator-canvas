@@ -52,6 +52,7 @@ function setConfiguredScale(value) {
     }
     configuredScale = scale;
     if (input) input.value = scale;
+    window.refreshWorkspaceScaleBar?.();
     try {
         // Signed-in teams always obtain this value from the server.
         if (!window.CURATOR_SUPABASE_CONFIG) localStorage.setItem(SCALE_SETTINGS_KEY, String(scale));
@@ -342,9 +343,9 @@ let isAdminMode = false;
 
 let floorPlanJsonData = null;
 const FLOOR_PLANS = {
-    lobby: { title: 'ロビー階', image: 'images/LBF.png' },
-    floor1: { title: '1階', image: 'images/floor1.png' },
-    floor2: { title: '2階', image: 'images/floor2.png' }
+    lobby: { title: 'ロビー階', image: 'images/LBF01.png' },
+    floor1: { title: '1階', image: 'images/1F01.png' },
+    floor2: { title: '2階', image: 'images/2F01.png' }
 };
 let selectedFloorId = 'lobby';
 let floorPlanData = Object.fromEntries(Object.keys(FLOOR_PLANS).map(id => [id, { json: null }]));
@@ -354,8 +355,9 @@ let savedArtworkCatalog = [];
 let wallPlanJsonData = {
     'wall_default': {
         title: '壁 A',
+        floorId: 'lobby',
         widthCm: 600,
-        heightCm: 300,
+        heightCm: 450,
         json: null
     }
 };
@@ -364,7 +366,7 @@ let selectedWallInfo = {
     id: 'wall_default',
     title: '壁 A',
     widthCm: 600,
-    heightCm: 300
+    heightCm: 450
 };
 
 // ------------------------------------------------------------
@@ -412,6 +414,8 @@ let isUndoRedoOperation = false;
 function getCustomProperties() {
     return [
         'isArtwork',
+        'isMovableWall', 'movableWallId', 'movableWallName', 'movableWallNumber', 'movableFloorId', 'movableFrontId', 'movableBackId',
+        'movableLeftId', 'movableRightId',
         'isShapeObject',
         'shapeKind',
         'shapeLength',
@@ -430,12 +434,15 @@ function getCustomProperties() {
         'dimensionLengthPx',
         'isLightObject', 'isLightRail', 'lightId', 'lightKind', 'lightName',
         'lightOn', 'lightRailId', 'lightRailT', 'lightDirectionDeg',
+        'lightTiltDeg',
+        'lightRailAngleDeg', 'lightRailNormalSide',
         'lightAimMode', 'lightAimTargetId', 'lightingTargetId',
         'isWallOutline',
         'displayType',
         'cmWidth',
         'cmHeight',
         'cmDepth',
+        'artworkCenterHeightCm',
         'pxWidth',
         'pxHeight',
         'crowdCountValue',
@@ -491,6 +498,7 @@ function configureArtworkTransform(artwork) {
 function captureCurrentCanvasState() {
 
     if (isTransitioning || (window.isDiagramReady && !window.isDiagramReady())) return;
+    window.syncWallArtworkHeights?.();
 
     const jsonStr = JSON.stringify(
         canvas.toJSON(getCustomProperties())
@@ -514,6 +522,7 @@ function captureCurrentCanvasState() {
         if (!wallPlanJsonData[selectedWallInfo.id]) {
 
             wallPlanJsonData[selectedWallInfo.id] = {
+                floorId: selectedFloorId,
                 title: selectedWallInfo.title,
                 widthCm: selectedWallInfo.widthCm,
                 heightCm: selectedWallInfo.heightCm,
@@ -522,6 +531,7 @@ function captureCurrentCanvasState() {
         }
 
         wallPlanJsonData[selectedWallInfo.id].json = jsonStr;
+        delete wallPlanJsonData[selectedWallInfo.id].legacyHeightCm;
         wallPlanJsonData[selectedWallInfo.id].title = selectedWallInfo.title;
         wallPlanJsonData[selectedWallInfo.id].widthCm = selectedWallInfo.widthCm;
         wallPlanJsonData[selectedWallInfo.id].heightCm = selectedWallInfo.heightCm;
@@ -759,6 +769,7 @@ async function applyStateData(jsonString, callback) {
             ? parsed.savedArtworkCatalog
             : [];
         if (!hasArtworkCatalog) window.migrateArtworkCatalogFromPlans?.();
+        window.repairArtworkHeightLinks?.();
         window.refreshArtworkCatalog?.();
 
         if (parsed.selectedWallInfo) {
@@ -834,6 +845,7 @@ function restoreCustomProperties() {
 
     objects.forEach(obj => {
 
+        if (obj.isMovableWall) window.configureMovableWall?.(obj);
         if (obj.isArtwork) configureArtworkTransform(obj);
 
         if (

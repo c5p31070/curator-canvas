@@ -9,6 +9,172 @@ let initialDiagramLoaded = false;
 const floorImageRequests = new Map();
 window.isDiagramReady = () => diagramReady;
 
+const FIXED_WALL_HEIGHT_CM = 450;
+function normalizeFixedWallHeights() {
+    Object.values(wallPlanJsonData).forEach(wall => {
+        if (!wall.movableWallId) {
+            if (Number(wall.heightCm) > 0 && Number(wall.heightCm) !== FIXED_WALL_HEIGHT_CM) {
+                wall.legacyHeightCm = Number(wall.heightCm);
+            }
+            wall.heightCm = FIXED_WALL_HEIGHT_CM;
+        }
+    });
+    const wall = wallPlanJsonData[selectedWallInfo.id];
+    if (wall) selectedWallInfo.heightCm = wall.heightCm;
+}
+
+let artworkWallHeights = new Map();
+
+function findArtworkCatalogReference(artwork) {
+    if (!artwork?.isArtwork || artwork.isFixture) return null;
+    const exact = savedArtworkCatalog.find(item => item.id === artwork.artworkCatalogId);
+    if (exact) return exact;
+    // Older plans were catalogued without writing the resulting ID back to
+    // their objects. Recover only an unambiguous name-and-size match.
+    const name = String(artwork.artworkName || artwork.objects?.[1]?.text || artwork.item?.(1)?.text || '').trim();
+    const matches = savedArtworkCatalog.filter(item => String(item.name || '').trim() === name &&
+        Number(item.cmWidth) === (Number(artwork.cmWidth) || 150) &&
+        Number(item.cmHeight) === (Number(artwork.cmHeight) || 100) &&
+        Number(item.cmDepth) === (Number(artwork.cmDepth) || 5));
+    if (matches.length !== 1) return null;
+    artwork.artworkCatalogId = matches[0].id;
+    return matches[0];
+}
+
+function updateArtworkPlan(raw, visitArtwork) {
+    if (!raw) return raw;
+    try {
+        const plan = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        let changed = false;
+        const visit = objects => (objects || []).forEach(object => {
+            if (object.isArtwork) changed = visitArtwork(object) || changed;
+            if (Array.isArray(object.objects)) visit(object.objects);
+        });
+        visit(plan.objects);
+        return changed ? (typeof raw === 'string' ? JSON.stringify(plan) : plan) : raw;
+    } catch { return raw; }
+}
+
+window.repairArtworkHeightLinks = () => {
+    const heights = new Map();
+    const repair = (object, wall = false) => {
+        const previousId = object.artworkCatalogId;
+        const catalog = findArtworkCatalogReference(object);
+        if (wall && catalog && object.artworkCenterHeightCm != null &&
+            Number.isFinite(Number(object.artworkCenterHeightCm))) {
+            if (!heights.has(catalog.id)) heights.set(catalog.id, new Set());
+            heights.get(catalog.id).add(Number(object.artworkCenterHeightCm));
+        }
+        return previousId !== object.artworkCatalogId;
+    };
+    Object.values(wallPlanJsonData).forEach(wall => { wall.json = updateArtworkPlan(wall.json, object => repair(object, true)); });
+    artworkWallHeights = new Map();
+    heights.forEach((values, id) => {
+        if (values.size !== 1) return;
+        const height = values.values().next().value;
+        artworkWallHeights.set(id, height);
+        const catalog = savedArtworkCatalog.find(item => item.id === id);
+        if (catalog) catalog.artworkCenterHeightCm = height;
+    });
+    Object.values(floorPlanData).forEach(floor => { floor.json = updateArtworkPlan(floor.json, object => repair(object)); });
+    floorPlanJsonData = floorPlanData[selectedFloorId]?.json || null;
+};
+
+window.applyArtworkCatalogHeightsToFloor = () => {
+    if (currentViewMode !== 'floor') return;
+    const visit = objects => objects.forEach(object => {
+        if (object.isArtwork) {
+            const catalog = findArtworkCatalogReference(object);
+            const height = artworkWallHeights.get(catalog?.id) ?? object.artworkCenterHeightCm ?? catalog?.artworkCenterHeightCm;
+            if (height != null && Number.isFinite(Number(height))) {
+                object.artworkCenterHeightCm = Number(height);
+            }
+        }
+        if (object.type === 'activeSelection') visit(object.getObjects());
+    });
+    visit(canvas.getObjects());
+};
+
+window.getArtworkCenterHeightCm = artwork => {
+    const catalog = findArtworkCatalogReference(artwork);
+    const sharedHeight = currentViewMode === 'floor' ? artworkWallHeights.get(catalog?.id) : null;
+    const value = sharedHeight ?? artwork?.artworkCenterHeightCm ?? catalog?.artworkCenterHeightCm;
+    return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value) : null;
+};
+
+function wallArtworkScale() {
+    const outline = canvas.getObjects().find(object => object.isWallOutline);
+    if (outline && selectedWallInfo.heightCm > 0) return outline.height * (outline.scaleY || 1) / selectedWallInfo.heightCm;
+    return Number(configuredScale) > 0 ? Number(configuredScale) : Number(document.getElementById('scale')?.value) || .5;
+}
+
+window.placeArtworkAtSavedHeight = artwork => {
+    if (currentViewMode !== 'wall' || !artwork?.isArtwork || artwork.group) return false;
+    const height = window.getArtworkCenterHeightCm(artwork);
+    const outline = canvas.getObjects().find(object => object.isWallOutline);
+    if (height === null || !outline) return false;
+    const floorY = outline.top + outline.height * (outline.scaleY || 1);
+    const center = artwork.getCenterPoint();
+    const bodyCenter = artwork.item?.(0)
+        ? fabric.util.transformPoint(new fabric.Point(0, 0), artwork.item(0).calcTransformMatrix()) : center;
+    artwork.setPositionByOrigin(new fabric.Point(center.x, center.y + floorY - height * wallArtworkScale() - bodyCenter.y), 'center', 'center');
+    artwork.artworkCenterHeightCm = height;
+    artwork.setCoords();
+    if (artwork.crowdCircle) positionCrowdSemicircle(artwork);
+    return true;
+};
+
+window.shareArtworkCenterHeight = artwork => {
+    const catalog = findArtworkCatalogReference(artwork);
+    if (!artwork?.artworkCatalogId) return;
+    const height = artwork.artworkCenterHeightCm ?? null;
+    if (height !== null && catalog) artworkWallHeights.set(catalog.id, height);
+    else if (catalog) artworkWallHeights.delete(catalog.id);
+    const matches = object => {
+        if (!object.isArtwork || object.isFixture) return false;
+        findArtworkCatalogReference(object);
+        return object.artworkCatalogId === artwork.artworkCatalogId;
+    };
+    if (catalog) catalog.artworkCenterHeightCm = height;
+    const updatePlan = raw => {
+        return updateArtworkPlan(raw, object => {
+            const previousId = object.artworkCatalogId;
+            const previousHeight = object.artworkCenterHeightCm;
+            if (matches(object)) object.artworkCenterHeightCm = height;
+            return previousId !== object.artworkCatalogId || previousHeight !== object.artworkCenterHeightCm;
+        });
+    };
+    Object.values(floorPlanData).forEach(floor => { floor.json = updatePlan(floor.json); });
+    floorPlanJsonData = floorPlanData[selectedFloorId]?.json || null;
+    Object.values(wallPlanJsonData).forEach(wall => { wall.json = updatePlan(wall.json); });
+    canvas.getObjects().filter(object => object !== artwork && matches(object)).forEach(object => {
+        object.artworkCenterHeightCm = height;
+        window.placeArtworkAtSavedHeight(object);
+    });
+};
+
+window.updateArtworkHeightFromWall = (object, share = false, scaleOverride = null) => {
+    if (currentViewMode !== 'wall' || !object) return;
+    if (object.type === 'activeSelection') {
+        object.getObjects().forEach(child => window.updateArtworkHeightFromWall(child, share));
+        return;
+    }
+    if (!object.isArtwork) return;
+    const outline = canvas.getObjects().find(item => item.isWallOutline);
+    if (!outline) return;
+    const center = object.item?.(0)
+        ? fabric.util.transformPoint(new fabric.Point(0, 0), object.item(0).calcTransformMatrix()) : object.getCenterPoint();
+    const height = (outline.top + outline.height * (outline.scaleY || 1) - center.y) / (scaleOverride || wallArtworkScale());
+    object.artworkCenterHeightCm = Math.round(height * 1000) / 1000;
+    if (share) window.shareArtworkCenterHeight(object);
+    window.refreshArtworkHeightEditor?.(object);
+};
+window.syncWallArtworkHeights = () => {
+    if (currentViewMode !== 'wall') return;
+    canvas.getObjects().filter(object => object.isArtwork).forEach(object => window.updateArtworkHeightFromWall(object, true));
+    window.refreshArtworkCatalog?.();
+};
+
 function showDiagramStatus(message = '', failed = false) {
     const notice = document.getElementById('diagramLoadNotice');
     if (!notice) return;
@@ -38,14 +204,30 @@ function updateWallDropdownOptions() {
     updateWallTabs();
 }
 
+function getWallFloorId(wall) {
+    return FLOOR_PLANS[wall?.floorId] ? wall.floorId : 'lobby';
+}
+
+function selectWallForCurrentFloor() {
+    normalizeFixedWallHeights();
+    const current = wallPlanJsonData[selectedWallInfo.id];
+    const entry = current && getWallFloorId(current) === selectedFloorId
+        ? [selectedWallInfo.id, current]
+        : Object.entries(wallPlanJsonData).find(([, wall]) => getWallFloorId(wall) === selectedFloorId);
+    selectedWallInfo = entry
+        ? { id: entry[0], title: entry[1].title, widthCm: entry[1].widthCm, heightCm: entry[1].heightCm }
+        : { id: '', title: '', widthCm: 0, heightCm: 0 };
+}
+
 function updateWallTabs() {
+    normalizeFixedWallHeights();
     updateFloorTabs();
     const tabList = document.getElementById('wallTabs');
     if (!tabList) return;
 
     tabList.replaceChildren();
     tabList.hidden = currentViewMode !== 'wall';
-    Object.entries(wallPlanJsonData).forEach(([id, wall], index) => {
+    Object.entries(wallPlanJsonData).filter(([, wall]) => getWallFloorId(wall) === selectedFloorId).forEach(([id, wall], index) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'wall-tab';
@@ -62,7 +244,8 @@ function updateWallTabs() {
 function updateFloorTabs() {
     const tabList = document.getElementById('floorTabs');
     if (!tabList) return;
-    tabList.hidden = currentViewMode !== 'floor';
+    tabList.hidden = false;
+    tabList.classList.toggle('floor-tabs-compact', currentViewMode === 'wall');
     tabList.replaceChildren();
     Object.entries(FLOOR_PLANS).forEach(([id, floor]) => {
         const button = document.createElement('button');
@@ -72,14 +255,14 @@ function updateFloorTabs() {
         button.setAttribute('aria-selected', String(id === selectedFloorId));
         button.classList.toggle('active', id === selectedFloorId);
         button.textContent = floor.title;
-        button.addEventListener('click', () => handleFloorSelectChange(id));
+        button.addEventListener('click', () => handleFloorSelectChange(id, false, currentViewMode));
         tabList.appendChild(button);
     });
 }
 
-async function handleFloorSelectChange(floorId, skipSave = false) {
+async function handleFloorSelectChange(floorId, skipSave = false, mode = 'floor') {
     if (!FLOOR_PLANS[floorId] || isTransitioning) return;
-    if (selectedFloorId === floorId && currentViewMode === 'floor' && diagramReady) return;
+    if (selectedFloorId === floorId && currentViewMode === mode && diagramReady) return;
     window.cancelDimensionDrawing?.();
     window.cancelLightingPlacement?.();
     window.flushPendingItemEditHistory?.();
@@ -87,7 +270,7 @@ async function handleFloorSelectChange(floorId, skipSave = false) {
     selectedFloorId = floorId;
     floorPlanJsonData = floorPlanData[floorId].json;
     cachedBackgroundImage = floorBackgroundImages.get(floorId) || null;
-    const loaded = await switchViewMode('floor', true, null, true);
+    const loaded = await switchViewMode(mode, true, null, true);
     if (loaded && !skipSave) saveState();
 }
 
@@ -120,6 +303,9 @@ async function handleWallSelectChange(wallId) {
     // 新しい壁を選択
     const targetWall =
         wallPlanJsonData[wallId];
+    selectedFloorId = getWallFloorId(targetWall);
+    floorPlanJsonData = floorPlanData[selectedFloorId].json;
+    cachedBackgroundImage = floorBackgroundImages.get(selectedFloorId) || null;
 
     selectedWallInfo = {
         id: wallId,
@@ -178,8 +364,11 @@ async function switchViewMode(
 
     const wallBanner =
         document.getElementById("wallInfoBanner");
+    const emptyState = document.getElementById('wallEmptyState');
+    if (emptyState) emptyState.hidden = true;
 
     if (mode === 'floor') {
+        window.repairArtworkHeightLinks();
         floorPlanJsonData = floorPlanData[selectedFloorId].json;
 
         updateWallTabs();
@@ -210,6 +399,7 @@ async function switchViewMode(
             delete floorJson.backgroundImage;
             await loadCanvasState(floorJson);
             applyFloorBackgroundImage(background);
+            window.applyArtworkCatalogHeightsToFloor();
             restoreCustomProperties();
             syncFloorArtworkScale();
 
@@ -221,6 +411,7 @@ async function switchViewMode(
 
     } else if (mode === 'wall') {
 
+        selectWallForCurrentFloor();
         updateWallTabs();
         updateViewModeToolState('wall');
 
@@ -233,7 +424,11 @@ async function switchViewMode(
         }
 
         if (wallBanner) {
-            wallBanner.style.display = "block";
+            wallBanner.style.display = selectedWallInfo.id ? 'block' : 'none';
+        }
+        if (emptyState) {
+            emptyState.textContent = `${FLOOR_PLANS[selectedFloorId].title}の壁面は未登録です。`;
+            emptyState.hidden = Boolean(selectedWallInfo.id);
         }
 
         updateWallDropdownOptions();
@@ -314,6 +509,16 @@ function updateWallBannerText() {
         inputH.value =
             selectedWallInfo.heightCm;
     }
+    const movable = Boolean(wallPlanJsonData[selectedWallInfo.id]?.movableWallId);
+    if (inputW) inputW.readOnly = movable;
+    if (inputH) inputH.readOnly = true;
+    const applySize = document.getElementById('btnApplyWallSize');
+    if (applySize) applySize.disabled = !selectedWallInfo.id || movable || window.CURATOR_ROLE === 'viewer';
+    const floorSelect = document.getElementById('wallFloorSelect');
+    if (floorSelect) {
+        floorSelect.value = getWallFloorId(wallPlanJsonData[selectedWallInfo.id]);
+        floorSelect.disabled = !selectedWallInfo.id || movable || window.CURATOR_ROLE === 'viewer';
+    }
 }
 
 // ============================================================
@@ -346,8 +551,10 @@ function renderWallRulers() {
     const wallHeight = bounds.height;
     const left = bounds.left;
     const top = bounds.top;
-    const horizontalY = top - 16;
-    const verticalX = left - 16;
+    const displayZoom = wrapper.getBoundingClientRect().width / canvas.width || 1;
+    const screenPixel = 1 / displayZoom;
+    const horizontalY = top - 12 * screenPixel;
+    const verticalX = left - 12 * screenPixel;
     const verticalOffset = 0;
     const tickStep = dimension => dimension <= 300 ? 10 : dimension <= 1000 ? 20 : 50;
     const majorStep = dimension => dimension <= 300 ? 50 : 100;
@@ -357,25 +564,25 @@ function renderWallRulers() {
     for (let cm = 0; cm <= widthCm; cm += tickStep(widthCm)) {
         const x = left + wallWidth * cm / widthCm;
         const major = cm % majorStep(widthCm) === 0;
-        horizontalTicks.push(`<line x1="${x}" y1="${horizontalY}" x2="${x}" y2="${horizontalY + (major ? 6 : 3)}" class="ruler-tick"/>`);
-        if (major) horizontalTicks.push(`<text x="${x}" y="${horizontalY - 3}" text-anchor="middle" class="ruler-label">${cm}</text>`);
+        horizontalTicks.push(`<line x1="${x}" y1="${horizontalY}" x2="${x}" y2="${horizontalY + (major ? 6 : 3) * screenPixel}" class="ruler-tick"/>`);
+        if (major) horizontalTicks.push(`<text x="${x}" y="${horizontalY - 3 * screenPixel}" text-anchor="middle" class="ruler-label">${cm}</text>`);
     }
     if (widthCm % tickStep(widthCm) !== 0) {
         const x = left + wallWidth;
-        horizontalTicks.push(`<line x1="${x}" y1="${horizontalY}" x2="${x}" y2="${horizontalY + 6}" class="ruler-tick"/>`);
-        horizontalTicks.push(`<text x="${x}" y="${horizontalY - 3}" text-anchor="middle" class="ruler-label">${widthCm}</text>`);
+        horizontalTicks.push(`<line x1="${x}" y1="${horizontalY}" x2="${x}" y2="${horizontalY + 6 * screenPixel}" class="ruler-tick"/>`);
+        horizontalTicks.push(`<text x="${x}" y="${horizontalY - 3 * screenPixel}" text-anchor="middle" class="ruler-label">${widthCm}</text>`);
     }
 
     for (let cm = 0; cm <= heightCm; cm += tickStep(heightCm)) {
         const y = top + wallHeight * (heightCm - cm) / heightCm + verticalOffset;
         const major = cm % majorStep(heightCm) === 0;
-        verticalTicks.push(`<line x1="${verticalX}" y1="${y}" x2="${verticalX + (major ? 6 : 3)}" y2="${y}" class="ruler-tick"/>`);
-        if (major) verticalTicks.push(`<text x="${verticalX - 3}" y="${y + 2}" text-anchor="end" class="ruler-label">${cm}</text>`);
+        verticalTicks.push(`<line x1="${verticalX}" y1="${y}" x2="${verticalX + (major ? 6 : 3) * screenPixel}" y2="${y}" class="ruler-tick"/>`);
+        if (major) verticalTicks.push(`<text x="${verticalX - 3 * screenPixel}" y="${y + 2 * screenPixel}" text-anchor="end" class="ruler-label">${cm}</text>`);
     }
     if (heightCm % tickStep(heightCm) !== 0) {
         const y = top + verticalOffset;
-        verticalTicks.push(`<line x1="${verticalX}" y1="${y}" x2="${verticalX + 6}" y2="${y}" class="ruler-tick"/>`);
-        verticalTicks.push(`<text x="${verticalX - 3}" y="${y + 2}" text-anchor="end" class="ruler-label">${heightCm}</text>`);
+        verticalTicks.push(`<line x1="${verticalX}" y1="${y}" x2="${verticalX + 6 * screenPixel}" y2="${y}" class="ruler-tick"/>`);
+        verticalTicks.push(`<text x="${verticalX - 3 * screenPixel}" y="${y + 2 * screenPixel}" text-anchor="end" class="ruler-label">${heightCm}</text>`);
     }
 
     const wrapperRect = wrapper.getBoundingClientRect();
@@ -385,7 +592,8 @@ function renderWallRulers() {
     svg.setAttribute('viewBox', `0 0 ${canvas.width} ${canvas.height}`);
     svg.setAttribute('preserveAspectRatio', 'none');
     svg.setAttribute('aria-hidden', 'true');
-    svg.style.cssText = `position:absolute;left:${wrapperRect.left - containerRect.left + container.scrollLeft}px;top:${wrapperRect.top - containerRect.top + container.scrollTop}px;width:${wrapperRect.width}px;height:${wrapperRect.height}px;overflow:visible;pointer-events:none;z-index:5`;
+    svg.style.setProperty('--wall-ruler-zoom', String(displayZoom));
+    svg.style.cssText += `position:absolute;left:${wrapperRect.left - containerRect.left + container.scrollLeft}px;top:${wrapperRect.top - containerRect.top + container.scrollTop}px;width:${wrapperRect.width}px;height:${wrapperRect.height}px;overflow:visible;pointer-events:none;z-index:5`;
     svg.innerHTML = `
         <g class="ruler-markings">
             <line x1="${left}" y1="${horizontalY}" x2="${left + wallWidth}" y2="${horizontalY}" class="ruler-line"/>
@@ -407,6 +615,10 @@ async function renderWallCanvas(callback = null) {
     canvas.clear();
 
     canvas.setBackgroundImage(null);
+    if (!wallPlanJsonData[selectedWallInfo.id]) {
+        canvas.requestRenderAll();
+        return;
+    }
 
     const scaleInput =
         document.getElementById("scale");
@@ -472,6 +684,31 @@ async function renderWallCanvas(callback = null) {
         canvas.renderAll();
     }
 
+    if (wallItem) {
+        // Read legacy positions against the original floor before resizing an
+        // outline. New positions then use the common scale and saved heights.
+        const outline = canvas.getObjects().find(object => object.isWallOutline);
+        const previousHeight = Number(wallItem.legacyHeightCm);
+        const oldScale = previousHeight && outline ? outline.height * (outline.scaleY || 1) / previousHeight : null;
+        canvas.getObjects().filter(object => object.isArtwork).forEach(object => {
+            if (window.getArtworkCenterHeightCm(object) === null) window.updateArtworkHeightFromWall(object, false, oldScale);
+        });
+        if (outline) {
+            outline.set({ width: pxW, height: pxH, scaleX: 1, scaleY: 1,
+                originX: 'left', originY: 'top', left: (canvas.width - pxW) / 2, top: (canvas.height - pxH) / 2 });
+            outline.setCoords();
+        } else {
+            canvas.add(wallRect);
+            wallRect.sendToBack();
+        }
+        applyWallOutlineLock();
+        canvas.getObjects().filter(object => object.isArtwork).forEach(object => {
+            applyArtworkDimensions(object, scale);
+            window.placeArtworkAtSavedHeight(object);
+        });
+        canvas.requestRenderAll();
+    }
+
     renderWallRulers();
 
     if (callback) {
@@ -519,6 +756,7 @@ function applyArtworkDimensions(obj, scale) {
 function syncFloorArtworkScale() {
     const scale = parseFloat(document.getElementById('scale')?.value) || 0.5;
     canvas.getObjects().forEach(obj => {
+        if (obj.isMovableWall) { window.configureMovableWall?.(obj); return; }
         if (!obj.isArtwork) return;
         const width = (Number(obj.cmWidth) || 150) * scale;
         const height = Math.max((Number(obj.cmDepth) || 5) * scale, 8);
@@ -611,6 +849,7 @@ function applyFloorBackgroundImage(img) {
             wallCtx.fillStyle = '#ffffff';
             wallCtx.fillRect(0, 0, wallCanvas.width, wallCanvas.height);
             wallCtx.drawImage(img._element, left, top, img.width * fit, img.height * fit);
+            window.invalidateWallCollisionData?.();
             isWallDataLoaded = true;
             canvas.renderAll();
 }

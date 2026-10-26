@@ -104,17 +104,22 @@ function initializeCreationSettingsUi() {
 
     if (btnResetCurrentLayout) {
         btnResetCurrentLayout.addEventListener("click", function() {
-            if (!confirm("現在表示中の配置図にある展示物・ピン・描画・図形・寸法線をすべて消去しますか？")) return;
+            if (!confirm("現在表示中の配置図にある展示物・ピン・描画・図形・寸法線・移動壁をすべて消去しますか？移動壁の前面・裏面の配置も削除されます。")) return;
             window.cancelDimensionDrawing?.();
             window.cancelLightingPlacement?.();
 
             const removable = canvas.getObjects().filter(obj =>
-                obj.isArtwork || obj.isPin || obj.isFreePin || obj.isGuard ||
+                obj.isArtwork || obj.isMovableWall || obj.isPin || obj.isFreePin || obj.isGuard ||
                 obj.pinLabel !== undefined || obj.isCrowdCircle || obj.isFreeDrawing || obj.isShapeObject || obj.isDimension || obj.type === 'path' ||
                 (obj.isLightObject && obj.lightKind === 'spot')
             );
-            canvas.discardActiveObject();
-            canvas.remove(...removable);
+            const wasRestoring = isUndoRedoOperation;
+            isUndoRedoOperation = true;
+            try {
+                window.removeMovableWallFaces?.(removable.filter(obj => obj.isMovableWall));
+                canvas.discardActiveObject();
+                canvas.remove(...removable);
+            } finally { isUndoRedoOperation = wasRestoring; }
             canvas.requestRenderAll();
             artworkCount = canvas.getObjects().filter(obj => obj.isArtwork).length;
             pinCount = canvas.getObjects().filter(obj => obj.isPin || obj.isFreePin || obj.isGuard).length;
@@ -152,17 +157,24 @@ function initializeCreationSettingsUi() {
         if (e.key === 'Delete') {
             const selectedObjects = canvas.getActiveObjects();
             const deletableObjects = selectedObjects.filter(obj =>
-                obj.isArtwork || obj.isPin || obj.isFreePin || obj.isGuard || obj.pinLabel !== undefined ||
+                obj.isArtwork || obj.isMovableWall || obj.isPin || obj.isFreePin || obj.isGuard || obj.pinLabel !== undefined ||
                 obj.isFreeDrawing || obj.isShapeObject || obj.isDimension || obj.type === 'path' ||
                 window.canDeleteLightingObject?.(obj)
             );
 
             if (deletableObjects.length > 0) {
+                const movableWalls = deletableObjects.filter(obj => obj.isMovableWall);
+                if (movableWalls.length && !window.confirmMovableWallRemoval?.(movableWalls)) return;
                 const relatedObjects = deletableObjects
                     .map(obj => obj.crowdCircle)
                     .filter(Boolean);
-                canvas.discardActiveObject();
-                canvas.remove(...deletableObjects, ...relatedObjects);
+                const wasRestoring = isUndoRedoOperation;
+                isUndoRedoOperation = true;
+                try {
+                    if (movableWalls.length) window.removeMovableWallFaces?.(movableWalls);
+                    canvas.discardActiveObject();
+                    canvas.remove(...deletableObjects, ...relatedObjects);
+                } finally { isUndoRedoOperation = wasRestoring; }
                 canvas.requestRenderAll();
                 saveState();
                 e.preventDefault();

@@ -48,6 +48,17 @@
 
             <div class="panel-section mode-switch-section workflow-section tool-panel" data-tool-panel="setup">
                 <h2>作業モード</h2>
+                <label class="lighting-visibility"><input id="workspaceScaleVisibility" type="checkbox" checked>縮尺バーを表示</label>
+                <div class="drawing-subsection workspace-grid-settings">
+                    <h3>グリッド</h3>
+                    <label class="lighting-visibility"><input id="workspaceGridVisible" type="checkbox" checked>表示</label>
+                    <label class="lighting-visibility"><input id="workspaceGridSnap" type="checkbox">グリッドにスナップ</label>
+                    <div class="form-group">
+                        <label for="workspaceGridSpacing">間隔 (cm)</label>
+                        <input id="workspaceGridSpacing" class="form-control" type="number" value="50" min="1" max="1000" step="1">
+                    </div>
+                    <p id="gridSpacingHint" class="field-note" hidden></p>
+                </div>
                 <p id="modeDescription" class="mode-description">配置図を作成します。壁を選んで展示物を配置してください。</p>
                 <button id="btnToggleAdminMode" class="btn btn-secondary" type="button" data-tooltip="壁・縮尺・固定設備を事前設定します。">管理設定を開く</button>
                 <div id="adminModeBanner" class="admin-mode-banner" hidden>管理者設定モード</div>
@@ -67,7 +78,7 @@
                     </div>
                     <div class="form-group">
                         <label for="newWallHeightCm">壁の高さ (cm)</label>
-                        <input id="newWallHeightCm" class="form-control" type="number" value="300" min="1" step="1">
+                        <input id="newWallHeightCm" class="form-control" type="number" value="450" readonly>
                     </div>
                 </div>
                 <button id="btnAddWall" class="btn btn-primary" type="button">この壁を登録</button>
@@ -184,6 +195,14 @@
 
                 <div class="panel-section admin-only config-section tool-panel" data-tool-panel="setup" hidden>
                     <h2>壁面の寸法（選択中）</h2>
+                    <div class="form-group admin-only" hidden>
+                        <label for="wallFloorSelect">所属する階</label>
+                        <select id="wallFloorSelect" class="form-control">
+                            <option value="lobby">ロビー階</option>
+                            <option value="floor1">1階</option>
+                            <option value="floor2">2階</option>
+                        </select>
+                    </div>
 
                     <div class="form-group admin-only" hidden>
                         <label for="wallWidthCm">壁の幅 (cm)</label>
@@ -205,7 +224,8 @@
                             type="number"
                             id="wallHeightCm"
                             class="form-control"
-                            value="300"
+                            value="450"
+                            readonly
                         >
                     </div>
 
@@ -281,11 +301,7 @@
             <div class="panel-section tool-panel lighting-panel" data-tool-panel="lighting">
                 <h2>照明</h2>
                 <label class="lighting-visibility"><input id="lightingVisibility" type="checkbox" checked>照明を表示</label>
-                <div class="form-group">
-                    <label for="lightRailSelect">ライトレール</label>
-                    <select id="lightRailSelect" class="form-control"></select>
-                </div>
-                <button id="btnPlaceSpotlight" class="btn btn-secondary" type="button" data-tooltip="図面をクリックすると、選択したレール上の近い位置に配置します。">スポットライトを追加</button>
+                <button id="btnPlaceSpotlight" class="btn btn-secondary" type="button" aria-pressed="false" data-tooltip="追加したいレール上を直接クリックします。Escで終了します。">スポットライトを追加</button>
                 <div class="drawing-subsection">
                     <h3>ライト設定</h3>
                     <div class="form-group">
@@ -301,12 +317,20 @@
                                 <button id="btnPickLightTarget" class="btn btn-secondary" type="button" data-tooltip="図面上の作品をクリックして、光をその中央へ向けます。Escでキャンセルします。">作品をクリックしてスナップ</button>
                             </div>
                             <div class="form-group" id="lightAngleField">
-                                <label for="lightDirection">方向（°）</label>
-                                <input id="lightDirection" class="form-control" type="number" value="0" step="1" data-tooltip="0°は右、90°は下、180°は左、270°は上です。">
+                                <label for="lightDirection">水平角（レール直角0°）</label>
+                                <input id="lightDirection" class="form-control" type="number" min="-90" max="90" value="0" step="0.1" data-tooltip="レールに直角の照射方向が0°、平行が±90°です。0°から図面上で時計回りが＋、反時計回りが−。作品指定時は作品中央とライトを結ぶ方向から計算します。">
+                                <button id="btnFlipSpotlightSide" class="btn btn-secondary" type="button" data-tooltip="水平角を保ったまま、レールの反対側へ照射します。">照射側を反転</button>
                             </div>
+                            <div class="form-group">
+                                <label for="lightTilt">仰角（真下0°）</label>
+                                <input id="lightTilt" class="form-control" type="number" min="0" max="180" step="0.1" value="30" data-tooltip="真下を向く状態が0°。首が真横を向き、同じ高さの壁を正面から照らす状態が90°です。作品指定時もこの基準で自動計算します。">
+                            </div>
+                            <p class="field-note">天井高 450 cm（固定）</p>
+                            <output id="lightOrientationReadout" class="field-note" aria-live="polite"></output>
                             <div class="form-group" id="lightTargetField" hidden>
                                 <label for="lightTargetSelect">向ける作品</label>
                                 <select id="lightTargetSelect" class="form-control"></select>
+                                <button id="btnAlignSpotlightToArtwork" class="btn btn-secondary" type="button" data-tooltip="作品中央からレールへ垂直に下ろした位置にライトを移動し、作品を向いたまま水平角を0°にします。">作品正面に合わせる（水平0°）</button>
                             </div>
                         </div>
                     </div>
@@ -314,6 +338,34 @@
             </div>
 
             <!-- 展示品追加セクション -->
+            <div class="panel-section tool-panel" data-tool-panel="movable-walls">
+                <h2>移動壁</h2>
+                <label class="lighting-visibility"><input id="movableWallFaceVisibility" type="checkbox" checked>前面・裏面を表示</label>
+                <div class="form-group">
+                    <label for="movableWallName">名前（自動）</label>
+                    <input id="movableWallName" class="form-control" type="text" readonly>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label for="movableWallWidth">幅 (cm)</label><input id="movableWallWidth" class="form-control" type="number" min="1" max="10000" value="180" step="1"></div>
+                    <div class="form-group"><label for="movableWallDepth">厚さ (cm)</label><input id="movableWallDepth" class="form-control" type="number" min="1" max="10000" value="20" step="1"></div>
+                </div>
+                <div class="form-group"><label for="movableWallAngle">回転 (°)</label><input id="movableWallAngle" class="form-control" type="number" value="0" step="1"></div>
+                <p class="field-note" data-tooltip="回転0°では上辺が前面、下辺が裏面です。作品を近づけると壁の面に沿って吸着し、離すと解除できます。">高さ 440 cm（固定）</p>
+                <button id="btnAddMovableWall" class="btn btn-secondary" type="button">移動壁を追加</button>
+                <div id="movableWallSelection" class="drawing-subsection" hidden>
+                    <h3>選択中の移動壁</h3>
+                    <button id="btnUpdateMovableWall" class="btn btn-secondary" type="button">選択壁を更新</button>
+                    <div class="form-row">
+                        <button id="btnMovableWallFront" class="btn btn-secondary" type="button">前面の壁面図</button>
+                        <button id="btnMovableWallBack" class="btn btn-secondary" type="button">裏面の壁面図</button>
+                    </div>
+                    <div class="form-row" data-tooltip="回転0°を基準とした左右の側面です。幅は壁の厚さ、高さは440cmで作成します。">
+                        <button id="btnMovableWallLeft" class="btn btn-secondary" type="button">左側面を追加</button>
+                        <button id="btnMovableWallRight" class="btn btn-secondary" type="button">右側面を追加</button>
+                    </div>
+                    <button id="btnDeleteMovableWall" class="btn btn-danger" type="button">移動壁を削除</button>
+                </div>
+            </div>
             <div class="panel-section artwork-section tool-panel" data-tool-panel="artwork">
                 <h2>展示品の追加</h2>
                 <div class="artwork-color-legend" aria-label="展示物の色分け">
@@ -419,6 +471,10 @@
 
                 </div>
 
+                <div class="form-group">
+                    <label for="artworkCenterHeight">床から作品中央まで (cm)</label>
+                    <input id="artworkCenterHeight" class="form-control" type="number" min="0" step="0.1" data-tooltip="任意。壁面図ではこの高さに配置します。未入力なら配置位置から高さを取得します。">
+                </div>
                 <button id="addArtwork" class="btn btn-primary">
                     展示物を追加
                 </button>
@@ -552,6 +608,10 @@
                             <label for="editItemAngle">回転角度 (°)</label>
                             <input id="editItemAngle" class="form-control" type="number" min="-360" max="360" step="1">
                         </div>
+                        <div class="form-group">
+                            <label for="editArtworkCenterHeight">床から作品中央まで (cm)</label>
+                            <input id="editArtworkCenterHeight" class="form-control" type="number" min="0" step="0.1" data-tooltip="壁面図で上下に動かすと自動更新します。数値変更時は壁面図の高さも合わせます。">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="editItemDescription">説明・注意事項</label>
@@ -640,6 +700,7 @@
                     <button class="tool-icon" type="button" data-action="wall" title="壁面図を表示" aria-label="壁面図を表示" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3zM7 4v16m10-16v16M3 9h4m10 6h4"/></svg><span class="tool-label">壁面図</span></button>
                 </div>
                 <div class="tool-group tool-group-create">
+                    <button class="tool-icon" type="button" data-tool="movable-walls" title="移動式の壁" aria-label="移動式の壁"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v8H4zM8 4v3m8-3v3M8 15v5m8-5v5M5 20h6m2 0h6"/></svg><span class="tool-label">移動壁</span></button>
                     <button class="tool-icon" type="button" data-tool="draw" title="描画・図形・寸法線" aria-label="描画・図形・寸法線"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1 11-11a2.1 2.1 0 0 0-3-3l-11 11zM14.5 6.5l3 3M4 20h16"/><path d="M4 4h6v6H4zM14 15l3 5 3-5z"/></svg><span class="tool-label">描画</span></button>
                     <button class="tool-icon" type="button" data-tool="artwork" title="展示物" aria-label="展示物"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM7 16l4-5 3 3 2-2 2 4M8 8h.01"/></svg><span class="tool-label">展示物</span></button>
                     <button class="tool-icon" type="button" data-tool="pins" title="ピン" aria-label="ピン"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span class="tool-label">ピン</span></button>
@@ -676,6 +737,7 @@
                 cm)
             </div>
 
+            <div id="wallEmptyState" class="diagram-load-notice" role="status" hidden></div>
             <div id="diagramLoadNotice" class="diagram-load-notice" role="status" hidden>
                 <span id="diagramLoadMessage"></span>
                 <button id="btnRetryDiagram" class="btn btn-secondary" type="button" hidden>再試行</button>
@@ -690,6 +752,11 @@
                 <p id="canvasTooltipDescription"></p>
             </div>
 
+            <div id="workspaceScaleBar" class="workspace-scale-bar" role="img" aria-label="図面の縮尺" hidden>
+                <span class="workspace-scale-caption">縮尺</span>
+                <div id="workspaceScaleRule" class="workspace-scale-rule"><i></i></div>
+                <div class="workspace-scale-labels"><span>0</span><span id="workspaceScaleLength"></span></div>
+            </div>
             <div class="zoom-controls" role="group" aria-label="図面表示倍率">
                 <svg class="zoom-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M8 10.5h5M10.5 8v5"/></svg>
                 <input id="canvasZoom" type="range" min="10" max="200" step="1" value="100" aria-label="表示倍率">
@@ -711,7 +778,9 @@
     <script src="js/editor/view.js" defer></script>
     <script src="js/editor/interaction.js" defer></script>
     <script src="js/editor/dimensions.js" defer></script>
+    <script src="js/editor/workspace-grid.js" defer></script>
     <script src="js/editor/lighting.js" defer></script>
+    <script src="js/editor/movable-walls.js" defer></script>
     <script src="js/editor/pdf.js" defer></script>
     <script src="js/editor/ui-navigation.js" defer></script>
     <script src="js/editor/ui-controls.js" defer></script>
@@ -724,6 +793,7 @@
     <script src="js/editor/ui.js" defer></script>
     <script src="js/editor/ui-tool-palette.js" defer></script>
     <script src="js/editor/ui-zoom.js" defer></script>
+    <script src="js/editor/workspace-scale.js" defer></script>
 
 </body>
 </html>

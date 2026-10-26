@@ -97,11 +97,11 @@
             if (window.CURATOR_ROLE !== 'viewer') return;
             document.body.classList.add('viewer-mode');
             document.querySelectorAll('.sidebar input, .sidebar textarea, .sidebar button, .sidebar select').forEach(control => {
-                if (['floorWallListSelect', 'wallListSelect', 'savedExhibitions', 'layoutVariants', 'lightingVisibility', 'crowdVisibility', 'lightObjectSelect'].includes(control.id) || control.id === 'btnLoadExhibition') return;
+                if (['floorWallListSelect', 'wallListSelect', 'savedExhibitions', 'layoutVariants', 'lightingVisibility', 'crowdVisibility', 'workspaceScaleVisibility', 'workspaceGridVisible', 'workspaceGridSpacing', 'lightObjectSelect', 'movableWallFaceVisibility'].includes(control.id) || control.id === 'btnLoadExhibition') return;
                 control.disabled = true;
             });
             document.querySelectorAll('.tool-icon').forEach(control => {
-                control.disabled = !['walls', 'info', 'data', 'team', 'crowd', 'lighting'].includes(control.dataset.tool);
+                control.disabled = !['walls', 'info', 'data', 'team', 'crowd', 'lighting', 'movable-walls'].includes(control.dataset.tool);
                 if (control.dataset.action) control.disabled = !['floor', 'wall', 'light-visibility'].includes(control.dataset.action);
             });
             if (typeof canvas !== 'undefined') {

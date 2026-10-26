@@ -88,7 +88,8 @@
                         const target = transform.target;
                         if (!enabled || !editable(target)) return false;
                         // Inverse transform accounts for rotation, flips, skew and scaling.
-                        const local = transformPoint({ x, y }, fabric.util.invertTransform(target.calcTransformMatrix()));
+                        const pointer = window.snapPointToGrid?.({ x, y }) || { x, y };
+                        const local = transformPoint(pointer, fabric.util.invertTransform(target.calcTransformMatrix()));
                         const next = { x: local.x + target.pathOffset.x, y: local.y + target.pathOffset.y };
                         if (!Number.isFinite(next.x) || !Number.isFinite(next.y)) return false;
                         const anchor = refs.find((candidate, candidateIndex) => candidateIndex !== index && !candidate.curve)

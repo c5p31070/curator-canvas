@@ -33,6 +33,7 @@ function initializeShapeTools() {
         if (isFreeDrawingMode) toggleFreeDrawingMode(false);
         const p = getParameters();
         const object = createShape(p.kind, p.length, p.head, p.stroke, p.fill);
+        window.snapObjectToGrid?.(object);
         canvas.add(object);
         canvas.setActiveObject(object);
         canvas.requestRenderAll();

@@ -5,6 +5,7 @@ let lightingRenderBusy = false;
 let lightingPlacementMode = null;
 let lightingRailStart = null;
 let lightingRailPreview = null;
+let spotlightPlacementPreview = null;
 let selectedLightId = '';
 let lightingEditTimer = null;
 window.isLightingRenderBusy = () => lightingRenderBusy;
@@ -13,6 +14,19 @@ const lightingById = id => canvas.getObjects().find(obj => obj.lightId === id);
 const lightingReadOnly = () => window.CURATOR_ROLE === 'viewer';
 const VENUE_LIGHTING_KEY = 'curator_canvas_venue_lighting_v1';
 const isVenueEquipment = obj => obj.isLightRail || (obj.isLightObject && obj.lightKind === 'fixed');
+const fixedLightSize = 12;
+const spotlightMountHeightCm = 450;
+
+function normalizeFixedLightShape(object) {
+    if (!object.isLightObject || object.lightKind !== 'fixed') return object;
+    // Convert saved circle markers before Fabric loads them; retain IDs,
+    // positions and the exhibition's on/off state.
+    const square = { ...object, type: 'rect', width: fixedLightSize, height: fixedLightSize, rx: 0, ry: 0 };
+    delete square.radius;
+    delete square.startAngle;
+    delete square.endAngle;
+    return square;
+}
 let venueLightingData = loadVenueLightingData();
 
 function equipmentFromPlan(raw) {
@@ -88,7 +102,7 @@ window.prepareFloorLighting = (plan, floorId) => {
         ...plan,
         objects: [
             ...existing.filter(obj => !isVenueEquipment(obj) && !(obj.lightKind === 'spot' && !railIds.has(obj.lightRailId))),
-            ...equipment.map(obj => ({ ...obj, lightOn: power.get(obj.lightId) ?? true }))
+            ...equipment.map(obj => normalizeFixedLightShape({ ...obj, lightOn: power.get(obj.lightId) ?? true }))
         ]
     };
 };
@@ -109,6 +123,74 @@ function projectOntoRail(rail, point) {
     return { t, x: start.x + t * dx, y: start.y + t * dy };
 }
 
+function nearestSpotlightRail(point) {
+    const zoom = canvas.lowerCanvasEl.getBoundingClientRect().width / canvas.getWidth() || 1;
+    const tolerance = (window.matchMedia('(pointer: coarse)').matches ? 24 : 16) / zoom;
+    let nearest = null;
+    canvas.getObjects().filter(object => object.isLightRail && object.visible && !object.excludeFromExport).forEach(rail => {
+        const { start, end } = railEndpoints(rail);
+        if (Math.hypot(end.x - start.x, end.y - start.y) < .001) return;
+        const position = projectOntoRail(rail, point);
+        const distance = Math.hypot(position.x - point.x, position.y - point.y);
+        if (distance <= tolerance && (!nearest || distance < nearest.distance)) nearest = { rail, position, distance };
+    });
+    return nearest;
+}
+
+function alignSpotlightToArtwork() {
+    const light = lightingById(selectedLightId);
+    if (lightingReadOnly() || isTransitioning || light?.lightKind !== 'spot' || light.lightAimMode !== 'artwork') return;
+    const target = canvas.getObjects().find(object => object.isArtwork && object.lightingTargetId === light.lightAimTargetId);
+    const rail = lightingById(light.lightRailId);
+    if (!target || !rail?.isLightRail) return;
+    const { start, end } = railEndpoints(rail);
+    const point = target.getCenterPoint();
+    const dx = end.x - start.x, dy = end.y - start.y;
+    const lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared < .000001) return;
+    const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared;
+    if (t < -1e-8 || t > 1 + 1e-8) {
+        alert('このレールの範囲内では作品の正面に合わせられません。別のレールにライトを配置してください。');
+        return;
+    }
+    const position = projectOntoRail(rail, point);
+    if (Math.hypot(point.x - position.x, point.y - position.y) < .001) {
+        alert('作品中央がレールの真下にあるため、水平方向の正面を定められません。');
+        return;
+    }
+    cancelLightingPlacement();
+    light.lightRailT = position.t;
+    light.setPositionByOrigin(new fabric.Point(position.x, position.y), 'center', 'center');
+    light.setCoords();
+    refreshLighting();
+    saveState();
+}
+
+const normalizeLightAngle = angle => ((angle % 360) + 360) % 360;
+const signedLightAngle = angle => ((angle + 180) % 360 + 360) % 360 - 180;
+
+function spotlightRailReference(light, useSavedSide = true) {
+    const rail = lightingById(light.lightRailId);
+    if (!rail?.isLightRail) return null;
+    const { start, end } = railEndpoints(rail);
+    if (Math.hypot(end.x - start.x, end.y - start.y) < .001) return null;
+    const normal = normalizeLightAngle(Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI + 90);
+    const direction = Number(light.lightDirectionDeg) || 0;
+    const side = useSavedSide && light.lightAimMode === 'free' && [1, -1].includes(light.lightRailNormalSide)
+        ? light.lightRailNormalSide : Math.abs(signedLightAngle(direction - normal)) <= 90 ? 1 : -1;
+    const base = normalizeLightAngle(normal + (side < 0 ? 180 : 0));
+    const relative = signedLightAngle(direction - base);
+    return { base, side, relative: Math.abs(relative) < 1e-8 ? 0 : relative };
+}
+
+function applyRailRelativeDirection(light) {
+    const reference = spotlightRailReference(light);
+    if (!reference) return;
+    if (!Number.isFinite(light.lightRailAngleDeg)) light.lightRailAngleDeg = reference.relative;
+    light.lightRailNormalSide = reference.side;
+    light.lightDirectionDeg = normalizeLightAngle(reference.base + light.lightRailAngleDeg);
+}
+
 function lightingDirection(light) {
     const center = light.getCenterPoint();
     const target = light.lightAimMode === 'artwork'
@@ -117,13 +199,44 @@ function lightingDirection(light) {
     if (target) {
         const destination = target.getCenterPoint();
         light.lightDirectionDeg = (Math.atan2(destination.y - center.y, destination.x - center.x) * 180 / Math.PI + 360) % 360;
-        return { angle: light.lightDirectionDeg * Math.PI / 180, length: Math.hypot(destination.x - center.x, destination.y - center.y) };
+        const length = Math.hypot(destination.x - center.x, destination.y - center.y);
+        const scale = Number(configuredScale);
+        const targetHeight = window.getArtworkCenterHeightCm?.(target) ?? null;
+        const tilt = targetHeight !== null && targetHeight !== undefined && Number.isFinite(Number(targetHeight)) && scale > 0
+            ? Math.atan2(length / scale, spotlightMountHeightCm - Number(targetHeight)) * 180 / Math.PI : null;
+        return { angle: light.lightDirectionDeg * Math.PI / 180, length, tilt,
+            note: !(scale > 0) ? '平面図の縮尺を設定してください' : tilt === null ? '展示物の編集で作品中央の高さを設定してください' : '' };
     }
     if (light.lightAimMode === 'artwork') {
         light.lightAimMode = 'free';
         light.lightAimTargetId = null;
     }
-    return { angle: (Number(light.lightDirectionDeg) || 0) * Math.PI / 180, length: 110 };
+    if (light.lightAimMode === 'free') applyRailRelativeDirection(light);
+    const tilt = light.lightAimMode === 'down' ? 0 : Number(light.lightTiltDeg ?? 30);
+    const targetHeight = 0; // Free-angle rays project onto the floor plane.
+    let length = 110;
+    let note = '';
+    if (light.lightAimMode !== 'down' && targetHeight !== null && targetHeight !== undefined && Number(configuredScale) > 0) {
+        const drop = spotlightMountHeightCm - Number(targetHeight);
+        const cosine = Math.cos(tilt * Math.PI / 180);
+        const travel = Math.abs(cosine) > 1e-8 ? drop / cosine : -1;
+        if (travel >= 0) length = travel * Math.sin(tilt * Math.PI / 180) * Number(configuredScale);
+        else note = 'この角度では指定した高さに届きません';
+    } else if (light.lightAimMode !== 'down') note = '光の長さは模式表示です';
+    return { angle: (Number(light.lightDirectionDeg) || 0) * Math.PI / 180, length, tilt, note };
+}
+
+function refreshSpotlightReadout(light, direction = null) {
+    if (!light || light.lightKind !== 'spot') return;
+    direction ||= lightingDirection(light);
+    const readout = document.getElementById('lightOrientationReadout');
+    const reference = spotlightRailReference(light);
+    const horizontal = light.lightAimMode === 'down' || direction.tilt === 0 || !reference ? '—' : reference.relative.toFixed(2) + '°';
+    if (readout) readout.textContent = `水平 ${horizontal} / 仰角 ${direction.tilt === null ? '—' : direction.tilt.toFixed(2) + '°'}${direction.note ? ' · ' + direction.note : ''}`;
+    if (light.lightAimMode !== 'free') {
+        document.getElementById('lightDirection').value = horizontal === '—' ? '' : reference.relative.toFixed(2);
+        document.getElementById('lightTilt').value = direction.tilt === null ? '' : direction.tilt.toFixed(2);
+    }
 }
 
 function refreshLighting(updateControls = true) {
@@ -148,7 +261,7 @@ function refreshLighting(updateControls = true) {
             }
             const editablePosition = !lightingReadOnly() && (spot || isAdminMode);
             light.set({ visible: lightingVisible, selectable: editablePosition, evented: lightingVisible,
-                radius: spot ? 5 : 4,
+                ...(spot ? { radius: 5 } : { width: fixedLightSize, height: fixedLightSize, rx: 0, ry: 0 }),
                 lockMovementX: !editablePosition, lockMovementY: !editablePosition,
                 lockScalingX: true, lockScalingY: true, lockRotation: true,
                 fill: light.lightOn === false ? '#737b80' : (spot ? '#a5b6be' : '#f2ce54'),
@@ -156,7 +269,9 @@ function refreshLighting(updateControls = true) {
             light.setControlsVisibility({ tl: false, tr: false, bl: false, br: false, ml: false, mt: false, mr: false, mb: false, mtr: false });
             light.setCoords();
             if (!spot) return;
-            if (light.lightAimMode === 'down') {
+            const direction = lightingDirection(light);
+            if (light.lightId === selectedLightId) refreshSpotlightReadout(light, direction);
+            if (light.lightAimMode === 'down' || direction.tilt === 0) {
                 if (!lightingVisible || light.lightOn === false) return;
                 const center = light.getCenterPoint();
                 const beam = new fabric.Circle({
@@ -168,12 +283,13 @@ function refreshLighting(updateControls = true) {
                 beam.moveTo(0);
                 return;
             }
-            const direction = lightingDirection(light);
             if (!lightingVisible || light.lightOn === false || direction.length < 1) return;
             const p = light.getCenterPoint();
             const dx = Math.cos(direction.angle), dy = Math.sin(direction.angle);
-            const end = { x: p.x + dx * direction.length, y: p.y + dy * direction.length };
-            const width = Math.min(28, direction.length * 0.14);
+            // Limit the visual ray only; keep the exact geometry for the angle readout.
+            const displayLength = Math.min(direction.length, Math.hypot(canvas.width, canvas.height) * 4);
+            const end = { x: p.x + dx * displayLength, y: p.y + dy * displayLength };
+            const width = Math.min(28, displayLength * 0.14);
             const properties = { isLightBeam: true, excludeFromExport: true, selectable: false, evented: false };
             const beam = new fabric.Polygon([
                 { x: p.x, y: p.y }, { x: end.x - dy * width, y: end.y + dx * width },
@@ -209,8 +325,6 @@ function fillLightingSelect(id, items, value, empty) {
 
 function refreshLightingControls() {
     const objects = currentViewMode === 'floor' ? canvas.getObjects() : [];
-    const railSelect = document.getElementById('lightRailSelect');
-    fillLightingSelect('lightRailSelect', objects.filter(obj => obj.isLightRail).map(obj => ({ id: obj.lightId, name: obj.lightName })), railSelect?.value, '登録済みのレールはありません');
     const lights = objects.filter(obj => obj.isLightObject);
     if (!lights.some(obj => obj.lightId === selectedLightId)) selectedLightId = lights[0]?.lightId || '';
     fillLightingSelect('lightObjectSelect', lights.map(obj => ({ id: obj.lightId, name: obj.lightName })), selectedLightId, 'ライトはありません');
@@ -226,22 +340,32 @@ function refreshLightingControls() {
     const snap = light?.lightAimMode === 'artwork';
     const angleField = document.getElementById('lightAngleField');
     const targetField = document.getElementById('lightTargetField');
-    if (angleField) angleField.hidden = snap || light?.lightAimMode === 'down';
+    if (angleField) angleField.hidden = false;
     if (targetField) targetField.hidden = !snap;
     const power = document.getElementById('lightPower');
     const mode = document.getElementById('lightAimMode');
     const angle = document.getElementById('lightDirection');
     if (power) power.checked = light?.lightOn !== false;
     if (mode) mode.value = light?.lightAimMode === 'down' ? 'down' : (snap ? 'artwork' : 'free');
-    if (angle) angle.value = Math.round(Number(light?.lightDirectionDeg) || 0);
-    ['lightPower', 'lightAimMode', 'lightDirection', 'lightTargetSelect'].forEach(id => {
+    if (light?.lightKind === 'spot') lightingDirection(light);
+    const railReference = light?.lightKind === 'spot' ? spotlightRailReference(light) : null;
+    if (angle) angle.value = railReference ? railReference.relative.toFixed(2) : '';
+    document.getElementById('lightTilt').value = Number(light?.lightTiltDeg ?? 30);
+    ['lightPower', 'lightAimMode', 'lightDirection', 'lightTargetSelect', 'lightTilt'].forEach(id => {
         const input = document.getElementById(id);
         if (input) input.disabled = lightingReadOnly() || !light;
     });
+    if (angle) angle.disabled = lightingReadOnly() || !light || light.lightAimMode !== 'free' || !railReference;
+    const flip = document.getElementById('btnFlipSpotlightSide');
+    if (flip) flip.disabled = lightingReadOnly() || !light || light.lightAimMode !== 'free' || !railReference;
+    document.getElementById('lightTilt').disabled = lightingReadOnly() || !light || light.lightAimMode !== 'free';
+    refreshSpotlightReadout(light);
     const add = document.getElementById('btnPlaceSpotlight');
     if (add) add.disabled = lightingReadOnly() || !objects.some(obj => obj.isLightRail);
     const pick = document.getElementById('btnPickLightTarget');
     if (pick) pick.disabled = lightingReadOnly() || light?.lightKind !== 'spot' || !artworks.length;
+    const align = document.getElementById('btnAlignSpotlightToArtwork');
+    if (align) align.disabled = lightingReadOnly() || !snap || !railReference || !artworks.some(object => object.lightingTargetId === light?.lightAimTargetId);
     const visibility = document.getElementById('lightingVisibility');
     if (visibility) visibility.checked = lightingVisible;
     const toggle = document.querySelector('[data-action="light-visibility"]');
@@ -272,6 +396,10 @@ function cancelLightingPlacement() {
     if (!lightingPlacementMode) return;
     if (lightingRailPreview) canvas.remove(lightingRailPreview);
     lightingRailPreview = null; lightingRailStart = null; lightingPlacementMode = null;
+    spotlightPlacementPreview = null;
+    canvas.contextTopDirty = true;
+    const spotButton = document.getElementById('btnPlaceSpotlight');
+    if (spotButton) { spotButton.textContent = 'スポットライトを追加'; spotButton.setAttribute('aria-pressed', 'false'); }
     document.getElementById('btnPlaceFixedLight')?.setAttribute('aria-pressed', 'false');
     const fixedButton = document.getElementById('btnPlaceFixedLight');
     if (fixedButton) fixedButton.textContent = '固定ライト';
@@ -295,14 +423,18 @@ async function startLightingPlacement(mode) {
     window.cancelDimensionDrawing?.();
     if (isFreeDrawingMode) toggleFreeDrawingMode(false);
     if (isMeasuringMode) toggleMeasuringMode(false);
-    if (currentViewMode !== 'floor') await switchViewMode('floor');
-    if (mode === 'spot' && !lightingById(document.getElementById('lightRailSelect')?.value)?.isLightRail) {
+    if (currentViewMode !== 'floor' && !await switchViewMode('floor')) return;
+    if (mode === 'spot' && !canvas.getObjects().some(object => object.isLightRail && !object.excludeFromExport)) {
         alert('作業モードでライトレールを登録してください。'); return;
     }
     if (mode === 'aim' && lightingById(selectedLightId)?.lightKind !== 'spot') return;
     if (!lightingVisible) toggleLightingVisibility(true);
     canvas.discardActiveObject(); lightingPlacementMode = mode;
     canvas.skipTargetFind = true; canvas.selection = false; canvas.defaultCursor = 'crosshair';
+    if (mode === 'spot') {
+        document.getElementById('btnPlaceSpotlight').textContent = 'レールを選択中';
+        document.getElementById('btnPlaceSpotlight').setAttribute('aria-pressed', 'true');
+    }
     if (mode === 'fixed') {
         document.getElementById('btnPlaceFixedLight').textContent = '固定ライトを終了';
         document.getElementById('btnPlaceFixedLight').setAttribute('aria-pressed', 'true');
@@ -317,14 +449,17 @@ async function startLightingPlacement(mode) {
 function createLight(point, kind, rail = null) {
     const position = rail ? projectOntoRail(rail, point) : point;
     const count = canvas.getObjects().filter(obj => obj.isLightObject && obj.lightKind === kind).length + 1;
-    return new fabric.Circle({
+    const LightShape = kind === 'fixed' ? fabric.Rect : fabric.Circle;
+    return new LightShape({
         left: position.x, top: position.y, originX: 'center', originY: 'center',
-        radius: kind === 'fixed' ? 4 : 5, stroke: '#53616a', strokeWidth: 1,
+        ...(kind === 'fixed' ? { width: fixedLightSize, height: fixedLightSize, rx: 0, ry: 0 } : { radius: 5 }),
+        stroke: '#53616a', strokeWidth: 1,
         fill: kind === 'fixed' ? '#f2ce54' : '#a5b6be',
         isLightObject: true, isFixture: kind === 'fixed', lightId: crypto.randomUUID(),
         lightKind: kind, lightName: `${kind === 'fixed' ? '固定ライト' : 'スポットライト'} ${count}`,
         lightOn: true, lightRailId: rail?.lightId || null, lightRailT: position.t ?? null,
-        lightAimMode: 'free', lightDirectionDeg: 90
+        lightAimMode: 'free', lightDirectionDeg: 90, lightTiltDeg: 30,
+        ...(kind === 'spot' ? { lightRailAngleDeg: 0, lightRailNormalSide: 1 } : {})
     });
 }
 
@@ -366,12 +501,30 @@ function applyLightSettings(debounce = false) {
     light.lightOn = document.getElementById('lightPower').checked;
     if (light.lightKind === 'spot') {
         const mode = document.getElementById('lightAimMode').value;
-        const angleText = document.getElementById('lightDirection').value;
+        let angleText = document.getElementById('lightDirection').value;
+        if (mode === 'free' && light.lightAimMode !== 'free' && !angleText.trim()) {
+            angleText = String(light.lightRailAngleDeg ?? 0);
+        }
         const angle = Number(angleText);
-        if (mode === 'free' && (!angleText.trim() || !Number.isFinite(angle))) return;
+        const tiltText = document.getElementById('lightTilt').value;
+        const tilt = mode === 'free' && light.lightAimMode !== 'free'
+            ? Number(light.lightTiltDeg ?? 30) : Number(tiltText);
+        if (mode === 'free' && ((!tiltText.trim() && light.lightAimMode === 'free') || !Number.isFinite(tilt) || tilt < 0 || tilt > 180)) {
+            document.getElementById('lightOrientationReadout').textContent = '角度の入力値を確認してください';
+            return;
+        }
+        if (mode === 'free' && (!angleText.trim() || !Number.isFinite(angle) || angle < -90 || angle > 90)) {
+            document.getElementById('lightOrientationReadout').textContent = '水平角は−90°から90°で入力してください';
+            return;
+        }
+        const reference = mode === 'free' ? spotlightRailReference(light) : null;
+        if (mode === 'free' && !reference) return;
         light.lightAimMode = mode;
         if (mode === 'free') {
-            light.lightDirectionDeg = ((angle % 360) + 360) % 360;
+            light.lightRailAngleDeg = angle;
+            light.lightRailNormalSide = reference.side;
+            light.lightDirectionDeg = normalizeLightAngle(reference.base + angle);
+            light.lightTiltDeg = tilt;
             light.lightAimTargetId = null;
         } else if (mode === 'down') {
             light.lightAimTargetId = null;
@@ -410,6 +563,9 @@ window.rotateLightingObject = obj => {
         if (obj.lightAimMode === 'down') return;
         obj.lightAimMode = 'free'; obj.lightAimTargetId = null;
         obj.lightDirectionDeg = ((Number(obj.lightDirectionDeg) || 0) + 90) % 360;
+        delete obj.lightRailAngleDeg;
+        delete obj.lightRailNormalSide;
+        applyRailRelativeDirection(obj);
     } else if (obj.isLightRail && isAdminMode) obj.rotate((obj.angle || 0) + 90);
     else return;
     window.persistLightingEquipmentChange(obj);
@@ -428,15 +584,17 @@ canvas.on('mouse:down', event => {
         cancelLightingPlacement(); refreshLighting(); saveState();
         return;
     }
-    if (lightingPlacementMode === 'rail') lightingRailStart = point;
-    else if (lightingPlacementMode === 'fixed') finishLightingPlacement(createLight(point, 'fixed'));
+    const placementPoint = window.snapPointToGrid?.(point) || point;
+    if (lightingPlacementMode === 'rail') lightingRailStart = placementPoint;
+    else if (lightingPlacementMode === 'fixed') finishLightingPlacement(createLight(placementPoint, 'fixed'));
     else {
-        const rail = lightingById(document.getElementById('lightRailSelect').value);
-        if (rail?.isLightRail) finishLightingPlacement(createLight(point, 'spot', rail));
+        const nearest = nearestSpotlightRail(point);
+        if (nearest) finishLightingPlacement(createLight(point, 'spot', nearest.rail));
     }
 });
 function lightRailEndPoint(event) {
-    const point = canvas.getPointer(event.e);
+    const pointer = canvas.getPointer(event.e);
+    const point = window.snapPointToGrid?.(pointer) || pointer;
     if (!event.e.shiftKey || !lightingRailStart) return point;
     const dx = point.x - lightingRailStart.x;
     const dy = point.y - lightingRailStart.y;
@@ -445,7 +603,43 @@ function lightRailEndPoint(event) {
         : { x: lightingRailStart.x, y: point.y };
 }
 
+canvas.on('after:render', () => {
+    if (lightingPlacementMode !== 'spot' || !spotlightPlacementPreview) return;
+    const { rail, position } = spotlightPlacementPreview;
+    if (!canvas.getObjects().includes(rail)) return;
+    const { start, end } = railEndpoints(rail);
+    const zoom = canvas.lowerCanvasEl.getBoundingClientRect().width / canvas.getWidth() || 1;
+    // Transient feedback on the interaction layer never changes saved rail data.
+    const context = canvas.contextTop;
+    context.save();
+    context.transform(...canvas.viewportTransform);
+    context.strokeStyle = '#cfbf8a';
+    context.fillStyle = '#f2ce54';
+    context.lineWidth = 2 / zoom;
+    context.setLineDash([]);
+    context.beginPath();
+    context.moveTo(start.x, start.y);
+    context.lineTo(end.x, end.y);
+    context.stroke();
+    context.beginPath();
+    context.arc(position.x, position.y, 4 / zoom, 0, Math.PI * 2);
+    context.fill();
+    context.restore();
+    canvas.contextTopDirty = true;
+});
+canvas.on('mouse:out', () => {
+    if (lightingPlacementMode !== 'spot' || !spotlightPlacementPreview) return;
+    spotlightPlacementPreview = null;
+    canvas.contextTopDirty = true;
+    canvas.requestRenderAll();
+});
 canvas.on('mouse:move', event => {
+    if (lightingPlacementMode === 'spot') {
+        spotlightPlacementPreview = nearestSpotlightRail(canvas.getPointer(event.e));
+        canvas.contextTopDirty = true;
+        canvas.requestRenderAll();
+        return;
+    }
     if (lightingPlacementMode !== 'rail' || !lightingRailStart) return;
     if (lightingRailPreview) canvas.remove(lightingRailPreview);
     lightingRailPreview = createLightRail(lightingRailStart, lightRailEndPoint(event), true);
@@ -484,7 +678,6 @@ const selectLight = event => {
     if (!object?.isLightObject && !object?.isLightRail) return;
     flushPendingLightingEdit();
     if (object.isLightObject) selectedLightId = object.lightId;
-    if (object.isLightRail) document.getElementById('lightRailSelect').value = object.lightId;
     if (lightingPlacementMode) return;
     if (isAdminMode && isVenueEquipment(object)) { refreshLightingControls(); return; }
     window.activateToolPanel?.('lighting'); refreshLightingControls();
@@ -493,6 +686,18 @@ canvas.on('selection:created', selectLight);
 canvas.on('selection:updated', selectLight);
 
 document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('btnAlignSpotlightToArtwork')?.addEventListener('click', alignSpotlightToArtwork);
+    document.getElementById('btnFlipSpotlightSide')?.addEventListener('click', () => {
+        const light = lightingById(selectedLightId);
+        if (lightingReadOnly() || light?.lightKind !== 'spot' || light.lightAimMode !== 'free') return;
+        flushPendingLightingEdit();
+        applyRailRelativeDirection(light);
+        if (!spotlightRailReference(light)) return;
+        light.lightRailNormalSide *= -1;
+        applyRailRelativeDirection(light);
+        refreshLighting();
+        saveState();
+    });
     document.getElementById('btnPlaceFixedLight')?.addEventListener('click', () => startLightingPlacement('fixed'));
     document.getElementById('btnDrawLightRail')?.addEventListener('click', () => startLightingPlacement('rail'));
     document.getElementById('btnPlaceSpotlight')?.addEventListener('click', () => startLightingPlacement('spot'));
@@ -504,8 +709,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (light?.selectable) canvas.setActiveObject(light);
     });
     ['lightPower', 'lightAimMode', 'lightTargetSelect'].forEach(id => document.getElementById(id)?.addEventListener('change', () => applyLightSettings()));
-    document.getElementById('lightDirection')?.addEventListener('input', () => applyLightSettings(true));
-    document.getElementById('lightDirection')?.addEventListener('change', () => { flushPendingLightingEdit(); refreshLightingControls(); });
+    ['lightDirection', 'lightTilt'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', () => applyLightSettings(true));
+        document.getElementById(id)?.addEventListener('change', () => { flushPendingLightingEdit(); refreshLightingControls(); });
+    });
     refreshLighting();
 });
 window.addEventListener('keydown', event => {

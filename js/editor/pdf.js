@@ -276,6 +276,9 @@ async function renderCombinedPdf() {
         const wallData =
             wallPlanJsonData[key];
         captureCurrentCanvasState();
+        selectedFloorId = getWallFloorId(wallData);
+        floorPlanJsonData = floorPlanData[selectedFloorId].json;
+        cachedBackgroundImage = floorBackgroundImages.get(selectedFloorId) || null;
         const scaleInput = document.getElementById('scale');
         if (scaleInput) scaleInput.value = drawingScale;
 
@@ -327,7 +330,7 @@ async function renderCombinedPdf() {
         wallCaptureList.push({
 
             title:
-                wallData.title,
+                `${FLOOR_PLANS[getWallFloorId(wallData)].title} / ${wallData.title}`,
 
             widthCm:
                 wallData.widthCm,

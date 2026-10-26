@@ -8,6 +8,7 @@ function initializeItemDetailsUi() {
     const itemWidthInput = document.getElementById('editItemWidth');
     const itemHeightInput = document.getElementById('editItemHeight');
     const itemDepthInput = document.getElementById('editItemDepth');
+    const itemCenterHeightInput = document.getElementById('editArtworkCenterHeight');
     const itemDepthLabel = document.getElementById('editItemDepthLabel');
     const itemAngleInput = document.getElementById('editItemAngle');
     const itemPinNumberInput = document.getElementById('editItemPinNumber');
@@ -21,6 +22,12 @@ function initializeItemDetailsUi() {
     let saveTimer = null;
     let rotationInputTimer = null;
     let pendingEditedObject = null;
+    window.refreshArtworkHeightEditor = obj => {
+        if (obj === selectedItemForEditing && itemCenterHeightInput && document.activeElement !== itemCenterHeightInput) {
+            const value = window.getArtworkCenterHeightCm(obj);
+            itemCenterHeightInput.value = value === null ? '' : Number(value.toFixed(2));
+        }
+    };
 
     window.flushPendingItemEditHistory = () => {
         if (!saveTimer) return;
@@ -62,6 +69,7 @@ function initializeItemDetailsUi() {
             if (itemHeightInput) itemHeightInput.value = selectedItemForEditing.cmHeight ?? 100;
             if (itemDepthInput) itemDepthInput.value = selectedItemForEditing.cmDepth ?? 5;
             if (itemAngleInput) itemAngleInput.value = Math.round(selectedItemForEditing.angle || 0);
+            window.refreshArtworkHeightEditor(selectedItemForEditing);
         }
     };
 
@@ -115,6 +123,12 @@ function initializeItemDetailsUi() {
             const newDescription = itemDescriptionInput?.value.trim() || '';
 
             if (obj.isArtwork) {
+                const heightText = itemCenterHeightInput?.value.trim() || '';
+                const centerHeight = heightText === '' ? null : Number(heightText);
+                if (centerHeight !== null && (!Number.isFinite(centerHeight) || centerHeight < 0)) {
+                    if (itemEditorStatus) itemEditorStatus.textContent = '作品中央の高さは0以上の数値で入力してください。';
+                    return false;
+                }
                 if (applyRotation) {
                     const rawAngle = itemAngleInput?.value?.trim();
                     const enteredAngle = Number(rawAngle);
@@ -150,6 +164,7 @@ function initializeItemDetailsUi() {
                 obj.cmWidth = dimensions.width;
                 obj.cmHeight = dimensions.height;
                 obj.cmDepth = dimensions.depth;
+                obj.artworkCenterHeightCm = centerHeight;
                 const scale = parseFloat(document.getElementById('scale')?.value) || 0.5;
                 applyArtworkDimensions(obj, scale);
                 obj.artworkName = newName;
@@ -159,6 +174,10 @@ function initializeItemDetailsUi() {
                     label.initDimensions();
                     obj.addWithUpdate();
                 }
+                if (currentViewMode === 'wall') {
+                    if (!window.placeArtworkAtSavedHeight(obj)) window.updateArtworkHeightFromWall(obj);
+                }
+                window.shareArtworkCenterHeight(obj);
             } else if (obj.isNumberPin) {
                 const number = Number(itemPinNumberInput?.value);
                 if (!Number.isInteger(number) || number < 1 || number > 999) {
@@ -203,7 +222,7 @@ function initializeItemDetailsUi() {
             return true;
     };
 
-    [itemNameInput, itemDescriptionInput, itemWidthInput, itemHeightInput, itemDepthInput, itemPinNumberInput]
+    [itemNameInput, itemDescriptionInput, itemWidthInput, itemHeightInput, itemDepthInput, itemPinNumberInput, itemCenterHeightInput]
         .filter(Boolean)
         .forEach(input => input.addEventListener('input', () => applyItemEdit()));
 

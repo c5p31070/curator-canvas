@@ -18,7 +18,7 @@ function refreshArtworkCatalog() {
         const dimensions = item.displayType === 'wall'
             ? `幅 ${item.cmWidth} × 高さ ${item.cmHeight} × 厚み ${item.cmDepth} cm`
             : `幅 ${item.cmWidth} × 奥行 ${item.cmDepth} × 高さ ${item.cmHeight} cm`;
-        option.textContent = `${item.name} · ${typeLabel} · ${dimensions}`;
+        option.textContent = `${item.name} · ${typeLabel} · ${dimensions}${item.artworkCenterHeightCm != null ? ` · 中央高 ${item.artworkCenterHeightCm} cm` : ''}`;
         select.appendChild(option);
     });
     select.value = savedArtworkCatalog.some(item => item.id === selected) ? selected : '';
@@ -49,7 +49,8 @@ window.updateArtworkCatalogEntry = obj => {
         displayType: obj.displayType || 'wall',
         cmWidth: Number(obj.cmWidth) || 150,
         cmHeight: Number(obj.cmHeight) || 100,
-        cmDepth: Number(obj.cmDepth) || 5
+        cmDepth: Number(obj.cmDepth) || 5,
+        artworkCenterHeightCm: window.getArtworkCenterHeightCm(obj)
     }, obj.artworkCatalogId);
 };
 window.migrateArtworkCatalogFromPlans = () => {
@@ -65,7 +66,8 @@ window.migrateArtworkCatalogFromPlans = () => {
                     displayType: obj.displayType || 'wall',
                     cmWidth: Number(obj.cmWidth) || 150,
                     cmHeight: Number(obj.cmHeight) || 100,
-                    cmDepth: Number(obj.cmDepth) || 5
+                    cmDepth: Number(obj.cmDepth) || 5,
+                    artworkCenterHeightCm: window.getArtworkCenterHeightCm(obj)
                 }, obj.artworkCatalogId || '');
             }
             if (Array.isArray(obj.objects)) visit(obj.objects);
@@ -118,6 +120,7 @@ function initializeObjectControlsUi() {
         document.getElementById('artworkWidth').value = item.cmWidth;
         document.getElementById('artworkHeight').value = item.cmHeight;
         document.getElementById('artworkDepth').value = item.cmDepth;
+        document.getElementById('artworkCenterHeight').value = item.artworkCenterHeightCm ?? '';
         document.getElementById('displayType').dispatchEvent(new Event('change', { bubbles: true }));
         pendingArtworkCatalogId = item.id;
         addButton.click();
@@ -129,6 +132,14 @@ function initializeObjectControlsUi() {
     if (addButton) {
 
         addButton.addEventListener("click", function() {
+
+            if (window.CURATOR_ROLE === 'viewer' || isTransitioning) return;
+            const centerHeightText = document.getElementById('artworkCenterHeight').value.trim();
+            let centerHeight = centerHeightText === '' ? null : Number(centerHeightText);
+            if (centerHeight !== null && (!Number.isFinite(centerHeight) || centerHeight < 0)) {
+                alert('作品中央の高さは0以上の数値で入力してください。');
+                return;
+            }
 
             artworkCount++;
 
@@ -180,6 +191,7 @@ function initializeObjectControlsUi() {
             const addAsFixture =
                 isAdminMode &&
                 document.getElementById('addAsFixture')?.checked;
+            if (centerHeight === null && displayType === 'floor') centerHeight = cmH / 2;
 
             const catalogId = addAsFixture ? '' : upsertArtworkCatalogEntry({
                 name: nameText,
@@ -187,7 +199,8 @@ function initializeObjectControlsUi() {
                 displayType,
                 cmWidth: cmW,
                 cmHeight: cmH,
-                cmDepth: cmD
+                cmDepth: cmD,
+                artworkCenterHeightCm: centerHeight
             }, pendingArtworkCatalogId);
             pendingArtworkCatalogId = '';
 
@@ -258,6 +271,7 @@ function initializeObjectControlsUi() {
                         cmWidth: cmW,
                         cmHeight: cmH,
                         cmDepth: cmD,
+                        artworkCenterHeightCm: centerHeight,
 
                         pxWidth: pxW,
                         pxHeight: pxH
@@ -267,6 +281,12 @@ function initializeObjectControlsUi() {
 
             configureArtworkTransform(artworkGroup);
 
+            window.snapObjectToGrid?.(artworkGroup);
+            window.snapArtworkToMovableWall?.(artworkGroup);
+            if (currentViewMode === 'wall') {
+                if (!window.placeArtworkAtSavedHeight(artworkGroup)) window.updateArtworkHeightFromWall(artworkGroup, true);
+            }
+            if (artworkGroup.artworkCenterHeightCm != null) window.shareArtworkCenterHeight(artworkGroup);
             canvas.add(artworkGroup);
 
             canvas.setActiveObject(
@@ -312,6 +332,7 @@ function initializeObjectControlsUi() {
                         pinLabel: `(${number}) ${name}`, description: document.getElementById('pinDescription')?.value.trim() || '',
                         isFixture: Boolean(isAdminMode && document.getElementById('addAsFixture')?.checked) });
                     pinCount++;
+                    window.snapObjectToGrid?.(pin);
                     canvas.add(pin);
                     canvas.setActiveObject(pin);
                     canvas.requestRenderAll();
@@ -528,6 +549,7 @@ function initializeObjectControlsUi() {
                         }
                     );
 
+                window.snapObjectToGrid?.(pinGroup);
                 canvas.add(pinGroup);
 
                 canvas.setActiveObject(

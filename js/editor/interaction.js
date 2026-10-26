@@ -8,7 +8,10 @@
 // 壁衝突判定
 // ============================================================
 
-function getWallCollisionScore(obj) {
+let wallCollisionPixels = null;
+window.invalidateWallCollisionData = () => { wallCollisionPixels = null; };
+
+function getWallCollisionScore(obj, includeMovableWalls = true) {
 
     if (
         !isWallDataLoaded ||
@@ -28,7 +31,7 @@ function getWallCollisionScore(obj) {
     }
 
     const boundingRect =
-        obj.getBoundingRect();
+        obj.getBoundingRect(true, true);
 
     if (
         boundingRect.left < 2 ||
@@ -93,6 +96,8 @@ function getWallCollisionScore(obj) {
     try {
 
         let collisionScore = 0;
+        const pixels = wallCollisionPixels || (wallCollisionPixels =
+            wallCtx.getImageData(0, 0, wallCanvas.width, wallCanvas.height).data);
         for (let pt of samplePoints) {
 
             if (
@@ -102,25 +107,19 @@ function getWallCollisionScore(obj) {
                 pt.y < canvas.height
             ) {
 
-                const pixel =
-                    wallCtx.getImageData(
-                        pt.x,
-                        pt.y,
-                        1,
-                        1
-                    ).data;
+                const index = (pt.y * wallCanvas.width + pt.x) * 4;
 
                 if (
-                    pixel[0] < 50 &&
-                    pixel[1] < 50 &&
-                    pixel[2] < 50 &&
-                    pixel[3] > 100
+                    pixels[index] < 50 &&
+                    pixels[index + 1] < 50 &&
+                    pixels[index + 2] < 50 &&
+                    pixels[index + 3] > 100
                 ) {
                     collisionScore++;
                 }
             }
         }
-        return collisionScore;
+        return collisionScore + (includeMovableWalls ? (window.getMovableWallCollisionScore?.(obj) || 0) : 0);
 
     } catch (e) {
 
@@ -135,6 +134,85 @@ function getWallCollisionScore(obj) {
 
 function checkCollisionWithWall(obj) {
     return getWallCollisionScore(obj) > 0;
+}
+
+function snapObjectToFloorWall(obj) {
+    if (currentViewMode !== 'floor' || !isWallDataLoaded ||
+        (!obj?.isArtwork && !obj?.isMovableWall) || obj.isFixture || obj.group ||
+        window.CURATOR_ROLE === 'viewer' || getWallCollisionScore(obj) > 0) return false;
+    const origin = { left: obj.left, top: obj.top };
+    const zoom = canvas.lowerCanvasEl.getBoundingClientRect().width / canvas.getWidth() || 1;
+    const threshold = Math.min(40, 22 / zoom);
+    let best = null;
+    // Find the first contact from the room side; never search through a wall
+    // to a far face. Preserve rotation and let the next drag detach naturally.
+    for (let direction = 0; direction < 8; direction++) {
+        const angle = direction * Math.PI / 4;
+        const dx = Math.cos(angle), dy = Math.sin(angle);
+        const limit = Math.min(threshold, best?.distance ?? threshold);
+        let previous = 0;
+        for (let distance = Math.min(1, limit); distance <= limit + .0001; distance = Math.min(distance + 1, limit)) {
+            obj.set({ left: origin.left + dx * distance, top: origin.top + dy * distance });
+            if (getWallCollisionScore(obj, false) > 0) {
+                let low = previous, high = distance;
+                for (let iteration = 0; iteration < 7; iteration++) {
+                    const middle = (low + high) / 2;
+                    obj.set({ left: origin.left + dx * middle, top: origin.top + dy * middle });
+                    if (getWallCollisionScore(obj, false) > 0) high = middle;
+                    else low = middle;
+                }
+                const candidate = { left: origin.left + dx * low, top: origin.top + dy * low };
+                obj.set(candidate);
+                if (getWallCollisionScore(obj) === 0) best = { ...candidate, distance: low };
+                break;
+            }
+            previous = distance;
+            if (distance >= limit) break;
+        }
+    }
+    obj.set(best ? { left: best.left, top: best.top } : origin);
+    obj.setCoords();
+    return Boolean(best);
+}
+
+// Keep the free component of a drag instead of cancelling the entire movement
+// when the pointer pushes an object into a wall. No attachment is persisted.
+function slideObjectAlongWall(obj, origin, destination, allowedScore = 0) {
+    const evaluate = point => {
+        obj.set({ left: point.left, top: point.top });
+        return getWallCollisionScore(obj);
+    };
+    let best = { ...origin };
+    let bestDistance = Math.hypot(destination.left - origin.left, destination.top - origin.top);
+    const consider = point => {
+        const distance = Math.hypot(destination.left - point.left, destination.top - point.top);
+        if (distance < bestDistance && evaluate(point) <= allowedScore) {
+            best = { ...point };
+            bestDistance = distance;
+        }
+    };
+    consider({ left: destination.left, top: origin.top });
+    consider({ left: origin.left, top: destination.top });
+
+    // Advance to the contact boundary, including diagonal wall approaches.
+    // Refine from both the original position and the best sliding position.
+    [origin, { ...best }].forEach(start => {
+        let low = 0, high = 1;
+        for (let iteration = 0; iteration < 10; iteration++) {
+            const fraction = (low + high) / 2;
+            const point = {
+                left: start.left + (destination.left - start.left) * fraction,
+                top: start.top + (destination.top - start.top) * fraction
+            };
+            if (evaluate(point) <= allowedScore) {
+                low = fraction;
+                consider(point);
+            } else high = fraction;
+        }
+    });
+    obj.set(best);
+    obj.setCoords();
+    return getWallCollisionScore(obj);
 }
 
 // ============================================================
@@ -199,6 +277,7 @@ function rotateActiveObject() {
         if (activeObj.isArtwork && angleInput) {
             angleInput.value = Math.round(newAngle);
         }
+        if (activeObj.isMovableWall) window.refreshMovableWallPanel?.(activeObj);
 
         if (
             activeObj.isArtwork &&
@@ -375,6 +454,7 @@ function getCrowdColor(count) {
 canvas.on(
     'object:modified',
     function(event) {
+        window.updateArtworkHeightFromWall?.(event.target, true);
         window.persistLightingEquipmentChange?.(event.target);
         saveState();
     }
@@ -621,31 +701,35 @@ canvas.on(
 
         if (!obj) return;
 
-        const collisionScore = getWallCollisionScore(obj);
+        const previousAngle = obj.angle || 0;
+        const wallSnapped = window.snapArtworkToMovableWall?.(obj);
+        const floorWallSnapped = !wallSnapped && snapObjectToFloorWall(obj);
+        if (!wallSnapped && !floorWallSnapped) window.snapObjectToGrid?.(obj);
+        let collisionScore = getWallCollisionScore(obj);
         const canMoveOutOfExistingCollision =
             draggingOutOfWallCollision &&
             collisionScore <= lastValidCollisionScore;
 
         if (collisionScore > 0 && !canMoveOutOfExistingCollision) {
-
-            obj.set({
-                left: lastValidPosition.left,
-                top: lastValidPosition.top
-            });
-
-            obj.setCoords();
-
-        } else {
-
-            lastValidPosition = {
-                left: obj.left,
-                top: obj.top
-            };
-            lastValidCollisionScore = collisionScore;
-            if (collisionScore === 0) {
-                draggingOutOfWallCollision = false;
+            const destination = { left: obj.left, top: obj.top };
+            if (wallSnapped) {
+                obj.set('angle', previousAngle);
+                if (obj.crowdCircle) updateCrowdSemicircle(obj);
             }
+            collisionScore = slideObjectAlongWall(obj, lastValidPosition, destination,
+                draggingOutOfWallCollision ? lastValidCollisionScore : 0);
         }
+
+        lastValidPosition = {
+            left: obj.left,
+            top: obj.top
+        };
+        lastValidCollisionScore = collisionScore;
+        if (collisionScore === 0) {
+            draggingOutOfWallCollision = false;
+        }
+
+        window.updateArtworkHeightFromWall?.(obj);
 
         if (
             obj.isArtwork &&

@@ -22,6 +22,38 @@ function initializeCanvasZoom() {
     canvasWrapper.style.top = '0px';
     canvasWrapper.style.transformOrigin = 'top left';
 
+    // Keep rotation controls at a stable screen distance despite the CSS zoom.
+    const controlStyles = new WeakMap();
+    const refreshSelectionControls = () => {
+        const object = canvas.getActiveObject();
+        if (!object?.controls?.mtr) return;
+        if (!object.isArtwork && !object.isMovableWall && object.type !== 'activeSelection') return;
+        let style = controlStyles.get(object);
+        if (!style) {
+            const rotation = object.controls.mtr;
+            style = {
+                offsetX: rotation.offsetX,
+                offsetY: rotation.offsetY,
+                cornerSize: object.cornerSize,
+                touchCornerSize: object.touchCornerSize,
+                zoom: null
+            };
+            // Fabric controls are shared by default; isolate this object's
+            // rotation control while preserving any custom vertex controls.
+            object.controls = { ...object.controls, mtr: new fabric.Control({ ...rotation }) };
+            controlStyles.set(object, style);
+        }
+        if (style.zoom === currentCanvasZoom) return;
+        const zoom = Math.max(.001, currentCanvasZoom);
+        object.controls.mtr.offsetX = style.offsetX / zoom;
+        object.controls.mtr.offsetY = style.offsetY / zoom;
+        object.cornerSize = style.cornerSize / zoom;
+        object.touchCornerSize = style.touchCornerSize / zoom;
+        style.zoom = currentCanvasZoom;
+        object.setCoords();
+    };
+    canvas.on('before:render', refreshSelectionControls);
+
     const getWallBounds = () => {
         if (currentViewMode !== 'wall') return null;
         const wall = canvas.getObjects().find(obj => obj.isWallOutline);
@@ -43,18 +75,34 @@ function initializeCanvasZoom() {
         ? { left: 40, right: 8, top: 36, bottom: 8 }
         : { left: 0, right: 0, top: 0, bottom: 0 };
 
+    const getFitZoom = () => {
+        const bounds = getContentBounds();
+        const margins = getMargins();
+        return Math.max(.001, Math.min(
+            Math.max(1, viewport.clientWidth - margins.left - margins.right) / Math.max(1, bounds.width),
+            Math.max(1, viewport.clientHeight - margins.top - margins.bottom) / Math.max(1, bounds.height)
+        ));
+    };
+    const getZoomLimits = () => currentViewMode === 'wall'
+        ? { min: Math.min(.1, getFitZoom()), max: Math.max(20, getFitZoom() * 4) }
+        : { min: .1, max: 2 };
+    const clampZoom = zoom => {
+        const limits = getZoomLimits();
+        return Math.max(limits.min, Math.min(limits.max, zoom));
+    };
+
     const getOffsets = zoom => {
         const margins = getMargins();
-        const totalWidth = (canvas.getWidth() + margins.left + margins.right) * zoom;
-        const totalHeight = (canvas.getHeight() + margins.top + margins.bottom) * zoom;
+        const totalWidth = canvas.getWidth() * zoom + margins.left + margins.right;
+        const totalHeight = canvas.getHeight() * zoom + margins.top + margins.bottom;
         return {
-            left: Math.max(margins.left * zoom, (viewport.clientWidth - totalWidth) / 2 + margins.left * zoom),
-            top: Math.max(margins.top * zoom, (viewport.clientHeight - totalHeight) / 2 + margins.top * zoom)
+            left: Math.max(margins.left, (viewport.clientWidth - totalWidth) / 2 + margins.left),
+            top: Math.max(margins.top, (viewport.clientHeight - totalHeight) / 2 + margins.top)
         };
     };
 
     const applyZoom = (zoom, anchor = null) => {
-        const nextZoom = Math.max(.1, Math.min(2, zoom));
+        const nextZoom = clampZoom(zoom);
         const oldOffsets = getOffsets(currentCanvasZoom);
         let worldX;
         let worldY;
@@ -68,6 +116,8 @@ function initializeCanvasZoom() {
         canvasWrapper.style.top = `${offsets.top}px`;
         canvasWrapper.style.transform = `scale(${nextZoom})`;
         currentCanvasZoom = nextZoom;
+        refreshSelectionControls();
+        canvas.requestRenderAll();
 
         const content = getContentBounds();
         const scrollLeft = anchor
@@ -78,20 +128,23 @@ function initializeCanvasZoom() {
             : offsets.top + (content.top + content.height / 2) * nextZoom - viewport.clientHeight / 2;
         viewport.scrollLeft = Math.max(0, scrollLeft);
         viewport.scrollTop = Math.max(0, scrollTop);
+        canvas.calcOffset();
 
         const percent = Math.round(nextZoom * 100);
+        const limits = getZoomLimits();
+        zoomSlider.min = String(Math.max(.01, limits.min * 100));
+        zoomSlider.max = String(Math.ceil(limits.max * 100));
         zoomSlider.value = String(percent);
+        zoomSlider.setAttribute('aria-valuetext', `${percent}%`);
         if (zoomValue) zoomValue.value = `${percent}%`;
         if (currentViewMode === 'wall') renderWallRulers();
+        window.refreshWorkspaceScaleBar?.();
+        window.refreshWorkspaceGrid?.();
     };
 
     const fitCanvas = () => {
         if (!viewport.clientWidth || !viewport.clientHeight) return;
-        const bounds = getContentBounds();
-        const margins = getMargins();
-        const widthRatio = (viewport.clientWidth - (margins.left + margins.right) * .9) / bounds.width;
-        const heightRatio = (viewport.clientHeight - (margins.top + margins.bottom) * .9) / bounds.height;
-        applyZoom(Math.min(2, widthRatio, heightRatio));
+        applyZoom(getFitZoom());
     };
 
     const refreshCanvasZoomForView = forceFit => {
@@ -107,7 +160,7 @@ function initializeCanvasZoom() {
     const setManualZoom = (zoom, anchor) => {
         const key = getCanvasZoomKey();
         if (!key) return;
-        const nextZoom = Math.max(.1, Math.min(2, zoom));
+        const nextZoom = clampZoom(zoom);
         canvasZoomByView.set(key, nextZoom);
         activeCanvasZoomKey = key;
         applyZoom(nextZoom, anchor);
