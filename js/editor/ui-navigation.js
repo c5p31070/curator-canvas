@@ -27,7 +27,7 @@ function initializeNavigationUi() {
         document.body.classList.toggle('admin-mode', enabled);
         if (adminPanel) adminPanel.hidden = !enabled;
         if (adminModeBanner) adminModeBanner.hidden = !enabled;
-        if (modeButton) modeButton.textContent = enabled ? '配置図作成に戻る' : '管理設定を開く';
+        if (modeButton) modeButton.textContent = enabled ? '配置図作成に戻る' : '管理者モードを開く';
         if (modeButton) modeButton.dataset.tooltip = enabled
             ? '壁・縮尺・固定設備を事前設定するモードです。'
             : '壁や縮尺、固定設備の設定を行います。';

@@ -52,25 +52,27 @@
         <aside class="sidebar">
 
             <div class="panel-section mode-switch-section workflow-section tool-panel" data-tool-panel="setup">
-                <h2>作業モード</h2>
-                <label class="lighting-visibility"><input id="workspaceScaleVisibility" type="checkbox" checked>縮尺バーを表示</label>
-                <div class="drawing-subsection workspace-grid-settings">
-                    <h3>グリッド</h3>
-                    <label class="lighting-visibility"><input id="workspaceGridVisible" type="checkbox" checked>表示</label>
-                    <label class="lighting-visibility"><input id="workspaceGridSnap" type="checkbox">グリッドにスナップ</label>
-                    <div class="form-group">
-                        <label for="workspaceGridSpacing">間隔 (cm)</label>
-                        <input id="workspaceGridSpacing" class="form-control" type="number" value="50" min="1" max="1000" step="1">
-                    </div>
-                    <p id="gridSpacingHint" class="field-note" hidden></p>
-                </div>
+                <h2>管理者モード</h2>
                 <p id="modeDescription" class="mode-description">配置図を作成します。壁を選んで展示物を配置してください。</p>
-                <button id="btnToggleAdminMode" class="btn btn-secondary" type="button" data-tooltip="壁・縮尺・固定設備を事前設定します。">管理設定を開く</button>
-                <div id="adminModeBanner" class="admin-mode-banner" hidden>管理者設定モード</div>
+                <button id="btnToggleAdminMode" class="btn btn-secondary" type="button" data-tooltip="壁・縮尺・固定設備を事前設定します。">管理者モードを開く</button>
+                <div id="adminModeBanner" class="admin-mode-banner" hidden>管理者モード</div>
             </div>
 
             <div id="adminSettingsPanel" class="panel-section admin-settings-panel config-section tool-panel" data-tool-panel="setup" hidden>
                 <h2>壁・図面の事前設定</h2>
+                <div class="drawing-subsection">
+                    <h3>レール配置のコピー</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label for="lightRailCopySource">コピー元</label><select id="lightRailCopySource" class="form-control"></select></div>
+                        <div class="form-group"><label for="lightRailCopyTarget">コピー先</label><select id="lightRailCopyTarget" class="form-control"></select></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="lightRailCopyMode">コピー方法</label>
+                        <select id="lightRailCopyMode" class="form-control"><option value="append">追加</option><option value="replace">コピー先のレールを置き換え</option></select>
+                    </div>
+                    <p id="lightRailCopySummary" class="field-note"></p>
+                    <button id="btnCopyLightRails" class="btn btn-secondary" type="button" data-tooltip="同じ座標・長さ・角度でレールをコピーします。スポットライトはコピーしません。">レール配置をコピー</button>
+                </div>
                 <div class="drawing-subsection">
                     <h3>事前設定の削除</h3>
                     <div class="form-group">
@@ -271,6 +273,17 @@
 
             <div class="panel-section drawing-section tool-panel" data-tool-panel="draw">
                 <h2>描画</h2>
+                <div class="drawing-subsection workspace-grid-settings">
+                    <h3>表示・グリッド</h3>
+                    <label class="lighting-visibility"><input id="workspaceScaleVisibility" type="checkbox" checked>縮尺バーを表示</label>
+                    <label class="lighting-visibility"><input id="workspaceGridVisible" type="checkbox" checked>グリッドを表示</label>
+                    <label class="lighting-visibility"><input id="workspaceGridSnap" type="checkbox">グリッドにスナップ</label>
+                    <div class="form-group">
+                        <label for="workspaceGridSpacing">間隔 (cm)</label>
+                        <input id="workspaceGridSpacing" class="form-control" type="number" value="50" min="1" max="1000" step="1">
+                    </div>
+                    <p id="gridSpacingHint" class="field-note" hidden></p>
+                </div>
                 <div class="drawing-subsection">
                     <h3>寸法線</h3>
                     <button id="btnAddDimension" class="btn btn-secondary" type="button" aria-pressed="false" data-tooltip="図面上で始点から終点までドラッグして、実寸の寸法線を追加します。Escでキャンセルします。">寸法線を追加</button>
@@ -714,7 +727,7 @@
 
             <nav class="tool-palette" aria-label="機能">
                 <div class="tool-group tool-group-setup">
-                    <button class="tool-icon" type="button" data-tool="setup" title="作業モード・縮尺設定" aria-label="作業モード・縮尺設定"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16M9 4v4m7 2v4m-5 2v4"/></svg><span class="tool-label">作業モード</span></button>
+                    <button class="tool-icon" type="button" data-tool="setup" title="管理者モード・縮尺設定" aria-label="管理者モード・縮尺設定"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16M9 4v4m7 2v4m-5 2v4"/></svg><span class="tool-label">管理者モード</span></button>
                 </div>
                 <div class="tool-group tool-group-views" aria-label="図面表示">
                     <button class="tool-icon" type="button" data-action="floor" title="平面図を表示" aria-label="平面図を表示" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3zM8 4v6h5V4m3 16v-6h5"/><path d="M8 14h3m-3 3h6"/></svg><span class="tool-label">平面図</span></button>
@@ -802,6 +815,7 @@
     <script src="js/editor/dimensions.js" defer></script>
     <script src="js/editor/workspace-grid.js" defer></script>
     <script src="js/editor/lighting.js" defer></script>
+    <script src="js/editor/copy-light-rails.js" defer></script>
     <script src="js/editor/movable-walls.js" defer></script>
     <script src="js/editor/pdf.js" defer></script>
     <script src="js/editor/ui-navigation.js" defer></script>

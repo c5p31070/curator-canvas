@@ -62,6 +62,7 @@ function persistVenueLighting() {
     try { editorStorage.setItem(VENUE_LIGHTING_KEY, JSON.stringify(venueLightingData)); }
     catch (error) { console.warn('会場照明設定を保存できませんでした。', error); }
     window.refreshVenuePresetList?.();
+    window.refreshLightRailCopyControls?.();
 }
 window.getVenueLightingData = () => JSON.parse(JSON.stringify(venueLightingData));
 window.applyVenueLightingHistory = state => {
@@ -326,6 +327,7 @@ function fillLightingSelect(id, items, value, empty) {
 
 function refreshLightingControls() {
     window.refreshVenuePresetList?.();
+    window.refreshLightRailCopyControls?.();
     const objects = currentViewMode === 'floor' ? canvas.getObjects() : [];
     const lights = objects.filter(obj => obj.isLightObject);
     if (!lights.some(obj => obj.lightId === selectedLightId)) selectedLightId = lights[0]?.lightId || '';
@@ -427,7 +429,7 @@ async function startLightingPlacement(mode) {
     if (isMeasuringMode) toggleMeasuringMode(false);
     if (currentViewMode !== 'floor' && !await switchViewMode('floor')) return;
     if (mode === 'spot' && !canvas.getObjects().some(object => object.isLightRail && !object.excludeFromExport)) {
-        alert('作業モードでライトレールを登録してください。'); return;
+        alert('管理者モードでライトレールを登録してください。'); return;
     }
     if (mode === 'aim' && lightingById(selectedLightId)?.lightKind !== 'spot') return;
     if (!lightingVisible) toggleLightingVisibility(true);
