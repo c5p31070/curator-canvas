@@ -71,6 +71,7 @@
         });
         Object.entries(previous).forEach(([id, wall]) => { if (wall.movableWallId) next[id] = wall; });
         wallPlanJsonData = next;
+        window.refreshVenuePresetList?.();
     };
     window.prepareVenueWallPlan = (raw, id, outline) => {
         if (!ready || !currentWalls()[id]) return parsePlan(raw);

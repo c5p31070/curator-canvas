@@ -70,6 +70,14 @@
 
             <div id="adminSettingsPanel" class="panel-section admin-settings-panel config-section tool-panel" data-tool-panel="setup" hidden>
                 <h2>壁・図面の事前設定</h2>
+                <div class="drawing-subsection">
+                    <h3>事前設定の削除</h3>
+                    <div class="form-group">
+                        <label for="venuePresetSelect">登録済みの壁・照明</label>
+                        <select id="venuePresetSelect" class="form-control"></select>
+                    </div>
+                    <button id="btnDeleteVenuePreset" class="btn btn-danger" type="button" disabled>選択した事前設定を削除</button>
+                </div>
                 <p id="venueWallsStatus" class="field-note" role="status">共通壁を読み込み中…</p>
                 <button id="btnImportVenueWalls" class="btn btn-secondary" type="button" data-tooltip="以前の展覧会に保存した固定壁と固定設備を、全配置図で使う会場設定へ取り込みます。">既存の壁設定を共通化</button>
                 <p class="mode-description">壁の寸法を登録し、壁面図や平面図に設備を配置します。</p>
@@ -790,6 +798,7 @@
     <script src="js/editor/movable-walls.js" defer></script>
     <script src="js/editor/pdf.js" defer></script>
     <script src="js/editor/ui-navigation.js" defer></script>
+    <script src="js/editor/ui-venue-presets.js" defer></script>
     <script src="js/editor/ui-controls.js" defer></script>
     <script src="js/editor/shape-engine.js" defer></script>
     <script src="js/editor/ui-shapes.js" defer></script>

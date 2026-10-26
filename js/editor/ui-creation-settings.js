@@ -163,6 +163,10 @@ function initializeCreationSettingsUi() {
             );
 
             if (deletableObjects.length > 0) {
+                const venueEquipment = deletableObjects.filter(obj => obj.isLightRail || (obj.isLightObject && obj.lightKind === 'fixed'));
+                const railIds = new Set(venueEquipment.filter(obj => obj.isLightRail).map(obj => obj.lightId));
+                const attachedSpotlights = canvas.getObjects().filter(obj => obj.isLightObject && obj.lightKind === 'spot' && railIds.has(obj.lightRailId));
+                if (venueEquipment.length && !confirm(`照明の事前設定 ${venueEquipment.length}件を削除しますか？${attachedSpotlights.length ? `\nレール上のスポットライト ${attachedSpotlights.length}個も削除します。` : ''}`)) return;
                 const movableWalls = deletableObjects.filter(obj => obj.isMovableWall);
                 if (movableWalls.length && !window.confirmMovableWallRemoval?.(movableWalls)) return;
                 const relatedObjects = deletableObjects
@@ -173,8 +177,12 @@ function initializeCreationSettingsUi() {
                 try {
                     if (movableWalls.length) window.removeMovableWallFaces?.(movableWalls);
                     canvas.discardActiveObject();
-                    canvas.remove(...deletableObjects, ...relatedObjects);
+                    canvas.remove(...deletableObjects, ...relatedObjects, ...attachedSpotlights);
                 } finally { isUndoRedoOperation = wasRestoring; }
+                if (venueEquipment.length) {
+                    window.persistLightingEquipmentChange?.(venueEquipment[0]);
+                    window.refreshLighting?.();
+                }
                 window.queueVenueWallFixtureChange?.(deletableObjects.find(obj => obj.isFixture));
                 canvas.requestRenderAll();
                 saveState();

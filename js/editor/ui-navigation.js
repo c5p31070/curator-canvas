@@ -1,3 +1,21 @@
+window.deleteFixedVenueWall = async wallId => {
+    if (!isAdminMode || window.CURATOR_ROLE === 'viewer' || isTransitioning || isUndoRedoOperation) return false;
+    const wall = wallPlanJsonData[wallId];
+    if (!wall || wall.movableWallId) return false;
+    if (!confirm(`共通壁「${wall.title}」を削除しますか？チーム内のすべての配置図から、この壁と固定設備が表示されなくなります。`)) return false;
+    window.cancelLightingPlacement?.();
+    window.flushPendingItemEditHistory?.();
+    captureCurrentCanvasState();
+    if (!await window.saveVenueWallDefinition(wallId, null)) return false;
+    if (currentViewMode === 'wall') await switchViewMode('wall', true, null, true);
+    updateWallDropdownOptions();
+    window.refreshVenuePresetList?.();
+    saveState();
+    const status = document.getElementById('saveStatus');
+    if (status) status.textContent = `共通壁「${wall.title}」を削除しました。`;
+    return true;
+};
+
 function initializeNavigationUi() {
     const modeButton = document.getElementById('btnToggleAdminMode');
     const adminPanel = document.getElementById('adminSettingsPanel');
@@ -129,30 +147,7 @@ function initializeNavigationUi() {
             if (!wall) return;
             if (wall.movableWallId) return window.deleteMovableWallByFace?.(wallId);
 
-            const wallIds = Object.keys(wallPlanJsonData);
-            if (wallIds.length <= 1) {
-                alert('最後の壁は削除できません。別の壁を登録してから削除してください。');
-                return;
-            }
-            if (!confirm(`共通壁「${wall.title}」を削除しますか？チーム内のすべての配置図から、この壁と固定設備が表示されなくなります。`)) return;
-
-            captureCurrentCanvasState();
-            if (!await window.saveVenueWallDefinition(wallId, null)) return;
-            delete wallPlanJsonData[wallId];
-            const nextWallId = Object.keys(wallPlanJsonData)[0];
-            const nextWall = wallPlanJsonData[nextWallId];
-            selectedWallInfo = {
-                id: nextWallId,
-                title: nextWall.title,
-                widthCm: nextWall.widthCm,
-                heightCm: nextWall.heightCm
-            };
-
-            const loaded = await switchViewMode('wall', false, null, true);
-            if (!loaded) return;
-
-            const status = document.getElementById('saveStatus');
-            if (status) status.innerText = `「${wall.title}」を削除しました。`;
+            await window.deleteFixedVenueWall(wallId);
         });
     }
 }
