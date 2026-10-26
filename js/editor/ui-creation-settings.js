@@ -108,11 +108,11 @@ function initializeCreationSettingsUi() {
             window.cancelDimensionDrawing?.();
             window.cancelLightingPlacement?.();
 
-            const removable = canvas.getObjects().filter(obj =>
+            const removable = canvas.getObjects().filter(obj => !obj.isFixture && (
                 obj.isArtwork || obj.isMovableWall || obj.isPin || obj.isFreePin || obj.isGuard ||
                 obj.pinLabel !== undefined || obj.isCrowdCircle || obj.isFreeDrawing || obj.isShapeObject || obj.isDimension || obj.type === 'path' ||
                 (obj.isLightObject && obj.lightKind === 'spot')
-            );
+            ));
             const wasRestoring = isUndoRedoOperation;
             isUndoRedoOperation = true;
             try {
@@ -175,6 +175,7 @@ function initializeCreationSettingsUi() {
                     canvas.discardActiveObject();
                     canvas.remove(...deletableObjects, ...relatedObjects);
                 } finally { isUndoRedoOperation = wasRestoring; }
+                window.queueVenueWallFixtureChange?.(deletableObjects.find(obj => obj.isFixture));
                 canvas.requestRenderAll();
                 saveState();
                 e.preventDefault();

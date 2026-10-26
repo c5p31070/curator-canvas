@@ -455,6 +455,7 @@ canvas.on(
     'object:modified',
     function(event) {
         window.updateArtworkHeightFromWall?.(event.target, true);
+        window.queueVenueWallFixtureChange?.(event.target);
         window.persistLightingEquipmentChange?.(event.target);
         saveState();
     }
@@ -463,7 +464,7 @@ canvas.on(
 canvas.on(
     'object:added',
     function(e) {
-
+        window.queueVenueWallFixtureChange?.(e.target);
         if (
             !isUndoRedoOperation &&
             !isMeasuringMode &&
@@ -478,6 +479,7 @@ canvas.on(
     'object:removed',
     function(e) {
         window.handleLightingObjectRemoved?.(e.target);
+        window.queueVenueWallFixtureChange?.(e.target);
 
         if (
             !isUndoRedoOperation &&

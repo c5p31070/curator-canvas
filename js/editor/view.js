@@ -347,6 +347,7 @@ async function switchViewMode(
     }
 
     if (!skipCapture) captureCurrentCanvasState();
+    window.applyVenueWallsToPlans?.();
     isTransitioning = true;
     diagramReady = false;
     showDiagramStatus('図面を読み込み中…');
@@ -610,6 +611,8 @@ window.addEventListener('resize', () => {
 });
 
 async function renderWallCanvas(callback = null) {
+    window.beginVenueWallRender?.();
+    try {
 
     removeWallRulers();
     canvas.clear();
@@ -669,10 +672,11 @@ async function renderWallCanvas(callback = null) {
 
     if (
         wallItem &&
-        wallItem.json
+        (wallItem.json || !wallItem.movableWallId)
     ) {
 
-        await loadCanvasState(wallItem.json, () => {
+        const wallPlan = wallItem.movableWallId ? wallItem.json : window.prepareVenueWallPlan?.(wallItem.json, selectedWallInfo.id, wallRect) || wallItem.json;
+        await loadCanvasState(wallPlan, () => {
             canvas.renderAll();
             restoreCustomProperties();
         });
@@ -718,6 +722,7 @@ async function renderWallCanvas(callback = null) {
     if (window.refreshCanvasZoomForView) {
         requestAnimationFrame(() => window.refreshCanvasZoomForView(false));
     }
+    } finally { window.endVenueWallRender?.(); }
 }
 
 // ============================================================
@@ -871,6 +876,11 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             if (scaleReady === false && !await window.refreshTeamFloorScale?.()) {
                 showDiagramStatus('共有縮尺を読み込めません。通信状態を確認して再試行してください。', true);
+                return;
+            }
+            const wallsReady = await window.TEAM_WALLS_READY;
+            if (wallsReady === false && !await window.refreshVenueWalls?.()) {
+                showDiagramStatus('チーム共通の固定壁を取得できません。Supabaseの共通壁設定SQLと通信状態を確認して再試行してください。', true);
                 return;
             }
             const loaded = await switchViewMode(currentViewMode, true, null, true);

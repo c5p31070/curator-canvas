@@ -497,7 +497,7 @@ function configureArtworkTransform(artwork) {
 
 function captureCurrentCanvasState() {
 
-    if (isTransitioning || (window.isDiagramReady && !window.isDiagramReady())) return;
+    if (isTransitioning || window.isVenueWallRendering?.() || (window.isDiagramReady && !window.isDiagramReady())) return;
     window.syncWallArtworkHeights?.();
 
     const jsonStr = JSON.stringify(
@@ -570,6 +570,7 @@ function getSerializedCanvasData() {
     };
     Object.assign(data, window.getLayoutVariantsData?.(data));
     if (window.getVenueLightingData) data.venueLightingData = window.getVenueLightingData();
+    if (window.getVenueWallData) data.venueWallData = window.getVenueWallData();
     return JSON.stringify(data);
 }
 
@@ -617,6 +618,7 @@ function saveLocalStorage() {
 // ============================================================
 
 function saveState() {
+    if (window.isVenueWallRendering?.()) return;
     if (window.isDiagramReady && !window.isDiagramReady()) return;
 
     if (
@@ -723,6 +725,7 @@ async function applyStateData(jsonString, callback) {
     try {
 
         const parsed = JSON.parse(jsonString);
+        window.rememberLegacyVenueWalls?.(parsed);
         window.restoreVenueLightingData?.(parsed);
         window.restoreLayoutVariants?.(parsed);
 
@@ -763,6 +766,7 @@ async function applyStateData(jsonString, callback) {
             wallPlanJsonData =
                 parsed.wallPlanJsonData;
         }
+        window.applyVenueWallsToPlans?.();
 
         const hasArtworkCatalog = Array.isArray(parsed.savedArtworkCatalog);
         savedArtworkCatalog = hasArtworkCatalog

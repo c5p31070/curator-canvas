@@ -40,6 +40,10 @@
         <span id="teamScaleNoticeText"></span>
         <button id="btnRetryTeamScale" type="button">再読み込み</button>
     </div>
+    <div id="venueWallsNotice" class="team-scale-notice" role="status" hidden>
+        <span id="venueWallsNoticeText"></span>
+        <button id="btnRetryVenueWalls" type="button">再試行</button>
+    </div>
 
     <div class="main-layout">
 
@@ -66,6 +70,8 @@
 
             <div id="adminSettingsPanel" class="panel-section admin-settings-panel config-section tool-panel" data-tool-panel="setup" hidden>
                 <h2>壁・図面の事前設定</h2>
+                <p id="venueWallsStatus" class="field-note" role="status">共通壁を読み込み中…</p>
+                <button id="btnImportVenueWalls" class="btn btn-secondary" type="button" data-tooltip="以前の展覧会に保存した固定壁と固定設備を、全配置図で使う会場設定へ取り込みます。">既存の壁設定を共通化</button>
                 <p class="mode-description">壁の寸法を登録し、壁面図や平面図に設備を配置します。</p>
                 <div class="form-group">
                     <label for="newWallTitle">壁面名</label>
@@ -776,6 +782,7 @@
     <script src="js/editor/exhibition-save-ui.js" defer></script>
     <script src="js/editor/layout-variants.js" defer></script>
     <script src="js/editor/view.js" defer></script>
+    <script src="js/editor/shared-walls.js" defer></script>
     <script src="js/editor/interaction.js" defer></script>
     <script src="js/editor/dimensions.js" defer></script>
     <script src="js/editor/workspace-grid.js" defer></script>

@@ -218,11 +218,12 @@
         `移動壁 ${walls.length}台と、対応する全壁面の配置データを削除しますか？`);
     window.removeMovableWallFaces = walls => {
         walls.filter(wall => wall.isMovableWall).forEach(wall => linkedFaces(wall).forEach(id => delete wallPlanJsonData[id]));
+        window.applyVenueWallsToPlans?.();
         if (!wallPlanJsonData[selectedWallInfo.id]) {
-            if (!Object.keys(wallPlanJsonData).length) wallPlanJsonData.wall_default = { title: '壁 A', floorId: 'lobby', widthCm: 600, heightCm: FIXED_WALL_HEIGHT_CM, json: null };
             const id = Object.keys(wallPlanJsonData)[0];
-            selectedWallInfo = { id, title: wallPlanJsonData[id].title,
-                widthCm: wallPlanJsonData[id].widthCm, heightCm: wallPlanJsonData[id].heightCm };
+            selectedWallInfo = id ? { id, title: wallPlanJsonData[id].title,
+                widthCm: wallPlanJsonData[id].widthCm, heightCm: wallPlanJsonData[id].heightCm }
+                : { id: '', title: '', widthCm: 0, heightCm: 0 };
         }
         updateWallDropdownOptions();
     };

@@ -208,6 +208,7 @@ function initializeItemDetailsUi() {
             obj.description = newDescription;
             if (obj.isArtwork) window.updateArtworkCatalogEntry?.(obj);
             obj.setCoords();
+            window.queueVenueWallFixtureChange?.(obj);
             window.refreshLighting?.(false);
             canvas.requestRenderAll();
             if (saveTimer) clearTimeout(saveTimer);

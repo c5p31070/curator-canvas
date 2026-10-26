@@ -43,7 +43,8 @@ function initializeNavigationUi() {
             captureCurrentCanvasState();
             const id = `wall_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
             const title = name || `壁面 ${Object.keys(wallPlanJsonData).length + 1}`;
-            wallPlanJsonData[id] = { title, widthCm: width, heightCm: height, floorId: selectedFloorId, json: null };
+            const definition = { title, widthCm: width, heightCm: height, floorId: selectedFloorId, json: null };
+            if (!await window.saveVenueWallDefinition(id, definition)) return;
             updateWallDropdownOptions();
             await handleWallSelectChange(id);
             const status = document.getElementById('saveStatus');
@@ -78,16 +79,18 @@ function initializeNavigationUi() {
     }
 
     const btnApplyWallSize = document.getElementById("btnApplyWallSize");
-    document.getElementById('wallFloorSelect')?.addEventListener('change', event => {
+    document.getElementById('wallFloorSelect')?.addEventListener('change', async event => {
         const wall = wallPlanJsonData[selectedWallInfo.id];
         const floorId = event.target.value;
         if (!wall || wall.movableWallId || window.CURATOR_ROLE === 'viewer' || !FLOOR_PLANS[floorId]) return;
+        const wallId = selectedWallInfo.id;
         captureCurrentCanvasState();
-        wall.floorId = floorId;
-        selectedFloorId = floorId;
-        floorPlanJsonData = floorPlanData[floorId].json;
-        cachedBackgroundImage = floorBackgroundImages.get(floorId) || null;
-        updateWallTabs();
+        const definition = { ...wallPlanJsonData[wallId], floorId };
+        if (!await window.saveVenueWallDefinition(wallId, definition)) {
+            updateWallBannerText();
+            return;
+        }
+        await handleWallSelectChange(wallId);
         saveState();
     });
 
@@ -103,15 +106,12 @@ function initializeNavigationUi() {
                 const newW = parseFloat(wInput.value) || 600;
                 const newH = FIXED_WALL_HEIGHT_CM;
 
+                if (!Number.isFinite(newW) || newW <= 0) return;
+                captureCurrentCanvasState();
+                const definition = { ...wallPlanJsonData[selectedWallInfo.id], widthCm: newW, heightCm: newH };
+                if (!await window.saveVenueWallDefinition(selectedWallInfo.id, definition)) return;
                 selectedWallInfo.widthCm = newW;
                 selectedWallInfo.heightCm = newH;
-
-                if (wallPlanJsonData[selectedWallInfo.id]) {
-
-                    wallPlanJsonData[selectedWallInfo.id].widthCm = newW;
-                    wallPlanJsonData[selectedWallInfo.id].heightCm = newH;
-
-                }
 
                 updateWallDropdownOptions();
                 updateWallBannerText();
@@ -134,9 +134,10 @@ function initializeNavigationUi() {
                 alert('最後の壁は削除できません。別の壁を登録してから削除してください。');
                 return;
             }
-            if (!confirm(`「${wall.title}」と、この壁面に登録された配置・備品を削除しますか？`)) return;
+            if (!confirm(`共通壁「${wall.title}」を削除しますか？チーム内のすべての配置図から、この壁と固定設備が表示されなくなります。`)) return;
 
             captureCurrentCanvasState();
+            if (!await window.saveVenueWallDefinition(wallId, null)) return;
             delete wallPlanJsonData[wallId];
             const nextWallId = Object.keys(wallPlanJsonData)[0];
             const nextWall = wallPlanJsonData[nextWallId];
