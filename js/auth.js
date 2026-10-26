@@ -58,9 +58,6 @@
             document.getElementById('loginForm').hidden = true;
             document.getElementById('invitePasswordForm').hidden = false;
             showStatus('招待を確認しました。パスワードを設定してください。');
-        } else if (session) {
-            location.replace('editor.html');
-            return;
         }
 
         document.getElementById('loginForm')?.addEventListener('submit', async event => {
