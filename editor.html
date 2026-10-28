@@ -347,7 +347,8 @@
                         <div id="spotlightDirectionFields" hidden>
                             <div class="form-group">
                                 <label for="lightAimMode">光の向き</label>
-                                <select id="lightAimMode" class="form-control"><option value="free">角度で指定</option><option value="artwork">作品中央にスナップ</option><option value="artwork-point">作品内の位置にスナップ</option><option value="down">真下を照らす</option></select>
+                                <select id="lightAimMode" class="form-control"><option value="free">角度で指定</option><option value="artwork">作品中央にスナップ</option><option value="artwork-point">作品内の位置にスナップ</option><option value="ground">地面の位置を指定</option><option value="down">真下を照らす</option></select>
+                                <button id="btnPickLightGround" class="btn btn-secondary" type="button" hidden aria-pressed="false" data-tooltip="平面図上で照らしたい地面の位置をクリックします。Escでキャンセルします。">地面の照射先を選択</button>
                                 <button id="btnPickLightTarget" class="btn btn-secondary" type="button" data-tooltip="図面上の作品を選択します。任意位置モードではクリックした横位置に合わせ、高さは下の正面図で指定します。Escでキャンセルします。">作品をクリックしてスナップ</button>
                             </div>
                             <div class="form-group" id="lightAngleField">
@@ -378,6 +379,7 @@
                                 </div>
                                 <button id="btnAlignSpotlightToArtwork" class="btn btn-secondary" type="button" data-tooltip="照射点からレールへ垂直に下ろした位置にライトを移動し、照射点を向いたまま水平角を0°にします。">作品正面に合わせる（水平0°）</button>
                             </div>
+                            <button id="btnDeleteSpotlight" class="btn btn-danger" type="button">スポットライトを削除</button>
                         </div>
                     </div>
                 </div>

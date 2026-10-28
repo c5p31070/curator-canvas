@@ -11,6 +11,8 @@ const editorStorage = window.CURATOR_GUEST?.storage || {
     removeItem: key => window.localStorage.removeItem(key)
 };
 const canvas = new fabric.Canvas('canvas');
+// Selection must not lift an artwork above ceiling light markers.
+canvas.preserveObjectStacking = true;
 canvas.selectionColor = 'rgba(178, 187, 190, 0.10)';
 canvas.selectionBorderColor = '#879195';
 canvas.selectionLineWidth = 1;
@@ -444,6 +446,7 @@ function getCustomProperties() {
         'lightRailAngleDeg', 'lightRailNormalSide',
         'lightAimMode', 'lightAimTargetId', 'lightingTargetId',
         'lightTargetXPercent', 'lightTargetYPercent',
+        'lightGroundX', 'lightGroundY',
         'isWallOutline',
         'displayType',
         'cmWidth',

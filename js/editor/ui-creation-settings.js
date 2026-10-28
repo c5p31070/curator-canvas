@@ -120,6 +120,7 @@ function initializeCreationSettingsUi() {
                 canvas.discardActiveObject();
                 canvas.remove(...removable);
             } finally { isUndoRedoOperation = wasRestoring; }
+            window.refreshLighting?.();
             canvas.requestRenderAll();
             artworkCount = canvas.getObjects().filter(obj => obj.isArtwork).length;
             pinCount = canvas.getObjects().filter(obj => obj.isPin || obj.isFreePin || obj.isGuard).length;
@@ -181,8 +182,8 @@ function initializeCreationSettingsUi() {
                 } finally { isUndoRedoOperation = wasRestoring; }
                 if (venueEquipment.length) {
                     window.persistLightingEquipmentChange?.(venueEquipment[0]);
-                    window.refreshLighting?.();
                 }
+                window.refreshLighting?.();
                 window.queueVenueWallFixtureChange?.(deletableObjects.find(obj => obj.isFixture));
                 canvas.requestRenderAll();
                 saveState();

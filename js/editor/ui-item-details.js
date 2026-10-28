@@ -43,8 +43,8 @@ function initializeItemDetailsUi() {
     const isEditableCanvasItem = obj => Boolean(
         obj && (obj.isArtwork || obj.isPin || obj.isFreePin || obj.isGuard || obj.pinLabel !== undefined)
     );
-    const isInspectableCanvasItem = obj => isEditableCanvasItem(obj) || Boolean(obj?.isMovableWall);
-    const getItemName = obj => obj.isMovableWall ? (obj.movableWallName || '移動壁')
+    const isInspectableCanvasItem = obj => isEditableCanvasItem(obj) || Boolean(obj?.isMovableWall || obj?.isLightObject);
+    const getItemName = obj => obj.isLightObject ? (obj.lightName || 'ライト') : obj.isMovableWall ? (obj.movableWallName || '移動壁')
         : obj.isArtwork ? (obj.artworkName || obj.item(1)?.text || '')
             : (obj.pinName || obj.item(3)?.text || '');
     const updateSelectedItemEditor = obj => {
@@ -113,6 +113,15 @@ function initializeItemDetailsUi() {
             : obj.description || '';
         tooltipDescription.textContent = description;
         tooltipDescription.hidden = !description;
+        if (obj.isLightObject) {
+            const details = window.getLightPopupDetails?.(obj);
+            if (details) {
+                tooltipTitle.textContent = details.title;
+                tooltipMeta.textContent = details.meta;
+                tooltipDescription.textContent = details.description;
+                tooltipDescription.hidden = !details.description;
+            }
+        }
         positionTooltip(e.e);
     };
     canvas.on('mouse:over', showItemTooltip);
