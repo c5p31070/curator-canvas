@@ -428,6 +428,7 @@ function getCustomProperties() {
         'shapeStroke',
         'shapeFill',
         'artworkName',
+        'artworkNumber',
         'artworkCatalogId',
         'description',
         'isPin',
@@ -474,6 +475,7 @@ function configureArtworkTransform(artwork) {
     artwork.item?.(0)?.set({ fill: appearance.fill, stroke: appearance.stroke,
         strokeWidth: 1.5, strokeDashArray: appearance.dash });
     artwork.item?.(1)?.set({ fill: appearance.text });
+    window.refreshArtworkNumberLabel?.(artwork);
     artwork.set({
         dirty: true,
         lockScalingX: true,
@@ -779,6 +781,7 @@ async function applyStateData(jsonString, callback) {
             : [];
         if (!hasArtworkCatalog) window.migrateArtworkCatalogFromPlans?.();
         window.repairArtworkHeightLinks?.();
+        window.normalizeArtworkNumbers?.();
         window.refreshArtworkCatalog?.();
 
         if (parsed.selectedWallInfo) {

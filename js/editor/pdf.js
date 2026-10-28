@@ -149,7 +149,7 @@ async function renderCombinedPdf() {
 
                 const name =
                     textObj
-                        ? `${textObj.text} (${floorTitle})`
+                        ? `${obj.isFixture ? '' : `No.${obj.artworkNumber} `}${obj.artworkName || textObj.text} (${floorTitle})`
                         : `作品 ${index + 1}`;
 
 

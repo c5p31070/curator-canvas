@@ -56,7 +56,9 @@ function initializeItemDetailsUi() {
         }
         window.activateToolPanel?.('edit');
         if (itemEditorStatus) {
-            itemEditorStatus.textContent = selectedItemForEditing.isArtwork ? '展示物の情報を編集できます。' : 'ピンの情報を編集できます。';
+            itemEditorStatus.textContent = selectedItemForEditing.isArtwork
+                ? (selectedItemForEditing.isFixture ? '展示物の情報を編集できます。' : `No.${window.getArtworkNumber(selectedItemForEditing)}`)
+                : 'ピンの情報を編集できます。';
         }
         if (itemNameInput) itemNameInput.value = getItemName(selectedItemForEditing);
         if (itemDescriptionInput) itemDescriptionInput.value = selectedItemForEditing.description || '';
@@ -79,6 +81,7 @@ function initializeItemDetailsUi() {
     canvas.on('selection:cleared', () => updateSelectedItemEditor(null));
 
     const positionTooltip = nativeEvent => {
+        nativeEvent = nativeEvent?.changedTouches?.[0] || nativeEvent?.touches?.[0] || nativeEvent;
         if (!itemTooltip || !canvasArea || !nativeEvent || nativeEvent.clientX === undefined) return;
         const areaRect = canvasArea.getBoundingClientRect();
         itemTooltip.hidden = false;
@@ -91,7 +94,7 @@ function initializeItemDetailsUi() {
         hoveredItem = null;
         if (itemTooltip) itemTooltip.hidden = true;
     };
-    canvas.on('mouse:over', e => {
+    const showItemTooltip = e => {
         const obj = e.target;
         if (!isInspectableCanvasItem(obj) || !itemTooltip) return hideItemTooltip();
         hoveredItem = obj;
@@ -103,7 +106,7 @@ function initializeItemDetailsUi() {
                 ? `幅 ${obj.cmWidth} × 奥行 ${obj.cmDepth} × 高さ ${obj.cmHeight} cm`
                 : `幅 ${obj.cmWidth} × 高さ ${obj.cmHeight} × 厚み ${obj.cmDepth} cm`)
             : (obj.isGuard ? '警備員' : 'ピン');
-        tooltipTitle.textContent = name;
+        tooltipTitle.textContent = obj.isArtwork && !obj.isFixture ? `No.${window.getArtworkNumber(obj)} ${name}` : name;
         tooltipMeta.textContent = meta;
         const description = obj.isMovableWall
             ? `${FLOOR_PLANS[obj.movableFloorId]?.title || 'ロビー階'} / 回転 ${Number((obj.angle || 0).toFixed(1))}°`
@@ -111,12 +114,30 @@ function initializeItemDetailsUi() {
         tooltipDescription.textContent = description;
         tooltipDescription.hidden = !description;
         positionTooltip(e.e);
-    });
+    };
+    canvas.on('mouse:over', showItemTooltip);
     canvas.on('mouse:move', e => {
         if (hoveredItem && e.target === hoveredItem) positionTooltip(e.e);
     });
     canvas.on('mouse:out', hideItemTooltip);
-    canvas.on('mouse:down', hideItemTooltip);
+    let tapStart = null;
+    const touchPoint = event => event?.changedTouches?.[0] || event?.touches?.[0] || event;
+    canvas.on('mouse:down', event => {
+        hideItemTooltip();
+        const point = touchPoint(event.e);
+        tapStart = (event.e?.touches || event.e?.pointerType === 'touch' || event.e?.pointerType === 'pen')
+            ? { target: event.target, x: point.clientX, y: point.clientY, moved: event.e?.touches?.length > 1 } : null;
+    });
+    canvas.on('mouse:move', event => {
+        const point = touchPoint(event.e);
+        if (tapStart && (event.e?.touches?.length > 1 || Math.hypot(point.clientX - tapStart.x, point.clientY - tapStart.y) > 6)) tapStart.moved = true;
+    });
+    canvas.on('mouse:up', event => {
+        const point = touchPoint(event.e);
+        if (tapStart && !tapStart.moved && event.target === tapStart.target &&
+            Math.hypot(point.clientX - tapStart.x, point.clientY - tapStart.y) <= 6 && !isFreeDrawingMode) showItemTooltip(event);
+        tapStart = null;
+    });
 
     const applyItemEdit = (applyRotation = false) => {
             const obj = selectedItemForEditing;
@@ -176,9 +197,11 @@ function initializeItemDetailsUi() {
                 obj.artworkName = newName;
                 const label = obj.item(1);
                 if (label) {
-                    label.set('text', newName);
-                    label.initDimensions();
-                    obj.addWithUpdate();
+                    if (obj.isFixture) {
+                        label.set('text', newName);
+                        label.initDimensions();
+                        obj.addWithUpdate();
+                    } else window.refreshArtworkNumberLabel?.(obj);
                 }
                 if (currentViewMode === 'wall') {
                     if (!window.placeArtworkAtSavedHeight(obj)) window.updateArtworkHeightFromWall(obj);

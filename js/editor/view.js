@@ -746,6 +746,7 @@ function applyArtworkDimensions(obj, scale) {
 
     const textObj = obj.item?.(1);
     if (textObj) textObj.set({ fontSize: obj.displayType === 'wall' ? 10 : 14 });
+    window.refreshArtworkNumberLabel?.(obj);
 
     obj.set({ width: newPxW, height: newPxH });
     obj.setCoords();

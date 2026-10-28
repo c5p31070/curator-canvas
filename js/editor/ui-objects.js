@@ -1,6 +1,7 @@
 let pendingArtworkCatalogId = '';
 
 function refreshArtworkCatalog() {
+    window.ensureArtworkCatalogNumbers?.();
     const select = document.getElementById('savedArtworkSelect');
     const addButton = document.getElementById('btnAddSavedArtwork');
     const deleteButton = document.getElementById('btnDeleteSavedArtwork');
@@ -18,7 +19,7 @@ function refreshArtworkCatalog() {
         const dimensions = item.displayType === 'wall'
             ? `幅 ${item.cmWidth} × 高さ ${item.cmHeight} × 厚み ${item.cmDepth} cm`
             : `幅 ${item.cmWidth} × 奥行 ${item.cmDepth} × 高さ ${item.cmHeight} cm`;
-        option.textContent = `${item.name} · ${typeLabel} · ${dimensions}${item.artworkCenterHeightCm != null ? ` · 中央高 ${item.artworkCenterHeightCm} cm` : ''}`;
+        option.textContent = `No.${item.artworkNumber} ${item.name} · ${typeLabel} · ${dimensions}${item.artworkCenterHeightCm != null ? ` · 中央高 ${item.artworkCenterHeightCm} cm` : ''}`;
         select.appendChild(option);
     });
     select.value = savedArtworkCatalog.some(item => item.id === selected) ? selected : '';
@@ -32,7 +33,7 @@ function upsertArtworkCatalogEntry(data, preferredId = '') {
             item.name === data.name && Number(item.cmWidth) === Number(data.cmWidth) &&
             Number(item.cmHeight) === Number(data.cmHeight) && Number(item.cmDepth) === Number(data.cmDepth));
     const id = existing?.id || (window.crypto?.randomUUID?.() || `artwork_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
-    const entry = { ...data, id };
+    const entry = { ...data, id, artworkNumber: existing?.artworkNumber || window.nextArtworkNumber() };
     if (existing) savedArtworkCatalog = savedArtworkCatalog.map(item => item.id === id ? entry : item);
     else savedArtworkCatalog = [...savedArtworkCatalog, entry];
     window.refreshArtworkCatalog();
@@ -263,6 +264,7 @@ function initializeObjectControlsUi() {
                         isArtwork: true,
                         artworkName: nameText,
                         artworkCatalogId: catalogId,
+                        artworkNumber: savedArtworkCatalog.find(item => item.id === catalogId)?.artworkNumber,
                         description: descriptionEl ? descriptionEl.value.trim() : '',
 
                         displayType: displayType,

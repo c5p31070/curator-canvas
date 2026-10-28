@@ -388,6 +388,8 @@
                 <button id="btnAddMovableWall" class="btn btn-secondary" type="button">移動壁を追加</button>
                 <div id="movableWallSelection" class="drawing-subsection" hidden>
                     <h3>選択中の移動壁</h3>
+                    <label class="lighting-visibility" data-tooltip="この面の壁面図と配置内容を削除します。チェックを外すと空の壁面図を作成します。"><input id="movableWallFrontUnused" type="checkbox">前面を使わない</label>
+                    <label class="lighting-visibility" data-tooltip="この面の壁面図と配置内容を削除します。チェックを外すと空の壁面図を作成します。"><input id="movableWallBackUnused" type="checkbox">裏面を使わない</label>
                     <button id="btnUpdateMovableWall" class="btn btn-secondary" type="button">選択壁を更新</button>
                     <div class="form-row">
                         <button id="btnMovableWallFront" class="btn btn-secondary" type="button">前面の壁面図</button>
@@ -826,6 +828,7 @@
     <script src="js/editor/shape-free-transform.js" defer></script>
     <script src="js/editor/ui-item-details.js" defer></script>
     <script src="js/editor/ui-creation-settings.js" defer></script>
+    <script src="js/editor/artwork-numbers.js" defer></script>
     <script src="js/editor/ui-objects.js" defer></script>
     <script src="js/editor/ui.js" defer></script>
     <script src="js/editor/ui-tool-palette.js" defer></script>

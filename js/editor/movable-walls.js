@@ -36,6 +36,7 @@
             const matrix = body.calcTransformMatrix();
             const center = fabric.util.transformPoint(new fabric.Point(0, 0), matrix);
             [-1, 1].forEach(side => {
+                if (!(side < 0 ? wall.movableFrontId : wall.movableBackId)) return;
                 const edge = fabric.util.transformPoint(new fabric.Point(0, side * body.height / 2), matrix);
                 const normal = fabric.util.transformPoint(new fabric.Point(0, side), matrix);
                 const length = Math.hypot(normal.x - center.x, normal.y - center.y) || 1;
@@ -71,17 +72,32 @@
         const code = symbol[1].codePointAt(0);
         return code <= 0x2473 ? code - 0x2460 + 1 : code <= 0x325f ? code - 0x3251 + 21 : code - 0x32b1 + 36;
     }
+    function wallNumbers() {
+        // A wall still owns its number when both elevations have been removed.
+        const numbers = new Map();
+        Object.values(wallPlanJsonData).filter(face => face.movableWallId).forEach(face => {
+            numbers.set(face.movableWallId, Number(face.movableWallNumber) || numberFromName(face.title));
+        });
+        Object.values(floorPlanData).forEach(floor => {
+            try {
+                const plan = typeof floor.json === 'string' ? JSON.parse(floor.json) : floor.json;
+                (plan?.objects || []).filter(object => object.isMovableWall).forEach(wall => {
+                    numbers.set(wall.movableWallId, Number(wall.movableWallNumber) || numberFromName(wall.movableWallName));
+                });
+            } catch { /* Ignore unavailable legacy snapshots when numbering. */ }
+        });
+        canvas.getObjects().filter(object => object.isMovableWall).forEach(wall => {
+            numbers.set(wall.movableWallId, Number(wall.movableWallNumber) || numberFromName(wall.movableWallName));
+        });
+        return numbers;
+    }
     function nextNumber() {
-        const numbers = Object.values(wallPlanJsonData).filter(face => face.movableWallId && face.face === 'front')
-            .map(face => Number(face.movableWallNumber) || numberFromName(face.title));
-        return Math.max(0, ...numbers) + 1;
+        return Math.max(0, ...wallNumbers().values()) + 1;
     }
     function normalizeWallName(wall) {
         const front = wallPlanJsonData[wall.movableFrontId];
         let number = Number(front?.movableWallNumber) || Number(wall.movableWallNumber) || numberFromName(wall.movableWallName);
-        const duplicate = Object.values(wallPlanJsonData).some(face => face.face === 'front' &&
-            face.movableWallId !== wall.movableWallId &&
-            (Number(face.movableWallNumber) || numberFromName(face.title)) === number);
+        const duplicate = [...wallNumbers()].some(([id, otherNumber]) => id !== wall.movableWallId && otherNumber === number);
         if (!Number.isInteger(number) || number <= 0 || duplicate) number = nextNumber();
         wall.movableWallNumber = number;
         wall.movableWallName = `壁${circled(number)}`;
@@ -139,6 +155,15 @@
         document.getElementById('movableWallWidth').value = selected.cmWidth;
         document.getElementById('movableWallDepth').value = selected.cmDepth;
         document.getElementById('movableWallAngle').value = Math.round(selected.angle || 0);
+        [['Front', 'movableFrontId'], ['Back', 'movableBackId']].forEach(([suffix, key]) => {
+            const input = document.getElementById(`movableWall${suffix}Unused`);
+            if (input) {
+                input.checked = !selected[key];
+                input.disabled = !canEdit();
+            }
+            const button = document.getElementById(`btnMovableWall${suffix}`);
+            if (button) button.disabled = !selected[key] || !wallPlanJsonData[selected[key]];
+        });
         [['Left', 'movableLeftId', '左'], ['Right', 'movableRightId', '右']].forEach(([suffix, key, name]) => {
             const button = document.getElementById(`btnMovableWall${suffix}`);
             if (button) button.textContent = wallPlanJsonData[selected[key]]
@@ -214,6 +239,43 @@
             saveState();
         }
         await handleWallSelectChange(wall[key]);
+    }
+
+    function setFaceUnused(face, unused) {
+        const wall = selected;
+        if (!wall || !canEdit() || currentViewMode !== 'floor' || isTransitioning || isUndoRedoOperation || !window.isDiagramReady?.()) {
+            refreshPanel();
+            return;
+        }
+        const key = face === 'front' ? 'movableFrontId' : 'movableBackId';
+        if (unused === !wall[key]) return;
+        const id = wall[key];
+        if (unused) {
+            const elevation = wallPlanJsonData[id];
+            try {
+                const plan = typeof elevation?.json === 'string' ? JSON.parse(elevation.json) : elevation?.json;
+                const hasContents = (plan?.objects || []).some(object => !object.isWallOutline && !object.excludeFromExport);
+                if (hasContents && !confirm(`${wall.movableWallName}・${face === 'front' ? '前面' : '裏面'}の壁面図と配置内容を削除しますか？`)) {
+                    refreshPanel(wall);
+                    return;
+                }
+            } catch {
+                alert('壁面図を読み込めないため削除を中止しました。');
+                refreshPanel(wall);
+                return;
+            }
+        }
+        window.flushPendingItemEditHistory?.();
+        // Null IDs are serialized with the wall; resizing or loading cannot
+        // recreate a disabled face. Undo restores its ID and full layout.
+        wall[key] = unused ? null : `movable_${wall.movableWallId}_${face}`;
+        if (unused) delete wallPlanJsonData[id];
+        registerFaces(wall);
+        selectWallForCurrentFloor();
+        updateWallDropdownOptions();
+        refreshPanel(wall);
+        canvas.requestRenderAll();
+        saveState();
     }
 
     window.confirmMovableWallRemoval = walls => !walls.length || confirm(
@@ -363,8 +425,10 @@
         document.getElementById('btnAddMovableWall')?.addEventListener('click', addWall);
         document.getElementById('btnUpdateMovableWall')?.addEventListener('click', updateWall);
         document.getElementById('btnDeleteMovableWall')?.addEventListener('click', () => deleteSelectedWall());
-        document.getElementById('btnMovableWallFront')?.addEventListener('click', () => { if (selected) handleWallSelectChange(selected.movableFrontId); });
-        document.getElementById('btnMovableWallBack')?.addEventListener('click', () => { if (selected) handleWallSelectChange(selected.movableBackId); });
+        document.getElementById('movableWallFrontUnused')?.addEventListener('change', event => setFaceUnused('front', event.target.checked));
+        document.getElementById('movableWallBackUnused')?.addEventListener('change', event => setFaceUnused('back', event.target.checked));
+        document.getElementById('btnMovableWallFront')?.addEventListener('click', () => { if (selected?.movableFrontId) handleWallSelectChange(selected.movableFrontId); });
+        document.getElementById('btnMovableWallBack')?.addEventListener('click', () => { if (selected?.movableBackId) handleWallSelectChange(selected.movableBackId); });
         document.getElementById('btnMovableWallLeft')?.addEventListener('click', () => openSideFace('left'));
         document.getElementById('btnMovableWallRight')?.addEventListener('click', () => openSideFace('right'));
     });

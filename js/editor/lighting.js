@@ -335,7 +335,7 @@ function refreshLightingControls() {
     const artworks = objects.filter(obj => obj.isArtwork);
     const light = lights.find(obj => obj.lightId === selectedLightId);
     fillLightingSelect('lightTargetSelect', artworks.map((obj, index) => ({
-        id: obj.lightingTargetId || `index:${index}`, name: obj.artworkName || `作品 ${index + 1}`
+        id: obj.lightingTargetId || `index:${index}`, name: `${obj.isFixture ? '' : `No.${window.getArtworkNumber(obj)} `}${obj.artworkName || `作品 ${index + 1}`}`
     })), light?.lightAimTargetId, '作品はありません');
     const fields = document.getElementById('lightSettingsFields');
     if (fields) fields.hidden = !light;
