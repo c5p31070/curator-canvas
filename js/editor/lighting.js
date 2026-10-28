@@ -357,7 +357,19 @@ function refreshLighting(updateControls = true) {
                 beam.moveTo(0);
                 return;
             }
-            if (!lightingVisible || light.lightOn === false || direction.length < 1) return;
+            if (!lightingVisible || light.lightOn === false) return;
+            if (light.lightAimMode === 'ground' && Number.isFinite(light.lightGroundX) && Number.isFinite(light.lightGroundY)) {
+                // Use the actual destination rather than the capped beam length.
+                const landing = new fabric.Circle({
+                    left: light.lightGroundX, top: light.lightGroundY,
+                    originX: 'center', originY: 'center', radius: 18,
+                    fill: 'rgba(183,156,93,0.12)', stroke: 'rgba(143,122,73,0.55)', strokeWidth: 0.7,
+                    isLightBeam: true, excludeFromExport: true, selectable: false, evented: false
+                });
+                canvas.add(landing);
+                landing.moveTo(0);
+            }
+            if (direction.length < 1) return;
             const p = light.getCenterPoint();
             const dx = Math.cos(direction.angle), dy = Math.sin(direction.angle);
             // Limit the visual ray only; keep the exact geometry for the angle readout.
