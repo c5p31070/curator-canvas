@@ -1063,6 +1063,8 @@ function applyWallOutlineLock() {
         if (!obj.isWallOutline && !isLegacyWallOutline) return;
         obj.set({
             isWallOutline: true,
+            // Retain stroke geometry so existing placement coordinates stay put.
+            stroke: 'transparent',
             selectable: false,
             evented: false,
             hasControls: false,

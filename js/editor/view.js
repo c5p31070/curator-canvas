@@ -652,7 +652,7 @@ async function renderWallCanvas(callback = null) {
 
             fill: '#f8fafc',
 
-            stroke: '#334155',
+            stroke: 'transparent',
 
             strokeWidth: 3,
 
