@@ -2,11 +2,32 @@
 // 📄 平面＋全壁面をまとめたマルチページPDF生成機能
 // ----------------------------------------------------
 
-function createPdfScaleMarkup(scalePxPerCm, imageWidthMm, sourceWidthPx = canvas.getWidth()) {
+function pdfImageDimensions(widthPx, heightPx, maxWidthMm = 165, maxHeightMm = 210) {
+    if (![widthPx, heightPx, maxWidthMm, maxHeightMm].every(value => Number.isFinite(value) && value > 0)) {
+        throw new Error('図面の出力寸法を計算できません。');
+    }
+    const mmPerPixel = Math.min(maxWidthMm / widthPx, maxHeightMm / heightPx);
+    return { imageWidthMm: widthPx * mmPerPixel, imageHeightMm: heightPx * mmPerPixel };
+}
 
-    const appScale = Number(scalePxPerCm) > 0
-        ? Number(scalePxPerCm)
-        : 0.5;
+function pdfWallCaptureBounds() {
+    const objects = canvas.getObjects().filter(object => object.visible !== false && !object.excludeFromExport);
+    const bounds = objects.map(object => object.getBoundingRect(true, true));
+    if (!bounds.length) throw new Error('壁面図が空のため出力できません。');
+    const padding = 8;
+    const left = Math.max(0, Math.floor(Math.min(...bounds.map(rect => rect.left)) - padding));
+    const top = Math.max(0, Math.floor(Math.min(...bounds.map(rect => rect.top)) - padding));
+    const right = Math.min(canvas.getWidth(), Math.ceil(Math.max(...bounds.map(rect => rect.left + rect.width)) + padding));
+    const bottom = Math.min(canvas.getHeight(), Math.ceil(Math.max(...bounds.map(rect => rect.top + rect.height)) + padding));
+    return { left, top, width: right - left, height: bottom - top };
+}
+
+function createPdfScaleMarkup(scalePxPerCm, imageWidthMm, sourceWidthPx) {
+
+    const appScale = Number(scalePxPerCm);
+    if (![appScale, imageWidthMm, sourceWidthPx].every(value => Number.isFinite(value) && value > 0)) {
+        throw new Error('縮尺の根拠となる実寸・画像寸法を確認してください。');
+    }
 
     const canvasWidth = sourceWidthPx;
     const targetWidthMm = 18;
@@ -32,6 +53,9 @@ function createPdfScaleMarkup(scalePxPerCm, imageWidthMm, sourceWidthPx = canvas
         })[0] || rawLengthCm;
 
     const barWidthMm = lengthCm * appScale * imageWidthMm / canvasWidth;
+    const denominator = 10 * canvasWidth / (appScale * imageWidthMm);
+    const ratio = Number(denominator.toPrecision(5));
+    const approximate = Math.abs(ratio - denominator) > denominator * 1e-9;
     const label = lengthCm >= 100 && lengthCm % 100 === 0
         ? `${lengthCm / 100} m`
         : `${lengthCm} cm`;
@@ -39,7 +63,8 @@ function createPdfScaleMarkup(scalePxPerCm, imageWidthMm, sourceWidthPx = canvas
     return `
         <div class="pdf-scale" aria-label="縮尺 ${label}">
             <span class="pdf-scale-caption">縮尺</span>
-            <div class="pdf-scale-rule" style="height:${barWidthMm.toFixed(2)}mm">
+            <span class="pdf-scale-label" title="印刷倍率100%時">${approximate ? '約 ' : ''}1:${ratio}</span>
+            <div class="pdf-scale-rule" style="height:${barWidthMm.toFixed(6)}mm">
                 <i></i><i></i>
             </div>
             <span class="pdf-scale-label">${label}</span>
@@ -51,9 +76,26 @@ async function generateCombinedPdf() {
     if (window.isCombinedPdfBusy) return;
     // Confirm the common scale before taking any drawing captures.
     if (window.refreshTeamFloorScale && !await window.refreshTeamFloorScale()) return;
+    if (!(Number(configuredScale) > 0)) {
+        alert('正確な縮尺で出力するため、管理者モードで平面図の縮尺を設定してください。');
+        return;
+    }
+    if (isTransitioning || !window.isDiagramReady?.()) return;
+    const initial = { floor: selectedFloorId, mode: currentViewMode, wall: { ...selectedWallInfo } };
     window.isCombinedPdfBusy = true;
     try { return await renderCombinedPdf(); }
-    finally { window.isCombinedPdfBusy = false; }
+    catch (error) {
+        console.error('PDF出力に失敗しました。', error);
+        alert(`PDF出力を中止しました。${error.message}`);
+    } finally {
+        try {
+            if (selectedFloorId !== initial.floor || currentViewMode !== initial.mode || (initial.mode === 'wall' && selectedWallInfo.id !== initial.wall.id)) {
+                await handleFloorSelectChange(initial.floor, true);
+                selectedWallInfo = initial.wall;
+                await switchViewMode(initial.mode, true, null, true);
+            }
+        } finally { window.isCombinedPdfBusy = false; }
+    }
 }
 
 async function renderCombinedPdf() {
@@ -86,11 +128,7 @@ async function renderCombinedPdf() {
     const initialWall =
         { ...selectedWallInfo };
 
-    const drawingScale =
-        parseFloat(document.getElementById("scale")?.value) || 0.5;
-
-    const floorImageWidthMm = 165;
-    const wallImageWidthMm = 165;
+    const drawingScale = Number(configuredScale);
 
 
     // ====================================================
@@ -111,10 +149,12 @@ async function renderCombinedPdf() {
     const floorObjects = [];
     for (const [id, floor] of Object.entries(FLOOR_PLANS)) {
         await handleFloorSelectChange(id, true);
+        if (!window.isDiagramReady?.() || selectedFloorId !== id || currentViewMode !== 'floor') throw new Error(`${floor.title}を読み込めませんでした。`);
         floorCaptureList.push({
             title: floor.title,
-            imgUrl: canvas.toDataURL({ format: 'png', quality: 1.0 }),
+            imgUrl: canvas.toDataURL({ format: 'png', quality: 1.0, enableRetinaScaling: false }),
             sourceWidthPx: canvas.getWidth(),
+            ...pdfImageDimensions(canvas.getWidth(), canvas.getHeight(), 165, 120),
             scale: drawingScale
         });
         floorObjects.push(...canvas.getObjects().map(obj => ({ obj, floorTitle: floor.title })));
@@ -275,6 +315,9 @@ async function renderCombinedPdf() {
 
         const wallData =
             wallPlanJsonData[key];
+        if (![Number(wallData.widthCm), Number(wallData.heightCm)].every(value => Number.isFinite(value) && value > 0)) {
+            throw new Error(`${wallData.title || '壁面'}の幅・高さを確認してください。`);
+        }
         captureCurrentCanvasState();
         selectedFloorId = getWallFloorId(wallData);
         floorPlanJsonData = floorPlanData[selectedFloorId].json;
@@ -291,11 +334,8 @@ async function renderCombinedPdf() {
             title:
                 wallData.title || "壁面",
 
-            widthCm:
-                wallData.widthCm || 600,
-
-            heightCm:
-                wallData.heightCm || 300
+            widthCm: Number(wallData.widthCm),
+            heightCm: Number(wallData.heightCm)
 
         };
 
@@ -313,18 +353,19 @@ async function renderCombinedPdf() {
         );
 
 
-        const wallImgUrl =
-            canvas.toDataURL({
-                format: 'png',
-                quality: 1.0
-            });
-
         const wallOutline = canvas.getObjects().find(obj => obj.isWallOutline);
         // The vertical scale bar must match the captured wall, including older
         // saved walls whose pixel dimensions predate the current scale setting.
-        const wallScale = wallOutline && Number(wallData.heightCm) > 0
-            ? Number(wallOutline.height) * Math.abs(Number(wallOutline.scaleY) || 1) / Number(wallData.heightCm)
-            : drawingScale;
+        if (!window.isDiagramReady?.() || currentViewMode !== 'wall' || selectedWallInfo.id !== key || !wallOutline) throw new Error(`${wallData.title}を読み込めませんでした。`);
+        const wallScale = Number(wallOutline.height) * Math.abs(Number(wallOutline.scaleY) || 1) / Number(wallData.heightCm);
+        const horizontalScale = Number(wallOutline.width) * Math.abs(Number(wallOutline.scaleX) || 1) / Number(wallData.widthCm);
+        if (!(Number.isFinite(wallScale) && wallScale > 0 && Number.isFinite(horizontalScale) && horizontalScale > 0)
+            || Math.abs(wallScale - horizontalScale) > wallScale * 1e-6) {
+            throw new Error(`${wallData.title}の縦横の縮尺が一致しません。壁の寸法設定を確認してください。`);
+        }
+        const crop = pdfWallCaptureBounds();
+        const imageSize = pdfImageDimensions(crop.width, crop.height);
+        const wallImgUrl = canvas.toDataURL({ format: 'png', quality: 1.0, ...crop, enableRetinaScaling: false });
 
 
         wallCaptureList.push({
@@ -341,7 +382,8 @@ async function renderCombinedPdf() {
             imgUrl:
                 wallImgUrl,
             scale: wallScale,
-            sourceWidthPx: canvas.getWidth()
+            sourceWidthPx: crop.width,
+            ...imageSize
 
         });
 
@@ -425,9 +467,10 @@ async function renderCombinedPdf() {
                 <img
                     src="${floorCanvasUrl}"
                     class="canvas-img canvas-img-floor"
+                    style="width:${floorCaptureList[0].imageWidthMm}mm;height:${floorCaptureList[0].imageHeightMm}mm"
                 />
 
-                ${createPdfScaleMarkup(floorCaptureList[0].scale, floorImageWidthMm, floorCaptureList[0].sourceWidthPx)}
+                ${createPdfScaleMarkup(floorCaptureList[0].scale, floorCaptureList[0].imageWidthMm, floorCaptureList[0].sourceWidthPx)}
 
             </div>
 
@@ -634,8 +677,8 @@ async function renderCombinedPdf() {
                 </div>
                 <div class="section-title">平面配置図: ${floor.title}</div>
                 <div class="drawing-scale-row floor-scale-row">
-                    <img src="${floor.imgUrl}" class="canvas-img canvas-img-floor" />
-                    ${createPdfScaleMarkup(floor.scale, floorImageWidthMm, floor.sourceWidthPx)}
+                    <img src="${floor.imgUrl}" class="canvas-img canvas-img-floor" style="width:${floor.imageWidthMm}mm;height:${floor.imageHeightMm}mm" />
+                    ${createPdfScaleMarkup(floor.scale, floor.imageWidthMm, floor.sourceWidthPx)}
                 </div>
                 <div class="footer">Curator-Canvas - 統合展示指示書 Page ${index + 2}</div>
             </div>
@@ -686,9 +729,10 @@ async function renderCombinedPdf() {
                         <img
                             src="${wall.imgUrl}"
                             class="canvas-img-large wall-canvas-img"
+                            style="width:${wall.imageWidthMm}mm;height:${wall.imageHeightMm}mm"
                         />
 
-                        ${createPdfScaleMarkup(wall.scale, wallImageWidthMm, wall.sourceWidthPx)}
+                        ${createPdfScaleMarkup(wall.scale, wall.imageWidthMm, wall.sourceWidthPx)}
 
                     </div>
 
@@ -727,6 +771,42 @@ async function renderCombinedPdf() {
 
 
             <style>
+
+                /* Preview chrome only: printed pages retain their existing styles. */
+                @media screen {
+                    body { background: #1b1f21 !important; scrollbar-color: #4c555b #1b1f21; }
+                    .page { margin: 16px auto; box-shadow: none !important; outline: 1px solid #3c4347; }
+                    .export-toolbar {
+                        position: fixed; inset: 0 0 auto; z-index: 9999;
+                        display: flex; align-items: center; gap: 14px;
+                        min-height: 48px; padding: 0 14px 0 0; box-sizing: border-box;
+                        background: #242b30; color: #c9d0d4; border-bottom: 1px solid #454e54;
+                        font-family: Arial, 'Yu Gothic', sans-serif; font-size: 11px; font-weight: 400;
+                    }
+                    .export-brand {
+                        display: flex; align-items: center; align-self: stretch;
+                        padding: 0 16px; background: #391e23; border-right: 1px solid #58343b;
+                        color: #e1d7d9; font-size: 13px; white-space: nowrap;
+                    }
+                    .export-toolbar-title { color: #aab5bc; white-space: nowrap; }
+                    .export-actions { display: flex; gap: 6px; margin-left: auto; }
+                    .export-action {
+                        display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+                        min-height: 28px; padding: 4px 10px; border: 1px solid #525d65; border-radius: 0;
+                        background: #303940; color: #dce2e6; font: inherit; cursor: pointer; white-space: nowrap;
+                    }
+                    .export-action:hover { background: #3c474f; border-color: #74818a; }
+                    .export-action:focus-visible { outline: 1px solid #afbec7; outline-offset: 2px; }
+                    .export-action-secondary { background: transparent; color: #adb8bf; }
+                    .export-action svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.4; }
+                    .export-toolbar-spacer { height: 60px; }
+                    @media (max-width: 480px) {
+                        .export-toolbar { gap: 8px; padding-right: 8px; }
+                        .export-brand { padding: 0 10px; font-size: 11px; }
+                        .export-toolbar-title { display: none; }
+                        .export-action { padding: 4px 7px; }
+                    }
+                }
 
                 @page {
                     size: A4 portrait;
@@ -901,16 +981,18 @@ async function renderCombinedPdf() {
 
 
                 .canvas-img-floor {
-                    flex: 0 0 ${floorImageWidthMm}mm;
-                    width: ${floorImageWidthMm}mm;
+                    flex: 0 0 auto;
+                    box-sizing: content-box;
+                    border: 0;
                     max-height: none;
                     object-fit: fill;
                 }
 
 
                 .wall-canvas-img {
-                    flex: 0 0 ${wallImageWidthMm}mm;
-                    width: ${wallImageWidthMm}mm;
+                    flex: 0 0 auto;
+                    box-sizing: content-box;
+                    border: 0;
                     max-height: none;
                     object-fit: fill;
                 }
@@ -1041,46 +1123,18 @@ async function renderCombinedPdf() {
         <body>
 
 
-            <div
-                class="no-print"
-                style="
-                    background: #e0f2fe;
-                    padding: 12px;
-                    text-align: center;
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    z-index: 9999;
-                    box-shadow:
-                        0 2px 4px
-                        rgba(0,0,0,0.1);
-                "
-            >
-
-                <button
-                    onclick="window.print()"
-                    style="
-                        padding: 10px 28px;
-                        background: #0284c7;
-                        color: white;
-                        border: none;
-                        border-radius: 6px;
-                        cursor: pointer;
-                        font-weight: bold;
-                        font-size: 14px;
-                    "
-                >
-                    PDFを保存・印刷
-                </button>
-
-            </div>
-
-
-            <div
-                style="height: 50px;"
-                class="no-print"
-            ></div>
+            <header class="export-toolbar no-print" aria-label="PDF出力の操作">
+                <span class="export-brand">Curator-Canvas</span>
+                <span class="export-toolbar-title">PDF出力</span>
+                <div class="export-actions">
+                    <button type="button" class="export-action" onclick="window.print()">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 17H3V9h18v8h-3M6 14h12v7H6zM17 11h1"/></svg>
+                        PDF保存・印刷
+                    </button>
+                    <button type="button" class="export-action export-action-secondary" onclick="window.close()">閉じる</button>
+                </div>
+            </header>
+            <div class="export-toolbar-spacer no-print"></div>
 
 
             ${pagesHtml}
