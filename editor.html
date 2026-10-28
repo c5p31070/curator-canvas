@@ -347,12 +347,12 @@
                         <div id="spotlightDirectionFields" hidden>
                             <div class="form-group">
                                 <label for="lightAimMode">光の向き</label>
-                                <select id="lightAimMode" class="form-control"><option value="free">角度で指定</option><option value="artwork">作品中央にスナップ</option><option value="down">真下を照らす</option></select>
-                                <button id="btnPickLightTarget" class="btn btn-secondary" type="button" data-tooltip="図面上の作品をクリックして、光をその中央へ向けます。Escでキャンセルします。">作品をクリックしてスナップ</button>
+                                <select id="lightAimMode" class="form-control"><option value="free">角度で指定</option><option value="artwork">作品中央にスナップ</option><option value="artwork-point">作品内の位置にスナップ</option><option value="down">真下を照らす</option></select>
+                                <button id="btnPickLightTarget" class="btn btn-secondary" type="button" data-tooltip="図面上の作品を選択します。任意位置モードではクリックした横位置に合わせ、高さは下の正面図で指定します。Escでキャンセルします。">作品をクリックしてスナップ</button>
                             </div>
                             <div class="form-group" id="lightAngleField">
                                 <label for="lightDirection">水平角（レール直角0°）</label>
-                                <input id="lightDirection" class="form-control" type="number" min="-90" max="90" value="0" step="0.1" data-tooltip="レールに直角の照射方向が0°、平行が±90°です。0°から図面上で時計回りが＋、反時計回りが−。作品指定時は作品中央とライトを結ぶ方向から計算します。">
+                                <input id="lightDirection" class="form-control" type="number" min="-90" max="90" value="0" step="0.1" data-tooltip="レールに直角の照射方向が0°、平行が±90°です。0°から図面上で時計回りが＋、反時計回りが−。作品指定時は照射点とライトを結ぶ方向から計算します。">
                                 <button id="btnFlipSpotlightSide" class="btn btn-secondary" type="button" data-tooltip="水平角を保ったまま、レールの反対側へ照射します。">照射側を反転</button>
                             </div>
                             <div class="form-group">
@@ -364,7 +364,19 @@
                             <div class="form-group" id="lightTargetField" hidden>
                                 <label for="lightTargetSelect">向ける作品</label>
                                 <select id="lightTargetSelect" class="form-control"></select>
-                                <button id="btnAlignSpotlightToArtwork" class="btn btn-secondary" type="button" data-tooltip="作品中央からレールへ垂直に下ろした位置にライトを移動し、作品を向いたまま水平角を0°にします。">作品正面に合わせる（水平0°）</button>
+                                <div id="lightTargetPointFields" hidden>
+                                    <button id="lightTargetPointPreview" type="button" class="btn btn-secondary" aria-label="作品正面の照射位置を選択" data-tooltip="作品を正面から見た図です。照らしたい位置をクリックします。" style="display:block;padding:0;margin:8px auto;max-width:100%;border:1px solid #777;touch-action:manipulation">
+                                        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" style="display:block;width:100%;height:100%;background:#41474c">
+                                            <path d="M50 0V100M0 50H100" stroke="#737a80" stroke-width="1" vector-effect="non-scaling-stroke"/>
+                                            <g id="lightTargetPointMarker" transform="translate(50 50)"><path d="M-5 0H5M0 -5V5" stroke="#f6d77a" stroke-width="2" vector-effect="non-scaling-stroke"/></g>
+                                        </svg>
+                                    </button>
+                                    <div class="form-row">
+                                        <div class="form-group"><label for="lightTargetX">横位置 (%)</label><input id="lightTargetX" class="form-control" type="number" min="0" max="100" step="0.1" value="50" data-tooltip="作品正面の左端が0%、右端が100%。"></div>
+                                        <div class="form-group"><label for="lightTargetY">高さ位置 (%)</label><input id="lightTargetY" class="form-control" type="number" min="0" max="100" step="0.1" value="50" data-tooltip="作品の下端が0%、上端が100%。床からの高さは作品中央の高さから計算します。"></div>
+                                    </div>
+                                </div>
+                                <button id="btnAlignSpotlightToArtwork" class="btn btn-secondary" type="button" data-tooltip="照射点からレールへ垂直に下ろした位置にライトを移動し、照射点を向いたまま水平角を0°にします。">作品正面に合わせる（水平0°）</button>
                             </div>
                         </div>
                     </div>

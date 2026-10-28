@@ -443,6 +443,7 @@ function getCustomProperties() {
         'lightTiltDeg',
         'lightRailAngleDeg', 'lightRailNormalSide',
         'lightAimMode', 'lightAimTargetId', 'lightingTargetId',
+        'lightTargetXPercent', 'lightTargetYPercent',
         'isWallOutline',
         'displayType',
         'cmWidth',

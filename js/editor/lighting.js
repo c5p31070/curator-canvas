@@ -139,14 +139,50 @@ function nearestSpotlightRail(point) {
     return nearest;
 }
 
+const isArtworkLightAim = light => ['artwork', 'artwork-point'].includes(light?.lightAimMode);
+const lightTargetPercent = value => Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 50;
+
+function artworkLightDestination(light, target) {
+    const height = window.getArtworkCenterHeightCm?.(target) ?? null;
+    if (light.lightAimMode !== 'artwork-point') return { point: target.getCenterPoint(), height };
+    const x = lightTargetPercent(light.lightTargetXPercent) / 100;
+    const y = lightTargetPercent(light.lightTargetYPercent) / 100;
+    const body = target.item(0);
+    // A front elevation: horizontal position follows the artwork's local X
+    // axis; vertical position changes physical height, never plan depth.
+    const point = fabric.util.transformPoint(new fabric.Point((x - .5) * body.width, body.height / 2), body.calcTransformMatrix());
+    return { point, height: height === null ? null : height + (y - .5) * Number(target.cmHeight || 0) };
+}
+
+function refreshLightTargetPoint(light, updateInputs = true) {
+    const enabled = light?.lightAimMode === 'artwork-point';
+    document.getElementById('lightTargetPointFields').hidden = !enabled;
+    const target = canvas.getObjects().find(object => object.isArtwork && object.lightingTargetId === light?.lightAimTargetId);
+    const x = lightTargetPercent(light?.lightTargetXPercent), y = lightTargetPercent(light?.lightTargetYPercent);
+    if (updateInputs) {
+        document.getElementById('lightTargetX').value = x;
+        document.getElementById('lightTargetY').value = y;
+    }
+    const marker = document.getElementById('lightTargetPointMarker');
+    marker.setAttribute('transform', `translate(${x} ${100 - y})`);
+    const preview = document.getElementById('lightTargetPointPreview');
+    const ratio = (Number(target?.cmWidth) || 100) / (Number(target?.cmHeight) || 100);
+    const width = Math.min(150, 150 * ratio);
+    preview.style.width = `${width}px`;
+    preview.style.height = `${width / ratio}px`;
+    [preview, document.getElementById('lightTargetX'), document.getElementById('lightTargetY')].forEach(input => {
+        input.disabled = lightingReadOnly() || !enabled || !target;
+    });
+}
+
 function alignSpotlightToArtwork() {
     const light = lightingById(selectedLightId);
-    if (lightingReadOnly() || isTransitioning || light?.lightKind !== 'spot' || light.lightAimMode !== 'artwork') return;
+    if (lightingReadOnly() || isTransitioning || light?.lightKind !== 'spot' || !isArtworkLightAim(light)) return;
     const target = canvas.getObjects().find(object => object.isArtwork && object.lightingTargetId === light.lightAimTargetId);
     const rail = lightingById(light.lightRailId);
     if (!target || !rail?.isLightRail) return;
     const { start, end } = railEndpoints(rail);
-    const point = target.getCenterPoint();
+    const point = artworkLightDestination(light, target).point;
     const dx = end.x - start.x, dy = end.y - start.y;
     const lengthSquared = dx * dx + dy * dy;
     if (lengthSquared < .000001) return;
@@ -157,7 +193,7 @@ function alignSpotlightToArtwork() {
     }
     const position = projectOntoRail(rail, point);
     if (Math.hypot(point.x - position.x, point.y - position.y) < .001) {
-        alert('作品中央がレールの真下にあるため、水平方向の正面を定められません。');
+        alert('照射点がレールの真下にあるため、水平方向の正面を定められません。');
         return;
     }
     cancelLightingPlacement();
@@ -195,21 +231,23 @@ function applyRailRelativeDirection(light) {
 
 function lightingDirection(light) {
     const center = light.getCenterPoint();
-    const target = light.lightAimMode === 'artwork'
+    const target = isArtworkLightAim(light)
         ? canvas.getObjects().find(obj => obj.isArtwork && obj.lightingTargetId === light.lightAimTargetId)
         : null;
     if (target) {
-        const destination = target.getCenterPoint();
+        const aim = artworkLightDestination(light, target);
+        const destination = aim.point;
         light.lightDirectionDeg = (Math.atan2(destination.y - center.y, destination.x - center.x) * 180 / Math.PI + 360) % 360;
         const length = Math.hypot(destination.x - center.x, destination.y - center.y);
         const scale = Number(configuredScale);
-        const targetHeight = window.getArtworkCenterHeightCm?.(target) ?? null;
+        const targetHeight = aim.height;
         const tilt = targetHeight !== null && targetHeight !== undefined && Number.isFinite(Number(targetHeight)) && scale > 0
             ? Math.atan2(length / scale, spotlightMountHeightCm - Number(targetHeight)) * 180 / Math.PI : null;
         return { angle: light.lightDirectionDeg * Math.PI / 180, length, tilt,
-            note: !(scale > 0) ? '平面図の縮尺を設定してください' : tilt === null ? '展示物の編集で作品中央の高さを設定してください' : '' };
+            note: !(scale > 0) ? '平面図の縮尺を設定してください' : tilt === null ? '展示物の編集で作品中央の高さを設定してください'
+                : light.lightAimMode === 'artwork-point' ? `照射高 ${targetHeight.toFixed(1)} cm` : '' };
     }
-    if (light.lightAimMode === 'artwork') {
+    if (isArtworkLightAim(light)) {
         light.lightAimMode = 'free';
         light.lightAimTargetId = null;
     }
@@ -341,7 +379,7 @@ function refreshLightingControls() {
     if (fields) fields.hidden = !light;
     const directionFields = document.getElementById('spotlightDirectionFields');
     if (directionFields) directionFields.hidden = light?.lightKind !== 'spot';
-    const snap = light?.lightAimMode === 'artwork';
+    const snap = isArtworkLightAim(light);
     const angleField = document.getElementById('lightAngleField');
     const targetField = document.getElementById('lightTargetField');
     if (angleField) angleField.hidden = false;
@@ -350,7 +388,7 @@ function refreshLightingControls() {
     const mode = document.getElementById('lightAimMode');
     const angle = document.getElementById('lightDirection');
     if (power) power.checked = light?.lightOn !== false;
-    if (mode) mode.value = light?.lightAimMode === 'down' ? 'down' : (snap ? 'artwork' : 'free');
+    if (mode) mode.value = light?.lightAimMode === 'down' ? 'down' : (snap ? light.lightAimMode : 'free');
     if (light?.lightKind === 'spot') lightingDirection(light);
     const railReference = light?.lightKind === 'spot' ? spotlightRailReference(light) : null;
     if (angle) angle.value = railReference ? railReference.relative.toFixed(2) : '';
@@ -364,6 +402,7 @@ function refreshLightingControls() {
     if (flip) flip.disabled = lightingReadOnly() || !light || light.lightAimMode !== 'free' || !railReference;
     document.getElementById('lightTilt').disabled = lightingReadOnly() || !light || light.lightAimMode !== 'free';
     refreshSpotlightReadout(light);
+    refreshLightTargetPoint(light);
     const add = document.getElementById('btnPlaceSpotlight');
     if (add) add.disabled = lightingReadOnly() || !objects.some(obj => obj.isLightRail);
     const pick = document.getElementById('btnPickLightTarget');
@@ -505,6 +544,12 @@ function applyLightSettings(debounce = false) {
     light.lightOn = document.getElementById('lightPower').checked;
     if (light.lightKind === 'spot') {
         const mode = document.getElementById('lightAimMode').value;
+        const targetX = Number(document.getElementById('lightTargetX').value);
+        const targetY = Number(document.getElementById('lightTargetY').value);
+        if (mode === 'artwork-point' && ['lightTargetX', 'lightTargetY'].some(id => !document.getElementById(id).value.trim() || !Number.isFinite(Number(document.getElementById(id).value)) || Number(document.getElementById(id).value) < 0 || Number(document.getElementById(id).value) > 100)) {
+            document.getElementById('lightOrientationReadout').textContent = '照射位置は0〜100%で入力してください';
+            return;
+        }
         let angleText = document.getElementById('lightDirection').value;
         if (mode === 'free' && light.lightAimMode !== 'free' && !angleText.trim()) {
             angleText = String(light.lightRailAngleDeg ?? 0);
@@ -540,9 +585,14 @@ function applyLightSettings(debounce = false) {
             if (!target) { light.lightAimMode = 'free'; refreshLighting(); return; }
             if (!target.lightingTargetId) target.lightingTargetId = crypto.randomUUID();
             light.lightAimTargetId = target.lightingTargetId;
+            if (mode === 'artwork-point') {
+                light.lightTargetXPercent = targetX;
+                light.lightTargetYPercent = targetY;
+            }
         }
     }
     refreshLighting(!debounce);
+    refreshLightTargetPoint(light, !debounce);
     if (lightingEditTimer) clearTimeout(lightingEditTimer);
     lightingEditTimer = null;
     if (debounce) lightingEditTimer = setTimeout(() => { lightingEditTimer = null; saveState(); }, 400);
@@ -626,7 +676,14 @@ canvas.on('mouse:down', event => {
         const light = lightingById(selectedLightId);
         if (!target || !light?.isLightObject) return;
         if (!target.lightingTargetId) target.lightingTargetId = crypto.randomUUID();
-        light.lightAimMode = 'artwork'; light.lightAimTargetId = target.lightingTargetId;
+        light.lightAimMode = document.getElementById('lightAimMode').value === 'artwork-point' ? 'artwork-point' : 'artwork';
+        light.lightAimTargetId = target.lightingTargetId;
+        if (light.lightAimMode === 'artwork-point') {
+            const body = target.item(0);
+            const local = fabric.util.transformPoint(new fabric.Point(point.x, point.y), fabric.util.invertTransform(body.calcTransformMatrix()));
+            light.lightTargetXPercent = Math.max(0, Math.min(100, (local.x / body.width + .5) * 100));
+            light.lightTargetYPercent = lightTargetPercent(light.lightTargetYPercent);
+        }
         cancelLightingPlacement(); refreshLighting(); saveState();
         return;
     }
@@ -748,6 +805,18 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnDrawLightRail')?.addEventListener('click', () => startLightingPlacement('rail'));
     document.getElementById('btnPlaceSpotlight')?.addEventListener('click', () => startLightingPlacement('spot'));
     document.getElementById('btnPickLightTarget')?.addEventListener('click', () => startLightingPlacement('aim'));
+    document.getElementById('lightTargetPointPreview')?.addEventListener('click', event => {
+        if (lightingReadOnly()) return;
+        const bounds = event.currentTarget.querySelector('svg').getBoundingClientRect();
+        if (!bounds.width || !bounds.height || event.detail === 0) return;
+        document.getElementById('lightTargetX').value = Math.max(0, Math.min(100, (event.clientX - bounds.left) / bounds.width * 100)).toFixed(1);
+        document.getElementById('lightTargetY').value = Math.max(0, Math.min(100, (bounds.bottom - event.clientY) / bounds.height * 100)).toFixed(1);
+        applyLightSettings();
+    });
+    ['lightTargetX', 'lightTargetY'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', () => applyLightSettings(true));
+        document.getElementById(id)?.addEventListener('change', () => { flushPendingLightingEdit(); refreshLightingControls(); });
+    });
     document.getElementById('lightingVisibility')?.addEventListener('change', event => toggleLightingVisibility(event.target.checked));
     document.getElementById('lightObjectSelect')?.addEventListener('change', event => {
         flushPendingLightingEdit(); selectedLightId = event.target.value; refreshLightingControls();
