@@ -3,7 +3,7 @@
 (() => {
     const enabled = true;
     const active = enabled && /(^|\/)editor\.html$/.test(location.pathname) && new URLSearchParams(location.search).get('guest') === '1';
-    const blockedTools = new Set(['setup', 'team', 'lighting']);
+    const blockedTools = new Set(['setup', 'team']);
     const memory = new Map();
     const prefix = 'curator_canvas_guest_demo_v1:';
     const storage = {
@@ -33,14 +33,31 @@
             wallPlanJsonData: walls, savedArtworkCatalog: []
         }));
     }
+    // Install the published snapshot before the editor reads its scoped store.
+    // Existing guest drawings remain intact; new preset revisions replace only
+    // venue equipment and calibration. Old orphan spotlights are filtered on load.
+    const preset = window.CURATOR_GUEST_VENUE_PRESET;
+    const hasLightingPreset = Boolean(preset?.version && Number.isFinite(preset.scale) && preset.scale > 0 && preset.venueLightingData);
+    if (active && hasLightingPreset && (storage.getItem('lighting_preset_revision') !== preset.version || !storage.getItem('curator_canvas_venue_lighting_v1'))) {
+        const lighting = {};
+        ['lobby', 'floor1', 'floor2'].forEach(id => {
+            lighting[id] = { objects: (preset.venueLightingData[id]?.objects || [])
+                .filter(object => object.isLightRail || (object.isLightObject && object.lightKind === 'fixed'))
+                .map(object => ({ ...object, visible: true, lightOn: true, excludeFromExport: false })) };
+        });
+        storage.setItem('curator_canvas_venue_lighting_v1', JSON.stringify(lighting));
+        storage.setItem('curator_canvas_floor_scale', String(preset.scale));
+        storage.setItem('lighting_preset_revision', preset.version);
+    }
+    if (active && hasLightingPreset) storage.setItem('curator_canvas_floor_scale', String(preset.scale));
     const applyRestrictions = () => {
         document.body.classList.add('guest-demo');
-        document.querySelectorAll('[data-tool="setup"], [data-tool="team"], [data-tool="lighting"], #btnToggleAdminMode, #adminSettingsPanel input, #adminSettingsPanel button, #adminSettingsPanel select').forEach(control => {
+        document.querySelectorAll('[data-tool="setup"], [data-tool="team"], #btnToggleAdminMode, #adminSettingsPanel input, #adminSettingsPanel button, #adminSettingsPanel select').forEach(control => {
             control.disabled = true;
         });
     };
     window.CURATOR_GUEST = Object.freeze({
-        enabled, active, storage: active ? storage : null,
+        enabled, active, hasLightingPreset, storage: active ? storage : null,
         allowsTool: tool => !active || !blockedTools.has(tool),
         initializeAuth() {
             window.CURATOR_USER = null;
@@ -61,8 +78,10 @@
         document.head.appendChild(sheet);
         if (!active) return;
         applyRestrictions();
+        const lightingNotice = document.getElementById('guestLightingPresetNotice');
+        if (lightingNotice) lightingNotice.hidden = hasLightingPreset;
         const account = document.getElementById('accountLabel');
-        if (account) account.textContent = 'ゲスト体験 · 体験用設定 · 端末内保存';
+        if (account) account.textContent = `ゲスト体験 · ${hasLightingPreset ? '配布済み照明' : '体験用設定'} · 端末内保存`;
         const exit = document.getElementById('btnLogout');
         if (exit) {
             exit.textContent = 'ゲストを終了';

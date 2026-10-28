@@ -12,6 +12,6 @@
 }
 #guestDemoEntry .btn-start:hover { background: #3b454d; }
 #guestDemoEntry p { margin: 8px 0 0; color: #9da8af; font-size: 11px; line-height: 1.7; }
-.guest-demo :is([data-tool="setup"], [data-tool="team"], [data-tool="lighting"], [data-action="light-visibility"],
-    [data-tool-panel="setup"], [data-tool-panel="team"], [data-tool-panel="lighting"], #adminSettingsPanel,
+.guest-demo :is([data-tool="setup"], [data-tool="team"],
+    [data-tool-panel="setup"], [data-tool-panel="team"], #adminSettingsPanel,
     .admin-only, .fixture-option) { display: none !important; }

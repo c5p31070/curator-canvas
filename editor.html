@@ -20,6 +20,7 @@
     <style>html.auth-loading body { visibility: hidden; }</style>
     <script>document.documentElement.classList.add('auth-loading');</script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/guest-venue-preset.js"></script>
     <script src="js/guest-demo.js"></script>
     <script src="js/supabase-config.js"></script>
     <script src="js/auth.js"></script>
@@ -60,6 +61,11 @@
 
             <div id="adminSettingsPanel" class="panel-section admin-settings-panel config-section tool-panel" data-tool-panel="setup" hidden>
                 <h2>壁・図面の事前設定</h2>
+                <div class="drawing-subsection">
+                    <h3>ゲスト体験用の配布</h3>
+                    <button id="btnExportGuestLighting" class="btn btn-secondary" type="button" data-tooltip="全階のレール・固定ライトと縮尺を配布用ファイルに書き出します。作品・スポットライト・アカウント情報は含みません。">ゲスト用照明データを書き出す</button>
+                    <p id="guestLightingExportStatus" class="field-note" role="status"></p>
+                </div>
                 <div class="drawing-subsection">
                     <h3>レール配置のコピー</h3>
                     <div class="form-row">
@@ -334,6 +340,7 @@
 
             <div class="panel-section tool-panel lighting-panel" data-tool-panel="lighting">
                 <h2>照明</h2>
+                <p id="guestLightingPresetNotice" class="field-note" hidden>照明配置は管理者による配布待ちです。</p>
                 <label class="lighting-visibility"><input id="lightingVisibility" type="checkbox" checked>照明を表示</label>
                 <button id="btnPlaceSpotlight" class="btn btn-secondary" type="button" aria-pressed="false" data-tooltip="追加したいレール上を直接クリックします。Escで終了します。">スポットライトを追加</button>
                 <div class="drawing-subsection">
@@ -833,6 +840,7 @@
     <script src="js/editor/workspace-grid.js" defer></script>
     <script src="js/editor/lighting.js" defer></script>
     <script src="js/editor/copy-light-rails.js" defer></script>
+    <script src="js/editor/guest-lighting-export.js" defer></script>
     <script src="js/editor/movable-walls.js" defer></script>
     <script src="js/editor/pdf.js" defer></script>
     <script src="js/editor/ui-navigation.js" defer></script>
