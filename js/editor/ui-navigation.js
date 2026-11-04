@@ -53,10 +53,10 @@ function initializeNavigationUi() {
     if (btnAddWall) {
         btnAddWall.addEventListener('click', async () => {
             const name = (document.getElementById('newWallTitle')?.value || '').trim();
-            const width = parseFloat(document.getElementById('newWallWidthCm')?.value);
+            const width = mmToCm(document.getElementById('newWallWidthCm')?.value);
             const height = FIXED_WALL_HEIGHT_CM;
             if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
-                alert('壁の長さと高さを1cm以上で入力してください。');
+                alert('壁の長さと高さを正の数値（mm）で入力してください。');
                 return;
             }
             captureCurrentCanvasState();
@@ -98,6 +98,33 @@ function initializeNavigationUi() {
     }
 
     const btnApplyWallSize = document.getElementById("btnApplyWallSize");
+    const renameButton = document.getElementById('btnRenameFixedWall');
+    renameButton?.addEventListener('click', async () => {
+        if (!isAdminMode || currentViewMode !== 'wall' || isTransitioning || isUndoRedoOperation || window.CURATOR_ROLE === 'viewer') return;
+        const id = selectedWallInfo.id;
+        const wall = wallPlanJsonData[id];
+        if (!wall || wall.movableWallId) return;
+        const input = document.getElementById('fixedWallName');
+        const title = input.value.trim();
+        if (!title) {
+            alert('固定壁の名前を入力してください。');
+            input.focus();
+            return;
+        }
+        if (title === wall.title) return;
+        renameButton.disabled = true;
+        try {
+            if (!await window.renameVenueWall(id, title)) return;
+            if (selectedWallInfo.id === id) {
+                selectedWallInfo.title = title;
+                updateWallBannerText();
+            }
+            updateWallDropdownOptions();
+            saveState();
+            const status = document.getElementById('saveStatus');
+            if (status) status.textContent = `固定壁の名前を「${title}」に変更しました。`;
+        } finally { renameButton.disabled = false; }
+    });
     document.getElementById('wallFloorSelect')?.addEventListener('change', async event => {
         const wall = wallPlanJsonData[selectedWallInfo.id];
         const floorId = event.target.value;
@@ -122,7 +149,8 @@ function initializeNavigationUi() {
 
             if (wInput && hInput) {
 
-                const newW = parseFloat(wInput.value) || 600;
+                const newW = mmToCm(wInput.value);
+                if (!Number.isFinite(newW) || newW <= 0) return alert("壁の幅を正の数値（mm）で入力してください。");
                 const newH = FIXED_WALL_HEIGHT_CM;
 
                 if (!Number.isFinite(newW) || newW <= 0) return;

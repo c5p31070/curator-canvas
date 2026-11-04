@@ -10,6 +10,10 @@ const editorStorage = window.CURATOR_GUEST?.storage || {
     setItem: (key, value) => window.localStorage.setItem(key, value),
     removeItem: key => window.localStorage.removeItem(key)
 };
+// Saved geometry and calibration use cm and px/cm. Convert only at the UI boundary.
+const cmToMm = value => Number((Number(value) * 10).toPrecision(15));
+const mmToCm = value => Number(value) / 10;
+const scaleToPxPerMm = value => Number((value / 10).toPrecision(15));
 const canvas = new fabric.Canvas('canvas');
 // Selection must not lift an artwork above ceiling light markers.
 canvas.preserveObjectStacking = true;
@@ -29,7 +33,7 @@ try { crowdVisible = editorStorage.getItem('curator_canvas_crowd_visible') !== '
 let configuredScale = loadConfiguredScale();
 if (configuredScale !== null) {
     const input = document.getElementById('scale');
-    if (input) input.value = configuredScale;
+    if (input) input.value = scaleToPxPerMm(configuredScale);
 }
 
 function loadConfiguredScale() {
@@ -54,11 +58,11 @@ function setConfiguredScale(value) {
     const scale = Number(value);
     const input = document.getElementById('scale');
     if (!Number.isFinite(scale) || scale <= 0 || scale >= 1000000) {
-        if (input) input.value = configuredScale ?? 0.5;
+        if (input) input.value = scaleToPxPerMm(configuredScale ?? 0.5);
         return false;
     }
     configuredScale = scale;
-    if (input) input.value = scale;
+    if (input) input.value = scaleToPxPerMm(scale);
     window.refreshWorkspaceScaleBar?.();
     try {
         // Signed-in teams always obtain this value from the server.
@@ -562,11 +566,7 @@ function getSerializedCanvasData() {
         ? titleInput.value
         : "";
 
-    const scaleInput = document.getElementById("scale");
-
-    const currentScale = configuredScale ?? (scaleInput
-        ? parseFloat(scaleInput.value) || 0.5
-        : 0.5);
+    const currentScale = configuredScale ?? 0.5;
 
     const data = {
         exhibitionTitle: exhibitionTitle,
@@ -771,7 +771,7 @@ async function applyStateData(jsonString, callback) {
         }]));
         floorPlanJsonData = floorPlanData[selectedFloorId].json;
         cachedBackgroundImage = floorBackgroundImages.get(selectedFloorId) || null;
-        if (scaleInput) scaleInput.value = scaleValue;
+        if (scaleInput) scaleInput.value = scaleToPxPerMm(scaleValue);
 
         if (parsed.wallPlanJsonData) {
             wallPlanJsonData =
@@ -1015,9 +1015,14 @@ function setCrowdVisibility(visible) {
     try { editorStorage.setItem('curator_canvas_crowd_visible', String(crowdVisible)); }
     catch (error) { console.warn('混雑予想の表示設定を保存できませんでした。', error); }
     canvas.getObjects().filter(obj => obj.isCrowdCircle).forEach(configureCrowdCircle);
-    const input = document.getElementById('crowdVisibility');
-    if (input) input.checked = crowdVisible;
+    syncCrowdVisibilityButton();
     canvas.requestRenderAll();
+}
+
+function syncCrowdVisibilityButton() {
+    const button = document.querySelector('[data-action="crowd-visibility"]');
+    button?.setAttribute('aria-pressed', String(crowdVisible));
+    button?.classList.toggle('active', crowdVisible);
 }
 
 function configureCrowdCircle(circle) {

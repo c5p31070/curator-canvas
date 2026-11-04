@@ -241,7 +241,7 @@ function lightingDirection(light) {
         light.lightDirectionDeg = normalizeLightAngle(Math.atan2(dy, dx) * 180 / Math.PI);
         return { angle: light.lightDirectionDeg * Math.PI / 180, length,
             tilt: scale > 0 ? Math.atan2(length / scale, spotlightMountHeightCm) * 180 / Math.PI : null,
-            note: scale > 0 ? '地面 / 高さ 0 cm' : '平面図の縮尺を設定してください' };
+            note: scale > 0 ? '地面 / 高さ 0 mm' : '平面図の縮尺を設定してください' };
     }
     const target = isArtworkLightAim(light)
         ? canvas.getObjects().find(obj => obj.isArtwork && obj.lightingTargetId === light.lightAimTargetId)
@@ -257,7 +257,7 @@ function lightingDirection(light) {
             ? Math.atan2(length / scale, spotlightMountHeightCm - Number(targetHeight)) * 180 / Math.PI : null;
         return { angle: light.lightDirectionDeg * Math.PI / 180, length, tilt,
             note: !(scale > 0) ? '平面図の縮尺を設定してください' : tilt === null ? '展示物の編集で作品中央の高さを設定してください'
-                : light.lightAimMode === 'artwork-point' ? `照射高 ${targetHeight.toFixed(1)} cm` : '' };
+                : light.lightAimMode === 'artwork-point' ? `照射高 ${Number(cmToMm(targetHeight).toFixed(1))} mm` : '' };
     }
     if (isArtworkLightAim(light)) {
         light.lightAimMode = 'free';
@@ -282,7 +282,7 @@ window.getLightPopupDetails = light => {
     if (!light?.isLightObject) return null;
     const power = light.lightOn === false ? '消灯' : '点灯';
     const title = light.lightName || (light.lightKind === 'spot' ? 'スポットライト' : '固定ライト');
-    if (light.lightKind !== 'spot') return { title, meta: `固定ライト / ${power}`, description: '天井高 450 cm' };
+    if (light.lightKind !== 'spot') return { title, meta: `固定ライト / ${power}`, description: '天井高 4500 mm' };
     const direction = lightingDirection(light);
     const reference = spotlightRailReference(light);
     const horizontal = direction.tilt === 0 || !reference || direction.tilt === null ? '—' : `${reference.relative.toFixed(2)}°`;

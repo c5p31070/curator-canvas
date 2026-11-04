@@ -5,7 +5,7 @@
     try {
         const saved = JSON.parse(editorStorage.getItem(storageKey) || 'null');
         if (saved) settings = { visible: saved.visible !== false, snap: saved.snap === true,
-            spacingCm: Number.isInteger(saved.spacingCm) && saved.spacingCm >= 1 && saved.spacingCm <= 1000 ? saved.spacingCm : 50 };
+            spacingCm: Number.isFinite(saved.spacingCm) && saved.spacingCm >= 1 && saved.spacingCm <= 1000 ? saved.spacingCm : 50 };
     } catch {}
     let overlay;
     let frame = null;
@@ -82,7 +82,7 @@
         while (grid.step * zoom * stride < 7) stride *= 5;
         const step = grid.step * stride;
         if (hint && stride > 1) {
-            hint.textContent = `表示：${settings.spacingCm * stride} cmごと（吸着：${settings.spacingCm} cm）`;
+            hint.textContent = `表示：${cmToMm(settings.spacingCm * stride)} mmごと（吸着：${cmToMm(settings.spacingCm)} mm）`;
             hint.hidden = false;
         }
         const geometryKey = JSON.stringify([grid, step, zoom, canvas.getWidth(), canvas.getHeight()]);
@@ -119,11 +119,11 @@
         const spacing = document.getElementById('workspaceGridSpacing');
         visible.checked = settings.visible;
         snap.checked = settings.snap;
-        spacing.value = settings.spacingCm;
+        spacing.value = cmToMm(settings.spacingCm);
         const change = () => {
-            const value = Number(spacing.value);
-            if (!Number.isInteger(value) || value < 1 || value > 1000) {
-                spacing.value = settings.spacingCm;
+            const value = mmToCm(spacing.value);
+            if (!Number.isInteger(Number(spacing.value)) || value < 1 || value > 1000) {
+                spacing.value = cmToMm(settings.spacingCm);
                 return;
             }
             settings = { visible: visible.checked, snap: snap.checked, spacingCm: value };

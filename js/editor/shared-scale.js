@@ -56,7 +56,7 @@ function acceptSharedScale(value) {
     setConfiguredScale(scale);
     lockTeamScaleWorkspace();
     updateTeamScaleControls();
-    teamScaleStatus(`チーム共通：${scale} px/cm`);
+    teamScaleStatus(`チーム共通：${scaleToPxPerMm(scale)} px/mm`);
     if (changed) renderSharedScale();
 }
 
@@ -88,8 +88,8 @@ async function saveTeamFloorScale(value) {
     const scale = Number(value);
     if (!Number.isFinite(scale) || scale <= 0 || scale >= 1000000) {
         const input = document.getElementById('scale');
-        if (input) input.value = configuredScale ?? 0.5;
-        alert('縮尺には0より大きく、1000000未満の数値を入力してください。');
+        if (input) input.value = scaleToPxPerMm(configuredScale ?? 0.5);
+        alert('縮尺には0より大きく、100000未満の数値を入力してください。');
         return false;
     }
     if (!window.CURATOR_SUPABASE_CONFIG) {

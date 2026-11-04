@@ -17,9 +17,9 @@ function refreshArtworkCatalog() {
         option.value = item.id;
         const typeLabel = item.displayType === 'wall' ? '壁面' : '床置';
         const dimensions = item.displayType === 'wall'
-            ? `幅 ${item.cmWidth} × 高さ ${item.cmHeight} × 厚み ${item.cmDepth} cm`
-            : `幅 ${item.cmWidth} × 奥行 ${item.cmDepth} × 高さ ${item.cmHeight} cm`;
-        option.textContent = `No.${item.artworkNumber} ${item.name} · ${typeLabel} · ${dimensions}${item.artworkCenterHeightCm != null ? ` · 中央高 ${item.artworkCenterHeightCm} cm` : ''}`;
+            ? `幅 ${cmToMm(item.cmWidth)} × 高さ ${cmToMm(item.cmHeight)} × 厚み ${cmToMm(item.cmDepth)} mm`
+            : `幅 ${cmToMm(item.cmWidth)} × 奥行 ${cmToMm(item.cmDepth)} × 高さ ${cmToMm(item.cmHeight)} mm`;
+        option.textContent = `No.${item.artworkNumber} ${item.name} · ${typeLabel} · ${dimensions}${item.artworkCenterHeightCm != null ? ` · 中央高 ${cmToMm(item.artworkCenterHeightCm)} mm` : ''}`;
         select.appendChild(option);
     });
     select.value = savedArtworkCatalog.some(item => item.id === selected) ? selected : '';
@@ -89,7 +89,6 @@ function initializeObjectControlsUi() {
     pinKindInput?.addEventListener('change', refreshPinNumberField);
     refreshPinNumberField();
     const displayTypeSelect = document.getElementById("displayType");
-    const scaleInput = document.getElementById("scale");
     const addButton = document.getElementById("addArtwork");
     const addPinButton = document.getElementById("addPin");
     const updateCrowdButton = document.getElementById("updateCrowd");
@@ -118,10 +117,10 @@ function initializeObjectControlsUi() {
         document.getElementById('artworkName').value = item.name;
         document.getElementById('artworkDescription').value = item.description || '';
         document.getElementById('displayType').value = item.displayType || 'wall';
-        document.getElementById('artworkWidth').value = item.cmWidth;
-        document.getElementById('artworkHeight').value = item.cmHeight;
-        document.getElementById('artworkDepth').value = item.cmDepth;
-        document.getElementById('artworkCenterHeight').value = item.artworkCenterHeightCm ?? '';
+        document.getElementById('artworkWidth').value = cmToMm(item.cmWidth);
+        document.getElementById('artworkHeight').value = cmToMm(item.cmHeight);
+        document.getElementById('artworkDepth').value = cmToMm(item.cmDepth);
+        document.getElementById('artworkCenterHeight').value = item.artworkCenterHeightCm == null ? '' : cmToMm(item.artworkCenterHeightCm);
         document.getElementById('displayType').dispatchEvent(new Event('change', { bubbles: true }));
         pendingArtworkCatalogId = item.id;
         addButton.click();
@@ -136,7 +135,7 @@ function initializeObjectControlsUi() {
 
             if (window.CURATOR_ROLE === 'viewer' || isTransitioning) return;
             const centerHeightText = document.getElementById('artworkCenterHeight').value.trim();
-            let centerHeight = centerHeightText === '' ? null : Number(centerHeightText);
+            let centerHeight = centerHeightText === '' ? null : mmToCm(centerHeightText);
             if (centerHeight !== null && (!Number.isFinite(centerHeight) || centerHeight < 0)) {
                 alert('作品中央の高さは0以上の数値で入力してください。');
                 return;
@@ -164,10 +163,7 @@ function initializeObjectControlsUi() {
             const depthEl =
                 document.getElementById("artworkDepth");
 
-            const currentScale =
-                scaleInput
-                    ? parseFloat(scaleInput.value) || 0.5
-                    : 0.5;
+            const currentScale = configuredScale ?? 0.5;
 
             const nameText =
                 (nameEl && nameEl.value)
@@ -176,17 +172,17 @@ function initializeObjectControlsUi() {
 
             const cmW =
                 (widthEl && widthEl.value)
-                    ? parseFloat(widthEl.value)
+                    ? mmToCm(widthEl.value)
                     : 150;
 
             const cmH =
                 (heightEl && heightEl.value)
-                    ? parseFloat(heightEl.value)
+                    ? mmToCm(heightEl.value)
                     : 100;
 
             const cmD =
                 (depthEl && depthEl.value)
-                    ? parseFloat(depthEl.value)
+                    ? mmToCm(depthEl.value)
                     : 5;
 
             const addAsFixture =

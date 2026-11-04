@@ -67,8 +67,8 @@
                 if (guide.vertical) line(point.x - cap, point.y, point.x + cap, point.y);
                 else line(point.x, point.y - cap, point.x, point.y + cap);
             });
-            const distance = Math.round(guide.cm * 10) / 10;
-            const label = `${guide.name} ${Object.is(distance, -0) ? 0 : distance} cm`;
+            const distance = Number(cmToMm(guide.cm).toFixed(1));
+            const label = `${guide.name} ${Object.is(distance, -0) ? 0 : distance} mm`;
             const labelWidth = (label.length * 6 + 10) * pixel;
             const labelHeight = 16 * pixel;
             const margin = 2 * pixel;

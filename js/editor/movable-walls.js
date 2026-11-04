@@ -127,7 +127,7 @@
     window.configureMovableWall = wall => {
         if (!wall?.isMovableWall) return;
         normalizeWallName(wall);
-        const scale = configuredScale ?? (Number(document.getElementById('scale')?.value) || .5);
+        const scale = configuredScale ?? 0.5;
         const width = wall.cmWidth * scale, depth = wall.cmDepth * scale;
         wall.cmHeight = heightCm;
         wall.item(0).set({ width, height: depth, fill: '#30373d', stroke: '#171d22' });
@@ -152,8 +152,8 @@
         if (actions) actions.hidden = !selected;
         if (!selected) return;
         document.getElementById('movableWallName').value = selected.movableWallName;
-        document.getElementById('movableWallWidth').value = selected.cmWidth;
-        document.getElementById('movableWallDepth').value = selected.cmDepth;
+        document.getElementById('movableWallWidth').value = cmToMm(selected.cmWidth);
+        document.getElementById('movableWallDepth').value = cmToMm(selected.cmDepth);
         document.getElementById('movableWallAngle').value = Math.round(selected.angle || 0);
         [['Front', 'movableFrontId'], ['Back', 'movableBackId']].forEach(([suffix, key]) => {
             const input = document.getElementById(`movableWall${suffix}Unused`);
@@ -172,11 +172,11 @@
     }
 
     function parameters() {
-        const width = Number(document.getElementById('movableWallWidth').value);
-        const depth = Number(document.getElementById('movableWallDepth').value);
+        const width = mmToCm(document.getElementById('movableWallWidth').value);
+        const depth = mmToCm(document.getElementById('movableWallDepth').value);
         const angle = Number(document.getElementById('movableWallAngle').value);
         if (![width, depth, angle].every(Number.isFinite) || width <= 0 || depth <= 0 || width > 10000 || depth > 10000) {
-            alert('幅・厚さは0より大きく10000cm以下、回転は数値で入力してください。');
+            alert('幅・厚さは0より大きく100000 mm以下、回転は数値で入力してください。');
             return null;
         }
         return { width, depth, angle: ((angle % 360) + 360) % 360 };

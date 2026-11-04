@@ -203,6 +203,18 @@
         return saved;
     }
     window.flushVenueWallChanges = flush;
+    window.renameVenueWall = async (id, name) => {
+        const title = name.trim();
+        if (!title || !ready || !editable() || busy) return false;
+        if (pending && !await flush()) return false;
+        if (!walls[id]) return false;
+        if (walls[id].title === title) return true;
+        const next = clone(walls);
+        next[id].title = title;
+        const saved = await publish(next);
+        if (saved) window.applyVenueWallsToPlans();
+        return saved;
+    };
     window.saveVenueWallDefinition = async (id, wall) => {
         if (!ready || !editable() || busy) return false;
         if (pending && !await flush()) return false;

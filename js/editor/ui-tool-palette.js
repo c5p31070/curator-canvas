@@ -8,12 +8,14 @@ function initializeToolPalette() {
 
     const activate = (tool, toggle = false) => {
         if (window.CURATOR_GUEST?.allowsTool(tool) === false) return;
+        window.cancelPerspectivePick?.();
         if (tool !== 'draw') window.endShapeFreeTransform?.();
         window.cancelDimensionDrawing?.();
         window.cancelLightingPlacement?.();
         const targets = panels.filter(panel => panel.dataset.toolPanel === tool);
         const alreadyOpen = targets.length > 0 && targets.every(panel => panel.classList.contains('is-open'));
         panels.forEach(panel => panel.classList.remove('is-open'));
+        window.refreshPerspectiveGuide?.();
 
         if (toggle && alreadyOpen) {
             window.endShapeFreeTransform?.();
@@ -42,6 +44,7 @@ function initializeToolPalette() {
             switchViewMode('floor').then(() => window.refreshLightingControls?.());
         }
         if (tool === 'lighting') window.refreshLightingControls?.();
+        if (tool === 'perspective') window.refreshPerspectiveControls?.();
     };
 
     window.activateToolPanel = tool => activate(tool);
@@ -56,6 +59,7 @@ function initializeToolPalette() {
         }
 
         if (isFreeDrawingMode) toggleFreeDrawingMode(false);
+        window.cancelPerspectivePick?.();
         window.cancelDimensionDrawing?.();
         window.cancelLightingPlacement?.();
 
@@ -64,13 +68,15 @@ function initializeToolPalette() {
             wall: () => switchViewMode('wall'),
             undo,
             redo,
-            'light-visibility': () => window.toggleLightingVisibility?.()
+            'light-visibility': () => window.toggleLightingVisibility?.(),
+            'crowd-visibility': () => setCrowdVisibility(!crowdVisible)
         };
         actions[button.dataset.action]?.();
     });
 
     activate('artwork');
     updateViewModeToolState(currentViewMode);
+    syncCrowdVisibilityButton();
 }
 
 function updateViewModeToolState(mode = currentViewMode) {

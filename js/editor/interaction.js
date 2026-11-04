@@ -642,31 +642,26 @@ canvas.on(
 
             {
 
-                const realLengthCmStr =
+                const realLengthMmStr =
                     prompt(
-                        `測定した線の長さ（画面上 ${Math.round(linePixelLength)} px）は、現実で何 cm ですか？`,
-                        "300"
+                        `測定した線の長さ（画面上 ${Math.round(linePixelLength)} px）は、現実で何 mm ですか？`,
+                        "3000"
                     );
 
-                if (realLengthCmStr) {
+                if (realLengthMmStr) {
 
                     const realLengthCm =
-                        parseFloat(
-                            realLengthCmStr
+                        mmToCm(
+                            realLengthMmStr
                         );
 
                     if (
-                        !isNaN(realLengthCm) &&
+                        Number.isFinite(realLengthCm) &&
                         realLengthCm > 0
                     ) {
 
                         const calculatedScale =
-                            Math.round(
-                                (
-                                    linePixelLength /
-                                    realLengthCm
-                                ) * 1000
-                            ) / 1000;
+                            linePixelLength / realLengthCm;
 
                         if (!await window.saveTeamFloorScale(calculatedScale)) {
                             toggleMeasuringMode(false);
@@ -674,7 +669,7 @@ canvas.on(
                         }
 
                         alert(
-                            `縮尺スケールを [ ${calculatedScale} px/cm ] に自動更新しました！\n（配置済みの展示物サイズを一括適用します）`
+                            `縮尺スケールを [ ${scaleToPxPerMm(calculatedScale)} px/mm ] に自動更新しました！\n（配置済みの展示物サイズを一括適用します）`
                         );
 
                     } else {

@@ -1,6 +1,11 @@
 // Dimension annotations are ordinary Fabric groups; previews never enter saved data.
 let dimensionStartPoint = null;
 let dimensionPreview = null;
+const dimensionUnitKey = 'curator_canvas_dimension_display_unit';
+let dimensionDisplayUnit = 'mm';
+try {
+    if (editorStorage.getItem(dimensionUnitKey) === 'm') dimensionDisplayUnit = 'm';
+} catch {}
 
 function getDimensionScale() {
     if (currentViewMode === 'wall') {
@@ -9,12 +14,15 @@ function getDimensionScale() {
         const scale = Number(outline?.height) * Math.abs(Number(outline?.scaleY) || 1) / heightCm;
         if (Number.isFinite(scale) && scale > 0) return scale;
     }
-    const scale = Number(document.getElementById('scale')?.value);
+    const scale = configuredScale;
     return Number.isFinite(scale) && scale > 0 ? scale : 0.5;
 }
 
 function formatDimensionLength(lengthPx) {
-    return `${Number((lengthPx / getDimensionScale()).toFixed(1))} cm`;
+    const lengthMm = cmToMm(lengthPx / getDimensionScale());
+    return dimensionDisplayUnit === 'm'
+        ? `${Number((lengthMm / 1000).toFixed(4))} m`
+        : `${Number(lengthMm.toFixed(1))} mm`;
 }
 
 function configureDimensionObject(obj) {
@@ -157,6 +165,14 @@ canvas.on('mouse:up', event => {
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnAddDimension')?.addEventListener('click', startDimensionDrawing);
+    const unitSelect = document.getElementById('dimensionDisplayUnit');
+    if (!unitSelect) return;
+    unitSelect.value = dimensionDisplayUnit;
+    unitSelect.addEventListener('change', () => {
+        dimensionDisplayUnit = unitSelect.value === 'm' ? 'm' : 'mm';
+        try { editorStorage.setItem(dimensionUnitKey, dimensionDisplayUnit); } catch {}
+        refreshDimensionLabels();
+    });
 });
 window.addEventListener('keydown', event => {
     if (event.key === 'Escape' && isDimensionDrawingMode) {

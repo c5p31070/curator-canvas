@@ -105,7 +105,7 @@ window.getArtworkCenterHeightCm = artwork => {
 function wallArtworkScale() {
     const outline = canvas.getObjects().find(object => object.isWallOutline);
     if (outline && selectedWallInfo.heightCm > 0) return outline.height * (outline.scaleY || 1) / selectedWallInfo.heightCm;
-    return Number(configuredScale) > 0 ? Number(configuredScale) : Number(document.getElementById('scale')?.value) || .5;
+    return configuredScale ?? 0.5;
 }
 
 window.placeArtworkAtSavedHeight = artwork => {
@@ -219,26 +219,87 @@ function selectWallForCurrentFloor() {
         : { id: '', title: '', widthCm: 0, heightCm: 0 };
 }
 
+const wallFaceLabels = { front: '前面', back: '裏面', left: '左側面', right: '右側面' };
+const lastMovableWallFaces = new Map();
+
+function wallTabOrder(faces) {
+    const wall = faces[0][1];
+    if (!wall.movableWallId) return 0;
+    const number = faces.map(([, face]) => Number(face.movableWallNumber))
+        .find(value => Number.isInteger(value) && value > 0);
+    if (number) return number;
+    const legacyNumber = (wall.title || '').normalize('NFKC').match(/^(?:移動)?壁\s*\(?(\d+)/);
+    return legacyNumber ? Number(legacyNumber[1]) : Number.MAX_SAFE_INTEGER;
+}
+
 function updateWallTabs() {
     normalizeFixedWallHeights();
     updateFloorTabs();
-    const tabList = document.getElementById('wallTabs');
-    if (!tabList) return;
+    window.refreshPerspectiveControls?.();
+    const strip = document.getElementById('wallTabs');
+    const tabList = document.getElementById('wallTabList');
+    const faceSelect = document.getElementById('wallFaceSelect');
+    if (!strip || !tabList || !faceSelect) return;
 
+    strip.hidden = currentViewMode !== 'wall';
+    if (strip.hidden) return;
+    const previousScroll = tabList.scrollLeft;
+    const focusedGroup = tabList.contains(document.activeElement) ? document.activeElement.dataset.wallGroup : null;
     tabList.replaceChildren();
-    tabList.hidden = currentViewMode !== 'wall';
-    Object.entries(wallPlanJsonData).filter(([, wall]) => getWallFloorId(wall) === selectedFloorId).forEach(([id, wall], index) => {
+    const groups = new Map();
+    Object.entries(wallPlanJsonData).forEach(([id, wall]) => {
+        if (getWallFloorId(wall) !== selectedFloorId) return;
+        const key = wall.movableWallId ? `movable:${wall.movableWallId}` : `fixed:${id}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push([id, wall]);
+    });
+    let activeButton = null;
+    let focusedButton = null;
+    let activeFaces = [];
+    const orderedGroups = [...groups].sort(([, a], [, b]) => wallTabOrder(a) - wallTabOrder(b));
+    for (const [key, faces] of orderedGroups) {
+        const selected = faces.find(([id]) => id === selectedWallInfo.id);
+        const movable = Boolean(faces[0][1].movableWallId);
+        const [id, wall] = selected || faces.find(([faceId]) => faceId === lastMovableWallFaces.get(key))
+            || faces.find(([, face]) => face.face === 'front') || faces[0];
+        const title = wall.title || '壁面';
+        const label = movable ? title.replace(/・(?:前面|裏面|左側面|右側面)$/, '') : title;
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'wall-tab';
+        button.dataset.wallGroup = key;
         button.setAttribute('role', 'tab');
-        button.setAttribute('aria-selected', String(currentViewMode === 'wall' && id === selectedWallInfo?.id));
-        button.classList.toggle('active', currentViewMode === 'wall' && id === selectedWallInfo?.id);
-        button.textContent = wall.title || `壁面 ${index + 1}`;
-        button.title = `${wall.title || `壁面 ${index + 1}`} · ${wall.widthCm} × ${wall.heightCm} cm`;
+        button.setAttribute('aria-selected', String(Boolean(selected)));
+        button.classList.toggle('active', Boolean(selected));
+        button.textContent = label;
+        button.title = `${title} · ${cmToMm(wall.widthCm)} × ${cmToMm(wall.heightCm)} mm`;
         button.addEventListener('click', () => handleWallSelectChange(id));
         tabList.appendChild(button);
-    });
+        if (focusedGroup === key) focusedButton = button;
+        if (selected) {
+            activeButton = button;
+            if (movable) {
+                lastMovableWallFaces.set(key, id);
+                activeFaces = faces;
+            }
+        }
+    }
+    faceSelect.replaceChildren();
+    faceSelect.hidden = activeFaces.length === 0;
+    faceSelect.disabled = activeFaces.length <= 1;
+    for (const [id, wall] of activeFaces) {
+        faceSelect.add(new Option(wallFaceLabels[wall.face] || wall.title, id));
+    }
+    faceSelect.value = selectedWallInfo.id;
+    faceSelect.onchange = () => handleWallSelectChange(faceSelect.value);
+    tabList.scrollLeft = previousScroll;
+    if (activeButton) {
+        const viewport = tabList.getBoundingClientRect();
+        const bounds = activeButton.getBoundingClientRect();
+        if (bounds.left < viewport.left) tabList.scrollLeft += bounds.left - viewport.left;
+        else if (bounds.right > viewport.right) tabList.scrollLeft += bounds.right - viewport.right;
+    }
+    focusedButton?.focus({ preventScroll: true });
 }
 
 function updateFloorTabs() {
@@ -327,6 +388,7 @@ async function switchViewMode(
     callback = null,
     skipCapture = false
 ) {
+    window.cancelPerspectivePick?.();
     window.endShapeFreeTransform?.();
     window.cancelDimensionDrawing?.();
     window.cancelLightingPlacement?.();
@@ -493,24 +555,28 @@ function updateWallBannerText() {
 
     if (widthEl) {
         widthEl.innerText =
-            selectedWallInfo.widthCm;
+            cmToMm(selectedWallInfo.widthCm);
     }
 
     if (heightEl) {
         heightEl.innerText =
-            selectedWallInfo.heightCm;
+            cmToMm(selectedWallInfo.heightCm);
     }
 
     if (inputW) {
         inputW.value =
-            selectedWallInfo.widthCm;
+            cmToMm(selectedWallInfo.widthCm);
     }
 
     if (inputH) {
         inputH.value =
-            selectedWallInfo.heightCm;
+            cmToMm(selectedWallInfo.heightCm);
     }
     const movable = Boolean(wallPlanJsonData[selectedWallInfo.id]?.movableWallId);
+    const renameFields = document.getElementById('fixedWallRenameFields');
+    const renameInput = document.getElementById('fixedWallName');
+    if (renameFields) renameFields.hidden = !wallPlanJsonData[selectedWallInfo.id] || movable || window.CURATOR_ROLE === 'viewer';
+    if (renameInput) renameInput.value = selectedWallInfo.title || '';
     if (inputW) inputW.readOnly = movable;
     if (inputH) inputH.readOnly = true;
     const applySize = document.getElementById('btnApplyWallSize');
@@ -566,24 +632,24 @@ function renderWallRulers() {
         const x = left + wallWidth * cm / widthCm;
         const major = cm % majorStep(widthCm) === 0;
         horizontalTicks.push(`<line x1="${x}" y1="${horizontalY}" x2="${x}" y2="${horizontalY + (major ? 6 : 3) * screenPixel}" class="ruler-tick"/>`);
-        if (major) horizontalTicks.push(`<text x="${x}" y="${horizontalY - 3 * screenPixel}" text-anchor="middle" class="ruler-label">${cm}</text>`);
+        if (major) horizontalTicks.push(`<text x="${x}" y="${horizontalY - 3 * screenPixel}" text-anchor="middle" class="ruler-label">${cmToMm(cm)}</text>`);
     }
     if (widthCm % tickStep(widthCm) !== 0) {
         const x = left + wallWidth;
         horizontalTicks.push(`<line x1="${x}" y1="${horizontalY}" x2="${x}" y2="${horizontalY + 6 * screenPixel}" class="ruler-tick"/>`);
-        horizontalTicks.push(`<text x="${x}" y="${horizontalY - 3 * screenPixel}" text-anchor="middle" class="ruler-label">${widthCm}</text>`);
+        horizontalTicks.push(`<text x="${x}" y="${horizontalY - 3 * screenPixel}" text-anchor="middle" class="ruler-label">${cmToMm(widthCm)}</text>`);
     }
 
     for (let cm = 0; cm <= heightCm; cm += tickStep(heightCm)) {
         const y = top + wallHeight * (heightCm - cm) / heightCm + verticalOffset;
         const major = cm % majorStep(heightCm) === 0;
         verticalTicks.push(`<line x1="${verticalX}" y1="${y}" x2="${verticalX + (major ? 6 : 3) * screenPixel}" y2="${y}" class="ruler-tick"/>`);
-        if (major) verticalTicks.push(`<text x="${verticalX - 3 * screenPixel}" y="${y + 2 * screenPixel}" text-anchor="end" class="ruler-label">${cm}</text>`);
+        if (major) verticalTicks.push(`<text x="${verticalX - 3 * screenPixel}" y="${y + 2 * screenPixel}" text-anchor="end" class="ruler-label">${cmToMm(cm)}</text>`);
     }
     if (heightCm % tickStep(heightCm) !== 0) {
         const y = top + verticalOffset;
         verticalTicks.push(`<line x1="${verticalX}" y1="${y}" x2="${verticalX + 6 * screenPixel}" y2="${y}" class="ruler-tick"/>`);
-        verticalTicks.push(`<text x="${verticalX - 3 * screenPixel}" y="${y + 2 * screenPixel}" text-anchor="end" class="ruler-label">${heightCm}</text>`);
+        verticalTicks.push(`<text x="${verticalX - 3 * screenPixel}" y="${y + 2 * screenPixel}" text-anchor="end" class="ruler-label">${cmToMm(heightCm)}</text>`);
     }
 
     const wrapperRect = wrapper.getBoundingClientRect();
@@ -623,13 +689,7 @@ async function renderWallCanvas(callback = null) {
         return;
     }
 
-    const scaleInput =
-        document.getElementById("scale");
-
-    const scale =
-        scaleInput
-            ? parseFloat(scaleInput.value) || 0.5
-            : 0.5;
+    const scale = configuredScale ?? 0.5;
 
     const pxW =
         selectedWallInfo.widthCm * scale;
@@ -760,7 +820,7 @@ function applyArtworkDimensions(obj, scale) {
 }
 
 function syncFloorArtworkScale() {
-    const scale = parseFloat(document.getElementById('scale')?.value) || 0.5;
+    const scale = configuredScale ?? 0.5;
     canvas.getObjects().forEach(obj => {
         if (obj.isMovableWall) { window.configureMovableWall?.(obj); return; }
         if (!obj.isArtwork) return;

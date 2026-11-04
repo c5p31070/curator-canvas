@@ -49,8 +49,9 @@ function initializeCreationSettingsUi() {
         scaleInput.addEventListener("change", async function() {
 
             const newScale =
-                Number(scaleInput.value);
+                Number(scaleInput.value) * 10;
             await window.saveTeamFloorScale(newScale);
+            scaleInput.value = scaleToPxPerMm(configuredScale ?? 0.5);
 
         });
 

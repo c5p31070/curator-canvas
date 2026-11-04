@@ -25,7 +25,7 @@ function initializeItemDetailsUi() {
     window.refreshArtworkHeightEditor = obj => {
         if (obj === selectedItemForEditing && itemCenterHeightInput && document.activeElement !== itemCenterHeightInput) {
             const value = window.getArtworkCenterHeightCm(obj);
-            itemCenterHeightInput.value = value === null ? '' : Number(value.toFixed(2));
+            itemCenterHeightInput.value = value === null ? '' : cmToMm(value);
         }
     };
 
@@ -68,9 +68,9 @@ function initializeItemDetailsUi() {
         if (itemArtworkDimensions) itemArtworkDimensions.hidden = !isArtwork;
         if (isArtwork) {
             if (itemDepthLabel) itemDepthLabel.textContent = selectedItemForEditing.displayType === 'floor' ? '奥行き' : '厚み';
-            if (itemWidthInput) itemWidthInput.value = selectedItemForEditing.cmWidth ?? 150;
-            if (itemHeightInput) itemHeightInput.value = selectedItemForEditing.cmHeight ?? 100;
-            if (itemDepthInput) itemDepthInput.value = selectedItemForEditing.cmDepth ?? 5;
+            if (itemWidthInput) itemWidthInput.value = cmToMm(selectedItemForEditing.cmWidth ?? 150);
+            if (itemHeightInput) itemHeightInput.value = cmToMm(selectedItemForEditing.cmHeight ?? 100);
+            if (itemDepthInput) itemDepthInput.value = cmToMm(selectedItemForEditing.cmDepth ?? 5);
             if (itemAngleInput) itemAngleInput.value = Math.round(selectedItemForEditing.angle || 0);
             window.refreshArtworkHeightEditor(selectedItemForEditing);
         }
@@ -100,11 +100,11 @@ function initializeItemDetailsUi() {
         hoveredItem = obj;
         const name = getItemName(obj) || (obj.isArtwork ? '展示物' : 'ピン');
         const meta = obj.isMovableWall
-            ? `幅 ${obj.cmWidth} × 厚さ ${obj.cmDepth} × 高さ ${obj.cmHeight || 440} cm`
+            ? `幅 ${cmToMm(obj.cmWidth)} × 厚さ ${cmToMm(obj.cmDepth)} × 高さ ${cmToMm(obj.cmHeight || 440)} mm`
             : obj.isArtwork && obj.cmWidth && obj.cmHeight
             ? (obj.displayType === 'floor'
-                ? `幅 ${obj.cmWidth} × 奥行 ${obj.cmDepth} × 高さ ${obj.cmHeight} cm`
-                : `幅 ${obj.cmWidth} × 高さ ${obj.cmHeight} × 厚み ${obj.cmDepth} cm`)
+                ? `幅 ${cmToMm(obj.cmWidth)} × 奥行 ${cmToMm(obj.cmDepth)} × 高さ ${cmToMm(obj.cmHeight)} mm`
+                : `幅 ${cmToMm(obj.cmWidth)} × 高さ ${cmToMm(obj.cmHeight)} × 厚み ${cmToMm(obj.cmDepth)} mm`)
             : (obj.isGuard ? '警備員' : 'ピン');
         tooltipTitle.textContent = obj.isArtwork && !obj.isFixture ? `No.${window.getArtworkNumber(obj)} ${name}` : name;
         tooltipMeta.textContent = meta;
@@ -160,7 +160,7 @@ function initializeItemDetailsUi() {
 
             if (obj.isArtwork) {
                 const heightText = itemCenterHeightInput?.value.trim() || '';
-                const centerHeight = heightText === '' ? null : Number(heightText);
+                const centerHeight = heightText === '' ? null : mmToCm(heightText);
                 if (centerHeight !== null && (!Number.isFinite(centerHeight) || centerHeight < 0)) {
                     if (itemEditorStatus) itemEditorStatus.textContent = '作品中央の高さは0以上の数値で入力してください。';
                     return false;
@@ -189,9 +189,9 @@ function initializeItemDetailsUi() {
                 }
 
                 const dimensions = {
-                    width: Number(itemWidthInput?.value),
-                    height: Number(itemHeightInput?.value),
-                    depth: Number(itemDepthInput?.value)
+                    width: mmToCm(itemWidthInput?.value),
+                    height: mmToCm(itemHeightInput?.value),
+                    depth: mmToCm(itemDepthInput?.value)
                 };
                 if (Object.values(dimensions).some(value => !Number.isFinite(value) || value <= 0)) {
                     if (itemEditorStatus) itemEditorStatus.textContent = '寸法は0より大きい数値で入力してください。';
@@ -201,7 +201,7 @@ function initializeItemDetailsUi() {
                 obj.cmHeight = dimensions.height;
                 obj.cmDepth = dimensions.depth;
                 obj.artworkCenterHeightCm = centerHeight;
-                const scale = parseFloat(document.getElementById('scale')?.value) || 0.5;
+                const scale = configuredScale ?? 0.5;
                 applyArtworkDimensions(obj, scale);
                 obj.artworkName = newName;
                 const label = obj.item(1);

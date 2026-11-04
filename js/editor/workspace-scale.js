@@ -26,9 +26,7 @@
         const length = lengths.filter(cm => cm * pixelsPerCm <= targetWidth * 1.2)
             .sort((a, b) => Math.abs(a * pixelsPerCm - targetWidth) - Math.abs(b * pixelsPerCm - targetWidth))[0];
         if (!length) { bar.hidden = true; return; }
-        const label = length >= 100
-            ? `${Number((length / 100).toPrecision(4))} m`
-            : `${Number(length.toPrecision(4))} cm`;
+        const label = `${cmToMm(length)} mm`;
         document.getElementById('workspaceScaleRule').style.width = `${length * pixelsPerCm}px`;
         document.getElementById('workspaceScaleLength').textContent = label;
         bar.setAttribute('aria-label', `縮尺バーの長さ ${label}`);

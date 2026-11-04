@@ -56,9 +56,7 @@ function createPdfScaleMarkup(scalePxPerCm, imageWidthMm, sourceWidthPx) {
     const denominator = 10 * canvasWidth / (appScale * imageWidthMm);
     const ratio = Number(denominator.toPrecision(5));
     const approximate = Math.abs(ratio - denominator) > denominator * 1e-9;
-    const label = lengthCm >= 100 && lengthCm % 100 === 0
-        ? `${lengthCm / 100} m`
-        : `${lengthCm} cm`;
+    const label = `${cmToMm(lengthCm)} mm`;
 
     return `
         <div class="pdf-scale" aria-label="縮尺 ${label}">
@@ -151,15 +149,15 @@ async function renderCombinedPdf() {
         await handleFloorSelectChange(id, true);
         if (!window.isDiagramReady?.() || selectedFloorId !== id || currentViewMode !== 'floor') throw new Error(`${floor.title}を読み込めませんでした。`);
         floorCaptureList.push({
+            floorId: id,
             title: floor.title,
             imgUrl: canvas.toDataURL({ format: 'png', quality: 1.0, enableRetinaScaling: false }),
             sourceWidthPx: canvas.getWidth(),
-            ...pdfImageDimensions(canvas.getWidth(), canvas.getHeight(), 165, 120),
+            sourceHeightPx: canvas.getHeight(),
             scale: drawingScale
         });
         floorObjects.push(...canvas.getObjects().map(obj => ({ obj, floorTitle: floor.title })));
     }
-    const floorCanvasUrl = floorCaptureList[0].imgUrl;
 
 
     const artworkList = [];
@@ -215,8 +213,8 @@ async function renderCombinedPdf() {
                     (
                         obj.displayType === 'wall'
                     )
-                        ? `幅:${cmW}×高:${cmH} (厚:${cmD}) cm`
-                        : `幅:${cmW}×奥:${cmH} cm`;
+                        ? `幅:${cmToMm(cmW)}×高:${cmToMm(cmH)} (厚:${cmToMm(cmD)}) mm`
+                        : `幅:${cmToMm(cmW)}×奥:${cmToMm(cmD)} mm`;
 
 
                 let crowdStatus =
@@ -280,6 +278,7 @@ async function renderCombinedPdf() {
                         isGuard
                             ? "警備員"
                             : "ピン・注記",
+                    floorTitle,
 
                     label:
                         obj.pinLabel ||
@@ -322,8 +321,6 @@ async function renderCombinedPdf() {
         selectedFloorId = getWallFloorId(wallData);
         floorPlanJsonData = floorPlanData[selectedFloorId].json;
         cachedBackgroundImage = floorBackgroundImages.get(selectedFloorId) || null;
-        const scaleInput = document.getElementById('scale');
-        if (scaleInput) scaleInput.value = drawingScale;
 
 
         selectedWallInfo = {
@@ -364,14 +361,13 @@ async function renderCombinedPdf() {
             throw new Error(`${wallData.title}の縦横の縮尺が一致しません。壁の寸法設定を確認してください。`);
         }
         const crop = pdfWallCaptureBounds();
-        const imageSize = pdfImageDimensions(crop.width, crop.height);
         const wallImgUrl = canvas.toDataURL({ format: 'png', quality: 1.0, ...crop, enableRetinaScaling: false });
 
 
         wallCaptureList.push({
+            floorId: getWallFloorId(wallData),
 
-            title:
-                `${FLOOR_PLANS[getWallFloorId(wallData)].title} / ${wallData.title}`,
+            title: wallData.title || '壁面図',
 
             widthCm:
                 wallData.widthCm,
@@ -383,7 +379,7 @@ async function renderCombinedPdf() {
                 wallImgUrl,
             scale: wallScale,
             sourceWidthPx: crop.width,
-            ...imageSize
+            sourceHeightPx: crop.height
 
         });
 
@@ -440,315 +436,77 @@ async function renderCombinedPdf() {
     // PDFページHTML
     // ====================================================
 
-    let pagesHtml = `
-
-        <div class="page">
-
-            <div class="header">
-
-                <div class="title">
-                    ${currentTitle} (平面配置図: ${floorCaptureList[0].title})
+    const escape = value => String(value ?? '').replace(/[&<>"']/g, character =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+    const drawing = (capture, label, maxWidth, maxHeight) => {
+        const size = pdfImageDimensions(capture.sourceWidthPx, capture.sourceHeightPx, maxWidth, maxHeight);
+        return `
+            <figure class="drawing-card">
+                <figcaption>${label}</figcaption>
+                <div class="drawing-scale-row">
+                    <img src="${capture.imgUrl}" alt="" style="width:${size.imageWidthMm}mm;height:${size.imageHeightMm}mm">
+                    ${createPdfScaleMarkup(capture.scale, size.imageWidthMm, capture.sourceWidthPx)}
                 </div>
-
-                <div class="date">
-                    発行日: ${today}
-                </div>
-
-            </div>
-
-
-            <div class="section-title">
-                1. 平面配置図: ${floorCaptureList[0].title}
-            </div>
-
-
-            <div class="drawing-scale-row floor-scale-row">
-
-                <img
-                    src="${floorCanvasUrl}"
-                    class="canvas-img canvas-img-floor"
-                    style="width:${floorCaptureList[0].imageWidthMm}mm;height:${floorCaptureList[0].imageHeightMm}mm"
-                />
-
-                ${createPdfScaleMarkup(floorCaptureList[0].scale, floorCaptureList[0].imageWidthMm, floorCaptureList[0].sourceWidthPx)}
-
-            </div>
-
-
-            <div class="section-title">
-                2. 展示作品・設置物一覧
-            </div>
-
-
-            <table>
-
-                <thead>
-
-                    <tr>
-
-                        <th style="width: 6%;">
-                            No.
-                        </th>
-
-                        <th style="width: 34%;">
-                            作品名 / 展示物
-                        </th>
-
-                        <th style="width: 15%;">
-                            展示種別
-                        </th>
-
-                        <th style="width: 25%;">
-                            実寸サイズ
-                        </th>
-
-                        <th style="width: 20%;">
-                            混雑予想人数
-                        </th>
-
-                    </tr>
-
-                </thead>
-
-
-                <tbody>
-
-                    ${
-                        artworkList.length > 0
-
-                            ? artworkList
-                                .map(
-                                    item => `
-
-                                        <tr>
-
-                                            <td>
-                                                ${item.id}
-                                            </td>
-
-                                            <td>
-                                                <strong>
-                                                    ${item.name}
-                                                </strong>
-                                            </td>
-
-                                            <td>
-                                                ${item.type}
-                                            </td>
-
-                                            <td>
-                                                ${item.dimensions}
-                                            </td>
-
-                                            <td>
-                                                ${item.crowd}
-                                            </td>
-
-                                        </tr>
-
-                                    `
-                                )
-                                .join('')
-
-                            : `
-                                <tr>
-
-                                    <td
-                                        colspan="5"
-                                        style="text-align:center;"
-                                    >
-                                        配置されている作品はありません。
-                                    </td>
-
-                                </tr>
-                            `
-                    }
-
-                </tbody>
-
-            </table>
-
-
-            ${
-                pinList.length > 0
-
-                    ? `
-
-                        <div class="section-title">
-                            3. 設置済みピン・警備員
-                        </div>
-
-
-                        <table>
-
-                            <thead>
-
-                                <tr>
-
-                                    <th style="width: 10%;">
-                                        No.
-                                    </th>
-
-                                    <th style="width: 20%;">
-                                        種類
-                                    </th>
-
-                                    <th style="width: 70%;">
-                                        名称・内容
-                                    </th>
-
-                                </tr>
-
-                            </thead>
-
-
-                            <tbody>
-
-                                ${
-                                    pinList
-                                        .map(
-                                            pin => `
-
-                                                <tr>
-
-                                                    <td>
-                                                        ${pin.id}
-                                                    </td>
-
-                                                    <td>
-                                                        ${pin.type}
-                                                    </td>
-
-                                                    <td>
-                                                        ${pin.label}
-                                                    </td>
-
-                                                </tr>
-
-                                            `
-                                        )
-                                        .join('')
-                                }
-
-                            </tbody>
-
-                        </table>
-
-                    `
-
-                    : ''
-            }
-
-
-            <div class="section-title">
-                ${
-                    pinList.length > 0
-                        ? '4'
-                        : '3'
-                }.
-                特記事項・注意事項
-            </div>
-
-
-            <div class="memo-box">
-                ${memoText}
-            </div>
-
-
-            <div class="footer">
-                Curator-Canvas - 統合展示指示書 Page 1
-            </div>
-
-        </div>
-
-    `;
-
-
-    // ====================================================
-    // 壁面ページ
-    // ====================================================
-
-    floorCaptureList.slice(1).forEach((floor, index) => {
-        pagesHtml += `
-            <div class="page page-break">
-                <div class="header">
-                    <div class="title">${currentTitle} (平面配置図: ${floor.title})</div>
-                    <div class="date">発行日: ${today}</div>
-                </div>
-                <div class="section-title">平面配置図: ${floor.title}</div>
-                <div class="drawing-scale-row floor-scale-row">
-                    <img src="${floor.imgUrl}" class="canvas-img canvas-img-floor" style="width:${floor.imageWidthMm}mm;height:${floor.imageHeightMm}mm" />
-                    ${createPdfScaleMarkup(floor.scale, floor.imageWidthMm, floor.sourceWidthPx)}
-                </div>
-                <div class="footer">Curator-Canvas - 統合展示指示書 Page ${index + 2}</div>
-            </div>
-        `;
-    });
-
-    wallCaptureList.forEach(
-        (wall, idx) => {
-
-            pagesHtml += `
-
-                <div class="page page-break">
-
-                    <div class="header">
-
-                        <div class="title">
-                            ${currentTitle}
-                            (壁面立面図: ${wall.title})
-                        </div>
-
-                        <div class="date">
-                            発行日: ${today}
-                        </div>
-
-                    </div>
-
-
-                    <div class="section-title">
-
-                        壁面仕様:
-                        ${wall.title}
-
-                        (
-                        幅:
-                        ${wall.widthCm}
-                        cm ×
-
-                        高さ:
-                        ${wall.heightCm}
-                        cm
-                        )
-
-                    </div>
-
-
-                    <div class="drawing-scale-row wall-scale-row">
-
-                        <img
-                            src="${wall.imgUrl}"
-                            class="canvas-img-large wall-canvas-img"
-                            style="width:${wall.imageWidthMm}mm;height:${wall.imageHeightMm}mm"
-                        />
-
-                        ${createPdfScaleMarkup(wall.scale, wall.imageWidthMm, wall.sourceWidthPx)}
-
-                    </div>
-
-
-                    <div class="footer">
-                        Curator-Canvas - 統合展示指示書
-                        Page ${idx + floorCaptureList.length + 1}
-                    </div>
-
-                </div>
-
-            `;
-
+            </figure>`;
+    };
+    const drawings = floorCaptureList.map(floor => {
+        const walls = wallCaptureList.filter(wall => wall.floorId === floor.floorId);
+        const rows = [];
+        for (let i = 0; i < walls.length; i += 2) {
+            rows.push(`<div class="drawing-row">${walls.slice(i, i + 2).map(wall => drawing(wall,
+                `${escape(wall.title)} <span class="drawing-size">${cmToMm(wall.widthCm)} × ${cmToMm(wall.heightCm)} mm</span>`,
+                78, 64)).join('')}</div>`);
         }
-    );
+        return `
+            <h2 class="section-title">${escape(floor.title)}</h2>
+            ${drawing(floor, '平面配置図', 165, 76)}
+            ${rows.join('')}`;
+    }).join('');
 
+    const table = (headers, rows) => `
+        <table>
+            <thead><tr>${headers.map(header => `<th scope="col">${header}</th>`).join('')}</tr></thead>
+            <tbody>${rows.map(row => `<tr>${row.map(value => `<td>${escape(value)}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>`;
+    const artworkCell = item => item ? `<td>
+        <div class="artwork-entry-name"><span class="artwork-entry-index">${escape(item.id)}.</span> ${escape(item.name)}</div>
+        <div class="artwork-entry-details">${escape(item.type)} · ${escape(item.dimensions)} · 混雑予想: ${escape(item.crowd)}</div>
+    </td>` : '<td></td>';
+    const artworkRows = [];
+    for (let i = 0; i < artworkList.length; i += 2) {
+        artworkRows.push(`<tr>${artworkCell(artworkList[i])}${artworkCell(artworkList[i + 1])}</tr>`);
+    }
+    const pinCell = pin => pin ? `<td>
+        <div class="artwork-entry-name"><span class="artwork-entry-index">${escape(pin.id)}.</span> ${escape(pin.label)}</div>
+        <div class="artwork-entry-details">${escape(pin.floorTitle)} · ${escape(pin.type)}</div>
+    </td>` : '<td></td>';
+    const pinRows = [];
+    if (pinList.length >= 6) {
+        for (let i = 0; i < pinList.length; i += 2) {
+            pinRows.push(`<tr>${pinCell(pinList[i])}${pinCell(pinList[i + 1])}</tr>`);
+        }
+    }
+    const pagesHtml = `
+        <main>
+        <section class="page" aria-label="配置図">
+            <div class="header">
+                <h1 class="title">${escape(currentTitle)}</h1>
+                <div class="date">発行日: ${escape(today)}</div>
+            </div>
+            ${memoText.trim() ? `<h2 class="section-title">特記事項・注意事項</h2><div class="memo-box">${escape(memoText)}</div>` : ''}
+            ${drawings}
+        </section>
+        ${artworkRows.length || pinList.length ? `<section class="page reference-page" aria-label="照合用一覧">
+            <div class="header">
+                <h2 class="title">${escape(currentTitle)} — 照合用一覧</h2>
+            </div>
+            ${artworkRows.length ? `<h3 class="section-title">展示作品・設置物一覧</h3>
+                <table class="artwork-list"><tbody>${artworkRows.join('')}</tbody></table>` : ''}
+            ${pinList.length ? `<h3 class="section-title">設置済みピン・警備員</h3>
+                ${pinRows.length ? `<table class="artwork-list"><tbody>${pinRows.join('')}</tbody></table>`
+                    : table(['No.', '階', '種類', '名称・内容'], pinList.map(pin => [pin.id, pin.floorTitle, pin.type, pin.label]))}` : ''}
+        </section>` : ''}
+        </main>`;
 
     // ====================================================
     // 印刷画面生成
@@ -765,7 +523,7 @@ async function renderCombinedPdf() {
             <meta charset="UTF-8">
 
             <title>
-                ${currentTitle}
+                ${escape(currentTitle)}
                 - Curator-Canvas 統合指示書
             </title>
 
@@ -830,289 +588,83 @@ async function renderCombinedPdf() {
 
 
                 .page {
-
-                    background: #ffffff;
-
-                    width: 210mm;
-
-                    min-height: 297mm;
-
-                    padding: 10mm 12mm;
-
-                    margin: 10px auto;
-
-                    box-shadow:
-                        0 4px 6px
-                        rgba(0,0,0,0.1);
-
                     box-sizing: border-box;
-
-                    position: relative;
-
+                    width: 210mm;
+                    padding: 8mm;
+                    margin: 16px auto;
+                    background: #fff;
+                    font-size: 10px;
+                    line-height: 1.35;
+                    overflow-wrap: anywhere;
                 }
-
-
-                @media print {
-
-                    body {
-                        background: none;
-                    }
-
-                    .page {
-                        width: 100%;
-                        min-height: 0;
-                        height: auto;
-                        margin: 0;
-                        padding: 0;
-                        box-shadow: none;
-                        break-inside: avoid;
-                        page-break-inside: avoid;
-                    }
-
-                    .page-break {
-                        page-break-before: always;
-                    }
-
-                    .no-print {
-                        display: none !important;
-                    }
-
-                }
-
-
                 .header {
-
                     display: flex;
-
-                    justify-content:
-                        space-between;
-
-                    align-items:
-                        flex-end;
-
-                    border-bottom:
-                        2px solid #2c3e50;
-
-                    padding-bottom: 5px;
-
-                    margin-bottom: 10px;
-
-                }
-
-
-                .title {
-
-                    font-size: 20px;
-
-                    font-weight: bold;
-
-                    color: #2c3e50;
-
-                }
-
-
-                .date {
-
-                    font-size: 11px;
-
-                    color: #666;
-
-                }
-
-
-                .section-title {
-
-                    font-size: 13px;
-
-                    font-weight: bold;
-
-                    background: #f2f4f7;
-
-                    padding: 4px 8px;
-
-                    border-left:
-                        4px solid #2563eb;
-
-                    margin:
-                        9px 0 5px 0;
-
-                }
-
-
-                .canvas-img {
-
-                    width: 100%;
-
-                    max-height: 350px;
-
-                    object-fit: contain;
-
-                    border:
-                        1px solid #cbd5e1;
-
-                    border-radius: 4px;
-
-                }
-
-
-                .canvas-img-large {
-
-                    width: 100%;
-
-                    max-height: 550px;
-
-                    object-fit: contain;
-
-                    border:
-                        1px solid #cbd5e1;
-
-                    border-radius: 4px;
-
-                }
-
-
-                .drawing-scale-row {
-                    display: flex;
-                    justify-content: center;
-                    align-items: flex-start;
+                    justify-content: space-between;
+                    align-items: baseline;
                     gap: 3mm;
-                    margin: 4px 0 7px;
+                    padding-bottom: 2mm;
+                    border-bottom: 1px solid #555;
+                    break-inside: avoid;
+                    break-after: avoid;
                 }
-
-
-                .canvas-img-floor {
+                .title { font-size: 17px; margin: 0; }
+                .date { color: #555; flex: 0 0 auto; }
+                .section-title {
+                    font-size: 12px;
+                    margin: 3mm 0 1mm;
+                    padding-bottom: .7mm;
+                    border-bottom: 1px solid #b2b2b2;
+                    break-after: avoid;
+                }
+                .drawing-card {
+                    margin: 0 0 2mm;
+                    min-width: 0;
+                    break-inside: avoid;
+                }
+                .drawing-card figcaption { margin: 0 0 1mm; font-weight: 600; }
+                .drawing-size { color: #555; font-weight: normal; white-space: nowrap; }
+                .drawing-row { display: flex; gap: 4mm; break-inside: avoid; }
+                .drawing-row .drawing-card { flex: 0 0 calc((100% - 4mm) / 2); }
+                .drawing-scale-row { display: flex; justify-content: center; align-items: flex-start; gap: 2mm; }
+                .drawing-scale-row img {
+                    display: block;
                     flex: 0 0 auto;
-                    box-sizing: content-box;
                     border: 0;
-                    max-height: none;
-                    object-fit: fill;
+                    outline: .25mm solid #a3a9ad;
+                    background: #eef1f3;
                 }
-
-
-                .wall-canvas-img {
-                    flex: 0 0 auto;
-                    box-sizing: content-box;
-                    border: 0;
-                    max-height: none;
-                    object-fit: fill;
-                }
-
-
                 .pdf-scale {
                     flex: 0 0 12mm;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
-                    gap: 1mm;
-                    color: #737a80;
+                    gap: .7mm;
+                    color: #555;
                     font-size: 8px;
                     line-height: 1.2;
-                    padding-top: 1mm;
                 }
+                .pdf-scale-rule { position: relative; width: 0; border-left: 1px solid #555; }
+                .pdf-scale-rule i { position: absolute; left: -1mm; width: 2mm; border-top: 1px solid #555; }
+                .pdf-scale-rule i:first-child { top: 0; }
+                .pdf-scale-rule i:last-child { bottom: 0; }
+                table { width: 100%; border-collapse: collapse; font-size: 10px; }
+                th, td { padding: 1mm 1.5mm; text-align: left; border-bottom: 1px solid #ccc; vertical-align: top; }
+                th { border-bottom-color: #777; }
+                thead { display: table-header-group; }
+                tr { break-inside: avoid; }
+                .artwork-list { table-layout: fixed; }
+                .artwork-list td { width: 50%; padding: 1mm 1.5mm; }
+                .artwork-list td + td { border-left: 1px solid #d2d2d2; }
+                .artwork-entry-name { font-weight: 600; }
+                .artwork-entry-index, .artwork-entry-details { color: #50565b; font-weight: normal; }
+                .artwork-entry-details { font-size: 9px; }
+                .memo-box { white-space: pre-wrap; padding: 1mm 0; orphans: 2; widows: 2; }
 
-
-                .pdf-scale-rule {
-                    position: relative;
-                    box-sizing: content-box;
-                    width: 0;
-                    border-left: 1px solid #737a80;
-                }
-
-
-                .pdf-scale-rule i {
-                    position: absolute;
-                    left: -1mm;
-                    width: 2mm;
-                    height: 1px;
-                    background: #737a80;
-                }
-
-
-                .pdf-scale-rule i:first-child {
-                    top: 0;
-                }
-
-
-                .pdf-scale-rule i:last-child {
-                    bottom: 0;
-                }
-
-
-                .pdf-scale-label {
-                    color: #626a70;
-                    font-size: 8px;
-                }
-
-
-                table {
-
-                    width: 100%;
-
-                    border-collapse: collapse;
-
-                    margin-top: 8px;
-
-                    font-size: 11px;
-
-                }
-
-
-                th,
-                td {
-
-                    border:
-                        1px solid #cbd5e1;
-
-                    padding: 6px 8px;
-
-                    text-align: left;
-
-                }
-
-
-                th {
-
-                    background-color: #f8fafc;
-
-                    font-weight: bold;
-
-                }
-
-
-                .memo-box {
-
-                    font-size: 11px;
-
-                    line-height: 1.5;
-
-                    white-space: pre-wrap;
-
-                    background: #fafafa;
-
-                    border:
-                        1px solid #eee;
-
-                    padding: 10px;
-
-                    border-radius: 4px;
-
-                    min-height: 40px;
-
-                }
-
-
-                .footer {
-
-                    position: absolute;
-
-                    bottom: 12mm;
-
-                    right: 15mm;
-
-                    font-size: 10px;
-
-                    color: #888;
-
+                @media print {
+                    body { background: none; }
+                    .page { width: 100%; padding: 0; margin: 0; }
+                    .reference-page { page-break-before: always; break-before: page; }
+                    .no-print { display: none !important; }
                 }
 
             </style>
