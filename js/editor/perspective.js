@@ -439,16 +439,52 @@
         return { x: (b.x - a.x) / length, z: (b.z - a.z) / length };
     };
 
-    function perspectiveSpotlights(objects, scale, height) {
+    function renderedArtworkTarget(target, artworkSurfaces, x, y, scale) {
+        const direct = artworkSurfaces.find(surface => surface.object === target);
+        if (direct) return direct.point(x, y);
+        const targetId = target.lightingTargetId;
+        const catalogId = target.artworkCatalogId;
+        const number = target.artworkNumber;
+        const center = target.getCenterPoint();
+        let best = null;
+        for (const surface of artworkSurfaces) {
+            const work = surface.object;
+            // Floor plans and elevations can use separate copies of the same catalogued work.
+            const priority = targetId && work.lightingTargetId === targetId ? 3
+                : catalogId && work.artworkCatalogId === catalogId ? 2
+                : number != null && work.artworkNumber === number &&
+                    (!catalogId || !work.artworkCatalogId) ? 1 : 0;
+            if (!priority) continue;
+            const midpoint = surface.point(.5, .5);
+            const distance = Math.hypot(midpoint[0] - center.x / scale, midpoint[2] - center.y / scale);
+            if (!best || priority > best.priority || (priority === best.priority && distance < best.distance)) {
+                best = { surface, priority, distance };
+            }
+        }
+        return best?.surface.point(x, y);
+    }
+
+    function perspectiveSpotlights(objects, artworkSurfaces, scale, height) {
         const spots = [];
         let omitted = 0;
         for (const light of objects) {
             if (!light.isLightObject || light.lightKind !== 'spot' || light.lightOn === false) continue;
             const center = light.getCenterPoint();
-            if (isArtworkLightAim(light) && !objects.some(object => object.isArtwork &&
-                object.lightingTargetId === light.lightAimTargetId)) {
-                omitted++;
-                continue;
+            const position = [center.x / scale, height, center.y / scale];
+            if (isArtworkLightAim(light)) {
+                const target = objects.find(object => object.isArtwork && object.lightingTargetId === light.lightAimTargetId);
+                if (!target) { omitted++; continue; }
+                const pointMode = light.lightAimMode === 'artwork-point';
+                const x = pointMode ? lightTargetPercent(light.lightTargetXPercent) / 100 : .5;
+                const y = pointMode ? lightTargetPercent(light.lightTargetYPercent) / 100 : .5;
+                const destination = renderedArtworkTarget(target, artworkSurfaces, x, y, scale);
+                if (destination) {
+                    const ray = subtract(destination, position);
+                    const distance = Math.hypot(...ray);
+                    if (!(distance > 0)) { omitted++; continue; }
+                    spots.push({ position, direction: ray.map(value => value / distance) });
+                    continue;
+                }
             }
             // The floor-plan helper updates derived angles; keep the actual layout untouched.
             const { angle, tilt } = lightingDirection({ ...light, getCenterPoint: () => center });
@@ -456,7 +492,7 @@
             const inclination = tilt * Math.PI / 180;
             const horizontal = Math.sin(inclination);
             spots.push({
-                position: [center.x / scale, height, center.y / scale],
+                position,
                 direction: [horizontal * Math.cos(angle), -Math.cos(inclination), horizontal * Math.sin(angle)]
             });
         }
@@ -476,7 +512,7 @@
             quad(vertices, [0,0,0], [w,0,0], [w,0,h], [0,0,h], colors.floor);
             const ceiling = venueCeilingHeightCm(floorId);
             const objects = canvas.getObjects();
-            const { spots, omitted } = perspectiveSpotlights(objects, scale, ceiling);
+            const artworkSurfaces = [];
             quad(vertices, [0,ceiling,0], [0,ceiling,h], [w,ceiling,h], [w,ceiling,0], colors.ceiling);
             const faces = new Map();
             const corners = object => {
@@ -511,6 +547,10 @@
                         if (object[key]) faces.set(object[key], [points[(i + 1) % 4], points[i]]);
                     });
                 } else {
+                    const [left, right] = [points[3], points[2]];
+                    artworkSurfaces.push({ object, point: (x, y) => [
+                        left.x + (right.x - left.x) * x, height * y, left.z + (right.z - left.z) * x
+                    ] });
                     numberOnFace(vertices, object.artworkNumber, pointAt(points[2], height + .2),
                         pointAt(points[3], height + .2), pointAt(points[1], height + .2));
                 }
@@ -563,6 +603,7 @@
                                 a.z + t.z * distance + t.x * offset];
                         };
                         const offset = 1 + Math.max(0, Number(object.cmDepth) || 0);
+                        artworkSurfaces.push({ object, point: (x, y) => p((2 * x - 1) * halfW, (1 - 2 * y) * halfH, offset) });
                         quad(vertices, p(-halfW,-halfH,offset), p(halfW,-halfH,offset),
                             p(halfW,halfH,offset), p(-halfW,halfH,offset), colors.artwork);
                         numberOnFace(vertices, object.artworkNumber, p(-halfW,-halfH,offset + .15),
@@ -572,6 +613,7 @@
             }
             await Promise.all(jobs);
             if (floorId !== selectedFloorId || currentViewMode !== 'floor') return;
+            const { spots, omitted } = perspectiveSpotlights(objects, artworkSurfaces, scale, ceiling);
             renderPerspective(vertices, shadows, spots, inCm(from), unit(from, toward), eyeHeight);
             $('perspectiveDialogTitle').textContent = FLOOR_PLANS[floorId].title + ' — パース試作';
             $('perspectiveSummary').textContent = '影と照射範囲は簡易表示です。'
