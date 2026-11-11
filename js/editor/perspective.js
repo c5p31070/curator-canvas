@@ -351,7 +351,7 @@
                 'varying vec3 position; varying vec3 normal; varying vec4 color;',
                 'uniform int lightPass; uniform vec3 lightPosition; uniform vec3 lightDirection;',
                 'uniform vec3 patchCenter; uniform vec3 patchNormal; uniform vec3 patchLong; uniform vec3 patchCross;',
-                'uniform vec3 patchSize;',
+                'uniform vec3 patchSize; uniform bool fixedPatch;',
                 'uniform bool useLightDepth; uniform sampler2D lightDepth;',
                 'uniform vec3 lightRight; uniform vec3 lightUp;',
                 'void main(){',
@@ -362,12 +362,14 @@
                 'float cone=smoothstep(0.9681,0.9998,dot(-towardLight,lightDirection));',
                 'vec3 facing=dot(normal,-position)>=0.0?normal:-normal;',
                 'float intensity=cone*max(dot(facing,towardLight),0.0)/(1.0+0.022*distanceMeters*distanceMeters);',
+                'if(fixedPatch) intensity=0.0;',
                 'if(patchSize.x>0.0 && abs(dot(normal,patchNormal))>0.995){',
                 'vec3 offset=position-patchCenter;',
                 'if(abs(dot(offset,patchNormal))<=patchSize.z){',
                 'vec2 uv=vec2(dot(offset,patchLong)/patchSize.x,dot(offset,patchCross)/patchSize.y);',
                 'float meters=length((patchCenter-lightPosition)/100.0);',
-                'intensity=(1.0-smoothstep(0.18,1.0,length(uv)))*max(dot(facing,-lightDirection),0.0)/(1.0+0.022*meters*meters);',
+                'float strength=fixedPatch?0.72*step(0.995,dot(facing,patchNormal)):max(dot(facing,-lightDirection),0.0)/(1.0+0.022*meters*meters);',
+                'intensity=(1.0-smoothstep(0.18,1.0,length(uv)))*strength;',
                 '}',
                 '}',
                 'if(useLightDepth && intensity>0.0){',
@@ -482,13 +484,16 @@
             const patchUniforms = Object.fromEntries(['patchCenter', 'patchNormal', 'patchLong', 'patchCross', 'patchSize']
                 .map(name => [name, gl.getUniformLocation(program, name)]));
             const useLightDepth = gl.getUniformLocation(program, 'useLightDepth');
+            const fixedPatch = gl.getUniformLocation(program, 'fixedPatch');
             const lightRight = gl.getUniformLocation(program, 'lightRight');
             const lightUp = gl.getUniformLocation(program, 'lightUp');
             gl.activeTexture(gl.TEXTURE0);
             gl.uniform1i(gl.getUniformLocation(program, 'lightDepth'), 0);
             for (const spot of spots) {
                 const source = toViewPoint(spot.position), axis = toViewVector(spot.direction);
-                if (depthMap) {
+                const patch = spot.patch;
+                const useDepth = Boolean(depthMap && !patch?.fixed);
+                if (useDepth) {
                     const horizontal = Math.hypot(axis[0], axis[2]);
                     const right = horizontal > 1e-5 ? [axis[2] / horizontal, 0, -axis[0] / horizontal] : [1, 0, 0];
                     const up = cross(axis, right);
@@ -522,10 +527,10 @@
                     gl.uniform3fv(lightRight, right);
                     gl.uniform3fv(lightUp, up);
                 }
-                gl.uniform1i(useLightDepth, depthMap ? 1 : 0);
+                gl.uniform1i(useLightDepth, useDepth ? 1 : 0);
+                gl.uniform1i(fixedPatch, patch?.fixed ? 1 : 0);
                 gl.uniform3fv(lightPosition, source);
                 gl.uniform3fv(lightDirection, axis);
-                const patch = spot.patch;
                 gl.uniform3fv(patchUniforms.patchSize, patch?.size || [0, 0, 0]);
                 if (patch) {
                     gl.uniform3fv(patchUniforms.patchCenter, toViewPoint(patch.center));
@@ -613,13 +618,21 @@
                 const y = pointMode ? lightTargetPercent(light.lightTargetYPercent) / 100 : .5;
                 const surface = renderedArtworkTarget(target, artworkSurfaces, scale);
                 const destination = surface?.point(x, y);
+                if (pointMode) {
+                    if (!destination || !surface.normal) { omitted++; continue; }
+                    const normal = surface.normal;
+                    const long = [0, 1, 0];
+                    spots.push({ position, direction: normal.map(value => -value),
+                        patch: { fixed: true, center: destination, normal, long, across: cross(normal, long),
+                            size: [80, 55, surface.depth + 4] } });
+                    continue;
+                }
                 if (destination) {
                     const ray = subtract(destination, position);
                     const distance = Math.hypot(...ray);
                     if (!(distance > 0)) { omitted++; continue; }
                     const direction = ray.map(value => value / distance);
-                    // Off-centre aiming uses the cone/surface intersection, not a centred ellipse.
-                    const patch = surface.normal && !pointMode ? wallLightPatch(light, surface, destination, direction, distance) : null;
+                    const patch = surface.depth > 0 ? wallLightPatch(light, surface, destination, direction, distance) : null;
                     spots.push({ position, direction, patch });
                     continue;
                 }
@@ -686,7 +699,8 @@
                     });
                 } else {
                     const [left, right] = [points[3], points[2]];
-                    artworkSurfaces.push({ object, point: (x, y) => [
+                    const front = unit(left, right);
+                    artworkSurfaces.push({ object, normal: [-front.z, 0, front.x], depth: 0, point: (x, y) => [
                         left.x + (right.x - left.x) * x, height * y, left.z + (right.z - left.z) * x
                     ] });
                     numberOnFace(vertices, object.artworkNumber, pointAt(points[2], height + .2),
