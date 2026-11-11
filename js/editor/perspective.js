@@ -191,6 +191,8 @@
             ['start', 'end'].map(endpoint => ({ wallId: id, endpoint, point: ends[endpoint] })));
         let first = null;
         let connection = null;
+        let cameraPointer = null;
+        let previewCameraDirection = () => {};
         const coordinates = event => {
             const bounds = overlay.getBoundingClientRect();
             const x = (event.clientX - bounds.left) / bounds.width;
@@ -231,6 +233,52 @@
             overlay.addEventListener('pointermove', event => {
                 if (first) positionLine(preview, first, wallEnd(coordinates(event)));
             });
+        } else {
+            const guide = document.createElementNS(svgNamespace, 'svg');
+            guide.classList.add('perspective-wall-guide');
+            guide.setAttribute('viewBox', '0 0 ' + canvas.getWidth() + ' ' + canvas.getHeight());
+            guide.setAttribute('preserveAspectRatio', 'none');
+            guide.setAttribute('aria-hidden', 'true');
+            const outline = document.createElementNS(svgNamespace, 'path');
+            const arrow = document.createElementNS(svgNamespace, 'path');
+            outline.classList.add('perspective-camera-arrow-outline');
+            arrow.classList.add('perspective-camera-arrow');
+            for (const path of [outline, arrow]) path.setAttribute('vector-effect', 'non-scaling-stroke');
+            guide.append(outline, arrow);
+            overlay.append(guide);
+            previewCameraDirection = point => {
+                if (!first) return;
+                const dx = point.x - first.x, dz = point.z - first.z;
+                const distance = Math.hypot(dx, dz);
+                if (distance < 2) {
+                    outline.removeAttribute('d');
+                    arrow.removeAttribute('d');
+                    return;
+                }
+                const zoom = overlay.getBoundingClientRect().width / canvas.getWidth() || 1;
+                const head = Math.min(12 / zoom, distance * .4);
+                const ux = dx / distance, uz = dz / distance;
+                const bx = point.x - ux * head, bz = point.z - uz * head;
+                const wing = head * .48;
+                const d = `M${first.x} ${first.z}L${point.x} ${point.z}M${bx - uz * wing} ${bz + ux * wing}L${point.x} ${point.z}L${bx + uz * wing} ${bz - ux * wing}`;
+                outline.setAttribute('d', d);
+                arrow.setAttribute('d', d);
+            };
+            overlay.addEventListener('pointermove', event => {
+                if (event.isPrimary) previewCameraDirection(coordinates(event));
+            });
+            overlay.addEventListener('pointerup', event => {
+                if (cameraPointer !== event.pointerId) return;
+                cameraPointer = null;
+                const point = coordinates(event);
+                if (Math.hypot(point.x - first.x, point.z - first.z) < 2) return;
+                cancelPick();
+                showPerspective(first, point, eyeHeight);
+            });
+            overlay.addEventListener('pointercancel', () => {
+                cameraPointer = null;
+                if (first) previewCameraDirection(first);
+            });
         }
         say(kind === 'wall' ? '壁の' + (joinedEnd === 'end' ? '右端' : '左端') + 'を指定してください。既存の端からつなげられます。' : '立つ位置を指定してください。');
         overlay.addEventListener('pointerdown', event => {
@@ -251,6 +299,12 @@
                 marker.style.top = first.z / canvas.getHeight() * 100 + '%';
                 overlay.appendChild(marker);
                 say(kind === 'wall' ? (connection ? '壁の端に接続しました。' : '') + '壁を伸ばす向き（上下左右）を指定してください。' : '見る方向を指定してください。');
+                return;
+            }
+            if (kind === 'camera' && event.pointerType !== 'mouse') {
+                cameraPointer = event.pointerId;
+                overlay.setPointerCapture(event.pointerId);
+                previewCameraDirection(point);
                 return;
             }
             if (Math.hypot(point.x - first.x, point.z - first.z) < 2) return;
