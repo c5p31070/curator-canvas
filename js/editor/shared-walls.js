@@ -34,19 +34,29 @@
         const plan = parsePlan(wall.json);
         const objects = (plan.objects || []).filter(object => object.isFixture || object.isWallOutline);
         const outline = objects.find(object => object.isWallOutline);
-        return { title: wall.title, floorId: Object.hasOwn(ALL_FLOOR_PLANS, wall.floorId) ? wall.floorId : 'lobby',
-            widthCm: Number(wall.widthCm), heightCm: FIXED_WALL_HEIGHT_CM,
+        const floorId = Object.hasOwn(ALL_FLOOR_PLANS, wall.floorId) ? wall.floorId : 'lobby';
+        return { title: wall.title, floorId,
+            widthCm: Number(wall.widthCm), heightCm: venueCeilingHeightCm(floorId),
             fixtureScale: Number(wall.fixtureScale) || (outline
-                ? outline.height * (outline.scaleY || 1) / (Number(wall.legacyHeightCm) || Number(wall.heightCm) || 450)
+                ? outline.height * (outline.scaleY || 1) / (Number(wall.legacyHeightCm) || Number(wall.heightCm) || venueCeilingHeightCm(floorId))
                 : Number(configuredScale) || .5),
             json: JSON.stringify({ version: plan.version, objects }) };
     }
     function normalize(data) {
         const result = {};
         Object.entries(data || {}).forEach(([id, wall]) => {
-            if (wall && !wall.movableWallId && Number(wall.widthCm) > 0) result[id] = template(wall);
+            if (wall?.movableWallSlot === true) {
+                const slot = normalizeSlot(wall);
+                if (slot) result[id] = slot;
+            } else if (wall && !wall.movableWallId && Number(wall.widthCm) > 0) result[id] = template(wall);
         });
         return result;
+    }
+    function normalizeSlot(slot) {
+        const { floorId, x, y, angle } = slot;
+        const title = String(slot.title || '').trim().slice(0, 60);
+        if (!Object.hasOwn(ALL_FLOOR_PLANS, floorId) || !title || ![x, y, angle].every(Number.isFinite) || x < 0 || y < 0) return null;
+        return { movableWallSlot: true, floorId, x, y, angle: ((angle % 360) + 360) % 360, title };
     }
     window.rememberLegacyVenueWalls = data => {
         if (!data?.wallPlanJsonData) return;
@@ -55,7 +65,10 @@
     try { window.rememberLegacyVenueWalls(JSON.parse(editorStorage.getItem(STORAGE_KEY) || 'null')); } catch {}
     const currentWalls = () => pending || publishing || walls;
     window.getVenueWallData = () => clone(Object.fromEntries(
-        Object.entries(currentWalls()).filter(([, wall]) => isVenueFloor(wall.floorId))));
+        Object.entries(currentWalls()).filter(([, wall]) => !wall.movableWallSlot && isVenueFloor(wall.floorId))));
+    window.getVenueMovableWallSlots = (floorId = selectedFloorId) => isVenueFloor(floorId)
+        ? clone(Object.fromEntries(Object.entries(currentWalls()).filter(([, entry]) => entry.movableWallSlot && entry.floorId === floorId)))
+        : {};
     window.beginVenueWallRender = () => { rendering++; };
     window.endVenueWallRender = () => { rendering = Math.max(0, rendering - 1); };
     window.isVenueWallRendering = () => rendering > 0;
@@ -65,15 +78,16 @@
         const previous = wallPlanJsonData;
         const next = {};
         Object.entries(currentWalls()).forEach(([id, definition]) => {
-            if (!isVenueFloor(definition.floorId)) return;
+            if (definition.movableWallSlot || !isVenueFloor(definition.floorId)) return;
             const layout = previous[id];
             next[id] = { ...definition, json: layout?.json || null };
             if (layout?.legacyHeightCm) next[id].legacyHeightCm = layout.legacyHeightCm;
-            else if (Number(layout?.heightCm) > 0 && Number(layout.heightCm) !== FIXED_WALL_HEIGHT_CM) next[id].legacyHeightCm = Number(layout.heightCm);
+            else if (Number(layout?.heightCm) > 0 && Number(layout.heightCm) !== definition.heightCm) next[id].legacyHeightCm = Number(layout.heightCm);
         });
         Object.entries(previous).forEach(([id, wall]) => { if (wall.movableWallId && isVenueFloor(wall.floorId)) next[id] = wall; });
         wallPlanJsonData = next;
         window.refreshVenuePresetList?.();
+        window.refreshMovableWallSlots?.();
     };
     window.prepareVenueWallPlan = (raw, id, outline) => {
         if (!ready || !currentWalls()[id]) return parsePlan(raw);
@@ -82,7 +96,7 @@
         const source = parsePlan(definition.json);
         const frame = source.objects?.find(object => object.isWallOutline);
         const oldScale = definition.fixtureScale || .5;
-        const newScale = outline.height / FIXED_WALL_HEIGHT_CM;
+        const newScale = outline.height / definition.heightCm;
         const factor = newScale / oldScale;
         const oldLeft = Number(frame?.left) || 0;
         const oldFloor = frame ? frame.top + frame.height * (frame.scaleY || 1) : 0;
@@ -205,6 +219,33 @@
         return saved;
     }
     window.flushVenueWallChanges = flush;
+    window.saveVenueMovableWallSlot = async (id, value, floorId, moveOnly = false) => {
+        if (!ready || !editable() || !isAdminMode || busy || !isVenueFloor(floorId)) return false;
+        if (pending && !await flush()) return false;
+        const current = walls[id];
+        if (current && (!current.movableWallSlot || current.floorId !== floorId)) return false;
+        if (moveOnly) {
+            if (!current || !value) return false;
+            value = { ...current, x: value.x, y: value.y };
+        }
+        let title = current?.title;
+        if (value && !title) {
+            const used = new Set(Object.values(walls)
+                .filter(entry => entry.movableWallSlot && entry.floorId === floorId)
+                .map(entry => entry.title));
+            let number = 1;
+            while (used.has('固定位置 ' + number)) number++;
+            title = '固定位置 ' + number;
+        }
+        const slot = value ? normalizeSlot({ ...value, title }) : null;
+        if (value ? !slot || slot.floorId !== floorId : !current) return false;
+        const next = clone(walls);
+        if (slot) next[id] = slot;
+        else delete next[id];
+        const saved = await publish(next);
+        window.refreshMovableWallSlots?.();
+        return saved;
+    };
     window.renameVenueWall = async (id, name) => {
         const title = name.trim();
         if (!title || !ready || !editable() || busy) return false;
@@ -265,7 +306,7 @@
         document.getElementById('btnImportVenueWalls')?.addEventListener('click', async () => {
             if (!editable() || busy || !ready) return;
             if (pending && !await flush()) return;
-            const entries = Object.entries(legacyWalls).filter(([, wall]) => isVenueFloor(wall.floorId));
+            const entries = Object.entries(legacyWalls).filter(([, wall]) => !wall.movableWallSlot && isVenueFloor(wall.floorId));
             if (!entries.length) return alert('取り込める既存の固定壁がありません。以前の展覧会を読み込んでから実行してください。');
             if (!confirm(`既存の固定壁 ${entries.length}件をチーム共通設定へ取り込みます。同じIDの壁の事前設定を上書きします。\n${entries.map(([, wall]) => wall.title).join('、')}`)) return;
             await publish({ ...walls, ...Object.fromEntries(entries) });

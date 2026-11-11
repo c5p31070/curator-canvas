@@ -9,6 +9,7 @@ function initializeToolPalette() {
     const activate = (tool, toggle = false) => {
         if (window.CURATOR_GUEST?.allowsTool(tool) === false) return;
         window.cancelPerspectivePick?.();
+        window.cancelMovableWallSlotPick?.();
         if (tool !== 'draw') window.endShapeFreeTransform?.();
         window.cancelDimensionDrawing?.();
         window.cancelLightingPlacement?.();
@@ -16,6 +17,7 @@ function initializeToolPalette() {
         const alreadyOpen = targets.length > 0 && targets.every(panel => panel.classList.contains('is-open'));
         panels.forEach(panel => panel.classList.remove('is-open'));
         window.refreshPerspectiveGuide?.();
+        window.refreshMovableWallSlotGuide?.();
 
         if (toggle && alreadyOpen) {
             window.endShapeFreeTransform?.();
@@ -60,6 +62,7 @@ function initializeToolPalette() {
 
         if (isFreeDrawingMode) toggleFreeDrawingMode(false);
         window.cancelPerspectivePick?.();
+        window.cancelMovableWallSlotPick?.();
         window.cancelDimensionDrawing?.();
         window.cancelLightingPlacement?.();
 

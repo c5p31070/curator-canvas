@@ -1,6 +1,6 @@
 // A movable wall and its elevations belong to the current exhibition/layout.
 (() => {
-    const heightCm = 440;
+    let defaultsVenue = null;
     let selected = null;
     const faceLabelStorageKey = 'curator_canvas_movable_wall_faces_visible';
     let faceLabelsVisible = true;
@@ -8,6 +8,15 @@
     let faceLabelOverlay = null;
     let faceLabelFrame = null;
     const canEdit = () => window.CURATOR_ROLE !== 'viewer';
+    window.refreshMovableWallVenueDefaults = () => {
+        if (defaultsVenue === activeVenueId) return;
+        defaultsVenue = activeVenueId;
+        const defaults = venueMovableWallDefaults();
+        document.getElementById('movableWallWidth').value = cmToMm(defaults.width);
+        document.getElementById('movableWallDepth').value = cmToMm(defaults.depth);
+        document.getElementById('movableWallAngle').value = 0;
+        document.getElementById('movableWallHeightLabel').textContent = `高さ ${cmToMm(defaults.height)} mm（固定）`;
+    };
     const faceDefinitions = wall => [
         ['front', wall.movableFrontId, '前面', wall.cmWidth],
         ['back', wall.movableBackId, '裏面', wall.cmWidth],
@@ -111,6 +120,7 @@
     }
 
     function registerFaces(wall) {
+        const heightCm = venueMovableWallDefaults(wall.movableFloorId).height;
         faceDefinitions(wall).forEach(([face, id, name, widthCm]) => {
             const previous = wallPlanJsonData[id];
             wallPlanJsonData[id] = { ...previous, title: `${wall.movableWallName}・${name}`,
@@ -129,7 +139,8 @@
         normalizeWallName(wall);
         const scale = configuredScale ?? 0.5;
         const width = wall.cmWidth * scale, depth = wall.cmDepth * scale;
-        wall.cmHeight = heightCm;
+        wall.cmHeight = venueMovableWallDefaults(wall.movableFloorId || selectedFloorId).height;
+        const locked = !canEdit() || Boolean(wall.movableWallSlotId);
         wall.item(0).set({ width, height: depth, fill: '#30373d', stroke: '#171d22' });
         const label = wall.item(1);
         // Keep the name readable even on thin walls without enlarging the
@@ -140,9 +151,9 @@
         label.initDimensions();
         wall.set({ width: width + 1, height: depth + 1, dirty: true,
             lockScalingX: true, lockScalingY: true, lockScalingFlip: true, lockSkewingX: true, lockSkewingY: true,
-            selectable: canEdit(), evented: true, lockMovementX: !canEdit(), lockMovementY: !canEdit(), lockRotation: !canEdit() });
+            selectable: canEdit(), evented: true, lockMovementX: locked, lockMovementY: locked, lockRotation: locked });
         wall.setControlsVisibility({ tl: false, tr: false, bl: false, br: false,
-            ml: false, mt: false, mr: false, mb: false, mtr: canEdit() });
+            ml: false, mt: false, mr: false, mb: false, mtr: !locked });
         wall.setCoords();
     };
 
@@ -155,6 +166,7 @@
         document.getElementById('movableWallWidth').value = cmToMm(selected.cmWidth);
         document.getElementById('movableWallDepth').value = cmToMm(selected.cmDepth);
         document.getElementById('movableWallAngle').value = Math.round(selected.angle || 0);
+        window.selectMovableWallSlot?.(selected.movableWallSlotId);
         [['Front', 'movableFrontId'], ['Back', 'movableBackId']].forEach(([suffix, key]) => {
             const input = document.getElementById(`movableWall${suffix}Unused`);
             if (input) {
@@ -188,11 +200,16 @@
         if (!canEdit() || isTransitioning || isUndoRedoOperation) return;
         const data = parameters();
         if (!data) return;
+        const slot = window.getChosenMovableWallSlot?.();
+        if (isPublicFloor(selectedFloorId) && !slot) return alert('公募展では設置する固定位置を選択してください。未登録の場合は管理者モードで登録してください。');
         window.cancelLightingPlacement?.();
         window.cancelDimensionDrawing?.();
         if (isFreeDrawingMode) toggleFreeDrawingMode(false);
         if (currentViewMode !== 'floor' && !await switchViewMode('floor')) return;
         if (!window.isDiagramReady?.()) return;
+        if (slot && (slot.floorId !== selectedFloorId || window.isMovableWallSlotOccupied(slot.id))) {
+            return alert('この固定位置には既に壁があります。別の位置を選択してください。');
+        }
         const id = crypto.randomUUID();
         const number = nextNumber();
         const name = `壁${circled(number)}`;
@@ -202,12 +219,13 @@
                 originX: 'center', originY: 'center' }),
             new fabric.Text(circled(number), { fontSize: 8, fill: '#edf2f5', fontFamily: 'sans-serif',
                 originX: 'center', originY: 'center' })
-        ], { left: center.left, top: center.top, originX: 'center', originY: 'center', angle: data.angle,
+        ], { left: slot?.x ?? center.left, top: slot?.y ?? center.top, originX: 'center', originY: 'center', angle: slot?.angle ?? data.angle,
             isMovableWall: true, movableWallId: id, movableWallName: name, movableWallNumber: number, movableFloorId: selectedFloorId,
             movableFrontId: `movable_${id}_front`, movableBackId: `movable_${id}_back`,
-            cmWidth: data.width, cmDepth: data.depth, cmHeight: heightCm, objectCaching: false });
+            movableWallSlotId: slot?.id || null,
+            cmWidth: data.width, cmDepth: data.depth, cmHeight: venueMovableWallDefaults().height, objectCaching: false });
         window.configureMovableWall(wall);
-        window.snapObjectToGrid?.(wall);
+        if (!slot) window.snapObjectToGrid?.(wall);
         isUndoRedoOperation = true;
         try { registerFaces(wall); canvas.add(wall); }
         finally { isUndoRedoOperation = false; }
@@ -220,11 +238,21 @@
         if (!selected || !canEdit() || isTransitioning) return;
         const data = parameters();
         if (!data) return;
+        const slot = window.getChosenMovableWallSlot?.();
+        if (slot && window.isMovableWallSlotOccupied(slot.id, selected)) return alert('この固定位置には既に壁があります。');
         selected.cmWidth = data.width;
         selected.cmDepth = data.depth;
-        selected.set('angle', data.angle);
+        if (slot) {
+            selected.movableWallSlotId = slot.id;
+            selected.setPositionByOrigin(new fabric.Point(slot.x, slot.y), 'center', 'center');
+            selected.set('angle', slot.angle);
+        } else if (!isPublicFloor(selectedFloorId) || !selected.movableWallSlotId) {
+            selected.movableWallSlotId = null;
+            selected.set('angle', data.angle);
+        }
         window.configureMovableWall(selected);
         registerFaces(selected);
+        refreshPanel(selected);
         canvas.requestRenderAll();
         saveState();
     }
@@ -396,15 +424,23 @@
     };
 
     const onSelection = event => {
+        const group = canvas.getActiveObject();
+        if (group?.type === 'activeSelection') {
+            const locked = group.getObjects().some(object => object.movableWallSlotId);
+            group.set({ lockMovementX: locked, lockMovementY: locked, lockRotation: locked, lockScalingX: locked, lockScalingY: locked });
+        }
         const wall = event.selected?.[0];
         refreshPanel(wall);
         if (wall?.isMovableWall) window.activateToolPanel?.('movable-walls');
     };
     canvas.on('selection:created', onSelection);
     canvas.on('selection:updated', onSelection);
-    canvas.on('selection:cleared', () => refreshPanel(null));
+    canvas.on('selection:cleared', () => { refreshPanel(null); window.refreshMovableWallSlots?.(); });
+    ['object:added', 'object:removed'].forEach(event =>
+        canvas.on(event, ({ target }) => { if (target?.isMovableWall) window.refreshMovableWallSlots?.(); }));
     canvas.on('object:modified', event => { if (event.target?.isMovableWall) refreshPanel(event.target); });
     document.addEventListener('DOMContentLoaded', () => {
+        window.refreshMovableWallVenueDefaults();
         // A display-only overlay keeps wall bounds, snapping and saved geometry intact.
         faceLabelOverlay = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         faceLabelOverlay.id = 'movableWallFaceOverlay';

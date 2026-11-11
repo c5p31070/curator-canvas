@@ -397,6 +397,11 @@ const PUBLIC_FLOOR_PLANS = Object.fromEntries(PUBLIC_ROOMS.flatMap(room =>
 ));
 const ALL_FLOOR_PLANS = { ...SPECIAL_FLOOR_PLANS, ...PUBLIC_FLOOR_PLANS };
 let FLOOR_PLANS = SPECIAL_FLOOR_PLANS;
+const isPublicFloor = id => Object.hasOwn(PUBLIC_FLOOR_PLANS, id);
+const venueCeilingHeightCm = (id = selectedFloorId) => isPublicFloor(id) ? 480 : 450;
+const venueMovableWallDefaults = (id = selectedFloorId) => isPublicFloor(id)
+    ? { width: 620, depth: 10, height: 480 }
+    : { width: 180, depth: 20, height: 440 };
 const firstVenueFloor = () => Object.keys(FLOOR_PLANS)[0];
 const isVenueFloor = id => Object.hasOwn(FLOOR_PLANS, id || 'lobby');
 function fillVenueFloorSelect(select, fallback = selectedFloorId) {
@@ -474,6 +479,7 @@ function getCustomProperties() {
     return [
         'isArtwork',
         'isMovableWall', 'movableWallId', 'movableWallName', 'movableWallNumber', 'movableFloorId', 'movableFrontId', 'movableBackId',
+        'movableWallSlotId',
         'movableLeftId', 'movableRightId',
         'isShapeObject',
         'shapeKind',

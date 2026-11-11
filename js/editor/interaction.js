@@ -236,6 +236,8 @@ function rotateActiveObject() {
         window.rotateLightingObject?.(activeObj);
         return;
     }
+    if (activeObj.movableWallSlotId || (activeObj.type === 'activeSelection' &&
+        activeObj.getObjects().some(object => object.movableWallSlotId))) return;
 
     const currentAngle =
         activeObj.angle || 0;

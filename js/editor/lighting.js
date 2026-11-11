@@ -15,7 +15,6 @@ const lightingReadOnly = () => window.CURATOR_ROLE === 'viewer';
 const VENUE_LIGHTING_KEY = 'curator_canvas_venue_lighting_v1';
 const isVenueEquipment = obj => obj.isLightRail || (obj.isLightObject && obj.lightKind === 'fixed');
 const fixedLightSize = 12;
-const spotlightMountHeightCm = 450;
 
 function normalizeFixedLightShape(object) {
     if (!object.isLightObject || object.lightKind !== 'fixed') return object;
@@ -245,7 +244,7 @@ function lightingDirection(light) {
         const scale = Number(configuredScale);
         light.lightDirectionDeg = normalizeLightAngle(Math.atan2(dy, dx) * 180 / Math.PI);
         return { angle: light.lightDirectionDeg * Math.PI / 180, length,
-            tilt: scale > 0 ? Math.atan2(length / scale, spotlightMountHeightCm) * 180 / Math.PI : null,
+            tilt: scale > 0 ? Math.atan2(length / scale, venueCeilingHeightCm()) * 180 / Math.PI : null,
             note: scale > 0 ? '地面 / 高さ 0 mm' : '平面図の縮尺を設定してください' };
     }
     const target = isArtworkLightAim(light)
@@ -259,7 +258,7 @@ function lightingDirection(light) {
         const scale = Number(configuredScale);
         const targetHeight = aim.height;
         const tilt = targetHeight !== null && targetHeight !== undefined && Number.isFinite(Number(targetHeight)) && scale > 0
-            ? Math.atan2(length / scale, spotlightMountHeightCm - Number(targetHeight)) * 180 / Math.PI : null;
+            ? Math.atan2(length / scale, venueCeilingHeightCm() - Number(targetHeight)) * 180 / Math.PI : null;
         return { angle: light.lightDirectionDeg * Math.PI / 180, length, tilt,
             note: !(scale > 0) ? '平面図の縮尺を設定してください' : tilt === null ? '展示物の編集で作品中央の高さを設定してください'
                 : light.lightAimMode === 'artwork-point' ? `照射高 ${Number(cmToMm(targetHeight).toFixed(1))} mm` : '' };
@@ -274,7 +273,7 @@ function lightingDirection(light) {
     let length = 110;
     let note = '';
     if (light.lightAimMode !== 'down' && targetHeight !== null && targetHeight !== undefined && Number(configuredScale) > 0) {
-        const drop = spotlightMountHeightCm - Number(targetHeight);
+        const drop = venueCeilingHeightCm() - Number(targetHeight);
         const cosine = Math.cos(tilt * Math.PI / 180);
         const travel = Math.abs(cosine) > 1e-8 ? drop / cosine : -1;
         if (travel >= 0) length = travel * Math.sin(tilt * Math.PI / 180) * Number(configuredScale);
@@ -287,7 +286,7 @@ window.getLightPopupDetails = light => {
     if (!light?.isLightObject) return null;
     const power = light.lightOn === false ? '消灯' : '点灯';
     const title = light.lightName || (light.lightKind === 'spot' ? 'スポットライト' : '固定ライト');
-    if (light.lightKind !== 'spot') return { title, meta: `固定ライト / ${power}`, description: '天井高 4500 mm' };
+    if (light.lightKind !== 'spot') return { title, meta: `固定ライト / ${power}`, description: `天井高 ${cmToMm(venueCeilingHeightCm())} mm` };
     const direction = lightingDirection(light);
     const reference = spotlightRailReference(light);
     const horizontal = direction.tilt === 0 || !reference || direction.tilt === null ? '—' : `${reference.relative.toFixed(2)}°`;

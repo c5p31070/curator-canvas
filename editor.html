@@ -62,6 +62,25 @@
             <div id="adminSettingsPanel" class="panel-section admin-settings-panel config-section tool-panel" data-tool-panel="setup" hidden>
                 <h2>壁・図面の事前設定</h2>
                 <div class="drawing-subsection">
+                    <h3>可動壁の固定位置</h3>
+                    <label class="lighting-visibility"><input type="checkbox" data-movable-slot-visibility checked>固定位置を表示</label>
+                    <div class="form-group">
+                        <label for="movableWallSlotAngleMode">登録する壁の向き</label>
+                        <select id="movableWallSlotAngleMode" class="form-control">
+                            <option value="free">自由角度</option>
+                            <option value="axis">水平・垂直</option>
+                        </select>
+                    </div>
+                    <button id="btnRegisterMovableWallSlot" class="btn btn-secondary" type="button">図面で固定位置を登録</button>
+                    <div class="form-group">
+                        <label for="venueMovableWallSlot">登録済みの固定位置</label>
+                        <select id="venueMovableWallSlot" class="form-control"></select>
+                    </div>
+                    <button id="btnMoveMovableWallSlot" class="btn btn-secondary" type="button" disabled>選んだ固定位置を移動</button>
+                    <button id="btnDeleteMovableWallSlot" class="btn btn-secondary" type="button">固定位置の登録を解除</button>
+                    <p id="movableWallSlotStatus" class="field-note" role="status"></p>
+                </div>
+                <div class="drawing-subsection">
                     <h3>ゲスト体験用の配布</h3>
                     <button id="btnExportGuestLighting" class="btn btn-secondary" type="button" data-tooltip="全階のレール・固定ライトと縮尺を配布用ファイルに書き出します。作品・スポットライト・アカウント情報は含みません。">ゲスト用照明データを書き出す</button>
                     <p id="guestLightingExportStatus" class="field-note" role="status"></p>
@@ -380,7 +399,7 @@
                                 <label for="lightTilt">仰角（真下0°）</label>
                                 <input id="lightTilt" class="form-control" type="number" min="0" max="180" step="0.1" value="30" data-tooltip="真下を向く状態が0°。首が真横を向き、同じ高さの壁を正面から照らす状態が90°です。作品指定時もこの基準で自動計算します。">
                             </div>
-                            <p class="field-note">天井高 4500 mm（固定）</p>
+                            <p id="lightingCeilingHeight" class="field-note">天井高 4500 mm（固定）</p>
                             <output id="lightOrientationReadout" class="field-note" aria-live="polite"></output>
                             <div class="form-group" id="lightTargetField" hidden>
                                 <label for="lightTargetSelect">向ける作品</label>
@@ -418,7 +437,12 @@
                     <div class="form-group"><label for="movableWallDepth">厚さ (mm)</label><input id="movableWallDepth" class="form-control" type="number" min="10" max="100000" value="200" step="1"></div>
                 </div>
                 <div class="form-group"><label for="movableWallAngle">回転 (°)</label><input id="movableWallAngle" class="form-control" type="number" value="0" step="1"></div>
-                <p class="field-note" data-tooltip="回転0°では上辺が前面、下辺が裏面です。作品を近づけると壁の面に沿って吸着し、離すと解除できます。">高さ 4400 mm（固定）</p>
+                <p id="movableWallHeightLabel" class="field-note" data-tooltip="回転0°では上辺が前面、下辺が裏面です。作品を近づけると壁の面に沿って吸着し、離すと解除できます。">高さ 4400 mm（固定）</p>
+                <div class="form-group">
+                    <label for="movableWallSlot">設置する固定位置</label>
+                    <select id="movableWallSlot" class="form-control"></select>
+                </div>
+                <label class="lighting-visibility"><input type="checkbox" data-movable-slot-visibility checked>固定位置を表示</label>
                 <button id="btnAddMovableWall" class="btn btn-secondary" type="button">移動壁を追加</button>
                 <div id="movableWallSelection" class="drawing-subsection" hidden>
                     <h3>選択中の移動壁</h3>
@@ -429,7 +453,7 @@
                         <button id="btnMovableWallFront" class="btn btn-secondary" type="button">前面の壁面図</button>
                         <button id="btnMovableWallBack" class="btn btn-secondary" type="button">裏面の壁面図</button>
                     </div>
-                    <div class="form-row" data-tooltip="回転0°を基準とした左右の側面です。幅は壁の厚さ、高さは4400 mmで作成します。">
+                    <div class="form-row" data-tooltip="回転0°を基準とした左右の側面です。幅は壁の厚さ、高さは可動壁と同じです。">
                         <button id="btnMovableWallLeft" class="btn btn-secondary" type="button">左側面を追加</button>
                         <button id="btnMovableWallRight" class="btn btn-secondary" type="button">右側面を追加</button>
                     </div>
@@ -916,6 +940,7 @@
     <script src="js/editor/copy-light-rails.js" defer></script>
     <script src="js/editor/guest-lighting-export.js" defer></script>
     <script src="js/editor/movable-walls.js" defer></script>
+    <script src="js/editor/movable-wall-slots.js" defer></script>
     <script src="js/editor/pdf.js" defer></script>
     <script src="js/editor/ui-navigation.js" defer></script>
     <script src="js/editor/ui-venue-presets.js" defer></script>

@@ -274,13 +274,34 @@
         });
     }
 
-    const quad = (out, a, b, c, d, color) => {
-        for (const p of [a, b, c, a, c, d]) out.push(...p, ...color);
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const subtract = (a, b) => a.map((value, i) => value - b[i]);
+    const quad = (out, a, b, c, d, color, opacity = [1, 1, 1, 1]) => {
+        const normal = cross(subtract(b, a), subtract(d, a));
+        const size = Math.hypot(...normal);
+        if (!(size > 0)) return;
+        const direction = normal.map(value => value / size);
+        const corners = [a, b, c, d];
+        for (const i of [0, 1, 2, 0, 2, 3]) out.push(...corners[i], ...direction, ...color, opacity[i]);
     };
+    // A soft contact shadow around a floor footprint, without a full scene light simulation.
+    function contactShadow(out, points, spread = 18) {
+        const outer = points.map((point, i) => {
+            const fromPrevious = unit(points[(i + 3) % 4], point);
+            const fromNext = unit(points[(i + 1) % 4], point);
+            return { x: point.x + spread * (fromPrevious.x + fromNext.x),
+                z: point.z + spread * (fromPrevious.z + fromNext.z) };
+        });
+        for (let i = 0; i < 4; i++) {
+            const j = (i + 1) % 4;
+            quad(out, pointAt(points[i], .25), pointAt(points[j], .25),
+                pointAt(outer[j], .25), pointAt(outer[i], .25), [.07, .09, .1], [.36, .36, 0, 0]);
+        }
+    }
     const pointAt = (p, height) => [p.x, height, p.z];
     const colors = {
-        floor: [.36, .39, .41], ceiling: [.61, .65, .66], wall: [.78, .79, .76], end: [.59, .62, .62],
-        artwork: [.23, .47, .56], plinth: [.49, .56, .62], ink: [.92, .94, .94]
+        floor: [.18, .12, .10], ceiling: [.32, .33, .35], wall: [.49, .47, .44],
+        artwork: [.19, .34, .40], plinth: [.37, .39, .41], ink: [.69, .70, .70]
     };
     const digits = ['012345', '12', '01643', '01236', '5612', '05623', '056234', '012', '0123456', '012356'];
     const segments = [[1,0,5,1],[5,1,6,4],[5,5,6,8],[1,8,5,9],[0,5,1,8],[0,1,1,4],[1,4,5,5]];
@@ -300,7 +321,7 @@
         });
     }
 
-    function renderPerspective(vertices, start, direction, eyeHeight) {
+    function renderPerspective(vertices, shadows, spots, start, direction, eyeHeight) {
         const surface = $('perspectiveCanvas');
         if (!renderer) {
             const gl = surface.getContext('webgl', { antialias: true, preserveDrawingBuffer: true });
@@ -313,37 +334,99 @@
                 return shader;
             };
             const program = gl.createProgram();
-            gl.attachShader(program, compile(gl.VERTEX_SHADER,
-                'attribute vec3 p; attribute vec3 c; varying vec3 color; uniform float aspect; void main(){color=c; gl_Position=vec4(p.x*1.55/aspect,p.y*1.55,p.z*1.000004-4.000008,p.z);}'));
-            gl.attachShader(program, compile(gl.FRAGMENT_SHADER,
-                'precision mediump float; varying vec3 color; void main(){gl_FragColor=vec4(color,1.0);}'));
+            const precision = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT)?.precision ? 'highp' : 'mediump';
+            gl.attachShader(program, compile(gl.VERTEX_SHADER, [
+                'precision ' + precision + ' float;',
+                'attribute vec3 p; attribute vec3 n; attribute vec4 c;',
+                'varying vec3 position; varying vec3 normal; varying vec4 color;',
+                'uniform float aspect;',
+                'void main(){',
+                'position=p; normal=n; color=c;',
+                'gl_Position=vec4(p.x*1.55/aspect,p.y*1.55,p.z*1.000004-4.000008,p.z);',
+                '}'
+            ].join('\n')));
+            gl.attachShader(program, compile(gl.FRAGMENT_SHADER, [
+                'precision ' + precision + ' float;',
+                'varying vec3 position; varying vec3 normal; varying vec4 color;',
+                'uniform int lightPass; uniform vec3 lightPosition; uniform vec3 lightDirection;',
+                'void main(){',
+                'if(lightPass==0){gl_FragColor=color;return;}',
+                'vec3 ray=lightPosition-position;',
+                'float distanceMeters=max(length(ray/100.0),0.01);',
+                'vec3 towardLight=(ray/100.0)/distanceMeters;',
+                'float cone=smoothstep(0.9681,0.9936,dot(-towardLight,lightDirection));',
+                'vec3 facing=dot(normal,-position)>=0.0?normal:-normal;',
+                'float intensity=cone*max(dot(facing,towardLight),0.0)/(1.0+0.022*distanceMeters*distanceMeters);',
+                'vec3 reflectance=clamp(color.rgb*2.25,0.0,1.0);',
+                'gl_FragColor=vec4(reflectance*vec3(0.68,0.65,0.59)*intensity,0.0);',
+                '}'
+            ].join('\n')));
             gl.linkProgram(program);
             if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error('3D描画を準備できませんでした。');
-            renderer = { gl, program, buffer: gl.createBuffer() };
+            renderer = { gl, program, buffer: gl.createBuffer(), shadowBuffer: gl.createBuffer() };
         }
-        const { gl, program, buffer } = renderer;
-        for (let i = 0; i < vertices.length; i += 6) {
-            const x = vertices[i] - start.x, z = vertices[i + 2] - start.z;
-            // Plan coordinates increase downward. Turning clockwise from the
-            // viewing direction gives the camera's screen-right axis.
-            vertices[i] = z * direction.x - x * direction.z;
-            vertices[i + 1] -= eyeHeight;
-            vertices[i + 2] = x * direction.x + z * direction.z;
-        }
+        const { gl, program, buffer, shadowBuffer } = renderer;
+        // Plan coordinates increase down the page; the camera transform also applies to light rays.
+        const toViewVector = ([x, y, z]) => [z * direction.x - x * direction.z, y, x * direction.x + z * direction.z];
+        const toViewPoint = ([x, y, z]) => toViewVector([x - start.x, y - eyeHeight, z - start.z]);
+        const stride = 10;
+        const upload = (data, destination) => {
+            for (let i = 0; i < data.length; i += stride) {
+                const point = toViewPoint(data.slice(i, i + 3));
+                const normal = toViewVector(data.slice(i + 3, i + 6));
+                for (let j = 0; j < 3; j++) {
+                    data[i + j] = point[j];
+                    data[i + 3 + j] = normal[j];
+                }
+            }
+            gl.bindBuffer(gl.ARRAY_BUFFER, destination);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+        };
+        const bind = destination => {
+            gl.bindBuffer(gl.ARRAY_BUFFER, destination);
+            for (const [attribute, size, offset] of [['p', 3, 0], ['n', 3, 12], ['c', 4, 24]]) {
+                const location = gl.getAttribLocation(program, attribute);
+                gl.enableVertexAttribArray(location);
+                gl.vertexAttribPointer(location, size, gl.FLOAT, false, stride * 4, offset);
+            }
+        };
         gl.viewport(0, 0, surface.width, surface.height);
         gl.enable(gl.DEPTH_TEST);
-        gl.clearColor(.64, .70, .74, 1);
+        gl.depthFunc(gl.LESS);
+        gl.depthMask(true);
+        gl.disable(gl.BLEND);
+        gl.clearColor(.12, .12, .13, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.useProgram(program);
         gl.uniform1f(gl.getUniformLocation(program, 'aspect'), surface.width / surface.height);
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-        for (const [attribute, offset] of [['p', 0], ['c', 12]]) {
-            const location = gl.getAttribLocation(program, attribute);
-            gl.enableVertexAttribArray(location);
-            gl.vertexAttribPointer(location, 3, gl.FLOAT, false, 24, offset);
+        const pass = gl.getUniformLocation(program, 'lightPass');
+        gl.uniform1i(pass, 0);
+        upload(vertices, buffer);
+        bind(buffer);
+        gl.drawArrays(gl.TRIANGLES, 0, vertices.length / stride);
+        gl.depthMask(false);
+        gl.enable(gl.BLEND);
+        if (shadows.length) {
+            upload(shadows, shadowBuffer);
+            bind(shadowBuffer);
+            gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
+            gl.drawArrays(gl.TRIANGLES, 0, shadows.length / stride);
         }
-        gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 6);
+        if (spots.length) {
+            bind(buffer);
+            gl.depthFunc(gl.EQUAL);
+            gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE);
+            gl.uniform1i(pass, 1);
+            const lightPosition = gl.getUniformLocation(program, 'lightPosition');
+            const lightDirection = gl.getUniformLocation(program, 'lightDirection');
+            for (const spot of spots) {
+                gl.uniform3fv(lightPosition, toViewPoint(spot.position));
+                gl.uniform3fv(lightDirection, toViewVector(spot.direction));
+                gl.drawArrays(gl.TRIANGLES, 0, vertices.length / stride);
+            }
+        }
+        gl.depthMask(true);
+        gl.disable(gl.BLEND);
     }
 
     function planObjects(raw) {
@@ -356,6 +439,30 @@
         return { x: (b.x - a.x) / length, z: (b.z - a.z) / length };
     };
 
+    function perspectiveSpotlights(objects, scale, height) {
+        const spots = [];
+        let omitted = 0;
+        for (const light of objects) {
+            if (!light.isLightObject || light.lightKind !== 'spot' || light.lightOn === false) continue;
+            const center = light.getCenterPoint();
+            if (isArtworkLightAim(light) && !objects.some(object => object.isArtwork &&
+                object.lightingTargetId === light.lightAimTargetId)) {
+                omitted++;
+                continue;
+            }
+            // The floor-plan helper updates derived angles; keep the actual layout untouched.
+            const { angle, tilt } = lightingDirection({ ...light, getCenterPoint: () => center });
+            if (!Number.isFinite(angle) || !Number.isFinite(tilt)) { omitted++; continue; }
+            const inclination = tilt * Math.PI / 180;
+            const horizontal = Math.sin(inclination);
+            spots.push({
+                position: [center.x / scale, height, center.y / scale],
+                direction: [horizontal * Math.cos(angle), -Math.cos(inclination), horizontal * Math.sin(angle)]
+            });
+        }
+        return { spots, omitted };
+    }
+
     async function showPerspective(from, toward, eyeHeight) {
         busy = true;
         say('パースを作成中…');
@@ -364,9 +471,12 @@
             const floorId = selectedFloorId;
             const inCm = p => ({ x: p.x / scale, z: p.z / scale });
             const vertices = [];
+            const shadows = [];
             const w = canvas.getWidth() / scale, h = canvas.getHeight() / scale;
             quad(vertices, [0,0,0], [w,0,0], [w,0,h], [0,0,h], colors.floor);
-            const ceiling = spotlightMountHeightCm;
+            const ceiling = venueCeilingHeightCm(floorId);
+            const objects = canvas.getObjects();
+            const { spots, omitted } = perspectiveSpotlights(objects, scale, ceiling);
             quad(vertices, [0,ceiling,0], [0,ceiling,h], [w,ceiling,h], [w,ceiling,0], colors.ceiling);
             const faces = new Map();
             const corners = object => {
@@ -387,12 +497,13 @@
                 }
                 quad(vertices, ...points.map(p => pointAt(p, height)), color);
             };
-            for (const object of canvas.getObjects()) {
+            for (const object of objects) {
                 if (!object.isMovableWall && !(object.isArtwork && !object.isFixture && object.displayType === 'floor')) continue;
                 const points = corners(object);
                 const height = Number(object.cmHeight);
                 if (!points || !(height > 0)) continue;
                 box(points, height, object.isMovableWall ? colors.wall : colors.plinth);
+                contactShadow(shadows, points);
                 if (object.isMovableWall) {
                     ['movableFrontId','movableRightId','movableBackId','movableLeftId'].forEach((key, i) => {
                         // Elevation coordinates run left to right as seen
@@ -418,6 +529,9 @@
                     const a = inCm(position.start), b = inCm(position.end);
                     ends = [a, b];
                     quad(vertices, pointAt(a, height), pointAt(b, height), pointAt(b, 0), pointAt(a, 0), colors.wall);
+                    const direction = unit(a, b);
+                    const edge = (point, side) => ({ x: point.x - direction.z * side, z: point.z + direction.x * side });
+                    contactShadow(shadows, [edge(a, -1), edge(b, -1), edge(b, 1), edge(a, 1)], 12);
                 }
                 if (!ends) continue;
                 const [a, b] = ends, t = unit(a, b);
@@ -458,10 +572,11 @@
             }
             await Promise.all(jobs);
             if (floorId !== selectedFloorId || currentViewMode !== 'floor') return;
-            renderPerspective(vertices, inCm(from), unit(from, toward), eyeHeight);
+            renderPerspective(vertices, shadows, spots, inCm(from), unit(from, toward), eyeHeight);
             $('perspectiveDialogTitle').textContent = FLOOR_PLANS[floorId].title + ' — パース試作';
-            $('perspectiveSummary').textContent = '壁と作品の配置を示す簡易表示です。'
-                + (missingWalls ? ' 位置未登録の固定壁 ' + missingWalls + ' 面は省略しています。' : '');
+            $('perspectiveSummary').textContent = '影と照射範囲は簡易表示です。'
+                + (missingWalls ? ' 位置未登録の固定壁 ' + missingWalls + ' 面は省略しています。' : '')
+                + (omitted ? ' 照射先や高さを確定できないライト ' + omitted + ' 灯は省略しています。' : '');
             $('perspectiveDialog').showModal();
             say('視点を指定し直すと、別の位置から確認できます。');
         } catch (error) {

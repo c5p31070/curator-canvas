@@ -40,6 +40,8 @@ function initializeNavigationUi() {
             el.hidden = !enabled;
         });
         applyFixtureEditability();
+        window.cancelMovableWallSlotPick?.();
+        window.refreshMovableWallSlots?.();
         window.cancelLightingPlacement?.();
         window.refreshLighting?.();
     };
@@ -55,7 +57,7 @@ function initializeNavigationUi() {
             if (!isAdminMode || !requireVenueScale()) return;
             const name = (document.getElementById('newWallTitle')?.value || '').trim();
             const width = mmToCm(document.getElementById('newWallWidthCm')?.value);
-            const height = FIXED_WALL_HEIGHT_CM;
+            const height = venueCeilingHeightCm();
             if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
                 alert('壁の長さと高さを正の数値（mm）で入力してください。');
                 return;
@@ -152,7 +154,7 @@ function initializeNavigationUi() {
 
                 const newW = mmToCm(wInput.value);
                 if (!Number.isFinite(newW) || newW <= 0) return alert("壁の幅を正の数値（mm）で入力してください。");
-                const newH = FIXED_WALL_HEIGHT_CM;
+                const newH = venueCeilingHeightCm();
 
                 if (!Number.isFinite(newW) || newW <= 0) return;
                 captureCurrentCanvasState();

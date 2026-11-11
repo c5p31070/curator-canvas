@@ -9,15 +9,14 @@ let initialDiagramLoaded = false;
 const floorImageRequests = new Map();
 window.isDiagramReady = () => diagramReady;
 
-const FIXED_WALL_HEIGHT_CM = 450;
 function normalizeFixedWallHeights() {
     Object.values(wallPlanJsonData).forEach(wall => {
-        if (!wall.movableWallId) {
-            if (Number(wall.heightCm) > 0 && Number(wall.heightCm) !== FIXED_WALL_HEIGHT_CM) {
-                wall.legacyHeightCm = Number(wall.heightCm);
-            }
-            wall.heightCm = FIXED_WALL_HEIGHT_CM;
+        const floor = getWallFloorId(wall);
+        const height = wall.movableWallId ? venueMovableWallDefaults(floor).height : venueCeilingHeightCm(floor);
+        if (Number(wall.heightCm) > 0 && Number(wall.heightCm) !== height) {
+            wall.legacyHeightCm ||= Number(wall.heightCm);
         }
+        wall.heightCm = height;
     });
     const wall = wallPlanJsonData[selectedWallInfo.id];
     if (wall) selectedWallInfo.heightCm = wall.heightCm;
@@ -235,6 +234,13 @@ function wallTabOrder(faces) {
 function updateWallTabs() {
     normalizeFixedWallHeights();
     updateFloorTabs();
+    const ceiling = cmToMm(venueCeilingHeightCm());
+    const newWallHeight = document.getElementById('newWallHeightCm');
+    if (newWallHeight) newWallHeight.value = ceiling;
+    const ceilingLabel = document.getElementById('lightingCeilingHeight');
+    if (ceilingLabel) ceilingLabel.textContent = `天井高 ${ceiling} mm（固定）`;
+    window.refreshMovableWallVenueDefaults?.();
+    window.refreshMovableWallSlots?.();
     fillVenueFloorSelect(document.getElementById('wallFloorSelect'));
     window.refreshVenuePresetList?.();
     window.refreshLightRailCopyControls?.();
@@ -409,6 +415,7 @@ async function switchViewMode(
     callback = null,
     skipCapture = false
 ) {
+    window.cancelMovableWallSlotPick?.();
     window.cancelPerspectivePick?.();
     window.endShapeFreeTransform?.();
     window.cancelDimensionDrawing?.();

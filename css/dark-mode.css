@@ -1349,6 +1349,13 @@ header h1 .brand-subtitle {
 .perspective-wall-existing { stroke: #507a8b; stroke-width: 2px; }
 .perspective-wall-endpoint { stroke: #507a8b; stroke-width: 7px; stroke-linecap: round; }
 .perspective-wall-preview { stroke: #853f4a; stroke-width: 2px; stroke-dasharray: 5 3; }
+.movable-slot-guide { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
+.movable-slot-guide svg { display: block; width: 100%; height: 100%; }
+.movable-slot-mark { color: #3c6878; }
+.movable-slot-mark.active { color: #8a3547; }
+.movable-slot-mark line, .movable-slot-mark circle { stroke: currentColor; stroke-width: 2px; }
+.movable-slot-mark circle { fill: #f7f9f9; }
+.movable-slot-mark text { fill: currentColor; stroke: #f7f9f9; paint-order: stroke; font-family: sans-serif; }
 .perspective-registered-guide { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
 .perspective-registered-guide svg { display: block; width: 100%; height: 100%; }
 .perspective-registered-wall { color: #356779; }
