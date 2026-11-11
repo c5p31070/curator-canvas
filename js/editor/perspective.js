@@ -352,12 +352,14 @@
                 'uniform int lightPass; uniform vec3 lightPosition; uniform vec3 lightDirection;',
                 'uniform vec3 patchCenter; uniform vec3 patchNormal; uniform vec3 patchLong; uniform vec3 patchCross;',
                 'uniform vec3 patchSize;',
+                'uniform bool useLightDepth; uniform sampler2D lightDepth;',
+                'uniform vec3 lightRight; uniform vec3 lightUp;',
                 'void main(){',
                 'if(lightPass==0){gl_FragColor=color;return;}',
                 'vec3 ray=lightPosition-position;',
                 'float distanceMeters=max(length(ray/100.0),0.01);',
                 'vec3 towardLight=(ray/100.0)/distanceMeters;',
-                'float cone=smoothstep(0.9681,0.9936,dot(-towardLight,lightDirection));',
+                'float cone=smoothstep(0.9681,0.9998,dot(-towardLight,lightDirection));',
                 'vec3 facing=dot(normal,-position)>=0.0?normal:-normal;',
                 'float intensity=cone*max(dot(facing,towardLight),0.0)/(1.0+0.022*distanceMeters*distanceMeters);',
                 'if(patchSize.x>0.0 && abs(dot(normal,patchNormal))>0.995){',
@@ -368,15 +370,62 @@
                 'intensity=(1.0-smoothstep(0.18,1.0,length(uv)))*max(dot(facing,-lightDirection),0.0)/(1.0+0.022*meters*meters);',
                 '}',
                 '}',
+                'if(useLightDepth && intensity>0.0){',
+                'vec3 delta=position-lightPosition;',
+                'float depth=dot(delta,lightDirection);',
+                'if(depth>2.0 && depth<6000.0){',
+                'vec2 uv=vec2(dot(delta,lightRight),dot(delta,lightUp))/depth*0.5+0.5;',
+                'if(all(greaterThanEqual(uv,vec2(0.0))) && all(lessThanEqual(uv,vec2(1.0)))){',
+                'vec2 stored=texture2D(lightDepth,uv).rg;',
+                'float barrier=(stored.x+stored.y/255.0)*6000.0;',
+                'float bias=2.0+0.009*depth;',
+                'intensity*=1.0-smoothstep(bias,bias+5.0,depth-barrier);',
+                '}',
+                '}',
+                '}',
                 'vec3 reflectance=clamp(color.rgb*2.25,0.0,1.0);',
                 'gl_FragColor=vec4(reflectance*vec3(0.68,0.65,0.59)*intensity,0.0);',
                 '}'
             ].join('\n')));
             gl.linkProgram(program);
             if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error('3D描画を準備できませんでした。');
-            renderer = { gl, program, buffer: gl.createBuffer(), shadowBuffer: gl.createBuffer() };
+            const depthProgram = gl.createProgram();
+            gl.attachShader(depthProgram, compile(gl.VERTEX_SHADER, [
+                'precision ' + precision + ' float;',
+                'attribute vec3 p; uniform vec3 source; uniform vec3 axis; uniform vec3 right; uniform vec3 up;',
+                'varying float depth;',
+                'void main(){vec3 v=p-source; depth=dot(v,axis);',
+                'gl_Position=vec4(dot(v,right),dot(v,up),depth*1.000667-4.001334,depth);}'
+            ].join('\n')));
+            gl.attachShader(depthProgram, compile(gl.FRAGMENT_SHADER, [
+                'precision ' + precision + ' float; varying float depth;',
+                'void main(){float value=clamp(depth/6000.0,0.0,1.0)*255.0;',
+                'gl_FragColor=vec4(floor(value)/255.0,fract(value),0.0,1.0);}'
+            ].join('\n')));
+            gl.linkProgram(depthProgram);
+            // Keep the optional light depth map separate from the camera's depth buffer.
+            const resolution = 512;
+            const depthTexture = gl.createTexture(), depthBuffer = gl.createRenderbuffer(), depthFrame = gl.createFramebuffer();
+            gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, resolution, resolution, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
+            gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, resolution, resolution);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, depthFrame);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, depthTexture, 0);
+            gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer);
+            const canMapDepth = gl.getProgramParameter(depthProgram, gl.LINK_STATUS) &&
+                gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+            renderer = { gl, program, buffer: gl.createBuffer(), shadowBuffer: gl.createBuffer(),
+                depthMap: canMapDepth ? { program: depthProgram, texture: depthTexture, frame: depthFrame, resolution } : null };
         }
-        const { gl, program, buffer, shadowBuffer } = renderer;
+        const { gl, program, buffer, shadowBuffer, depthMap } = renderer;
         // Plan coordinates increase down the page; the camera transform also applies to light rays.
         const toViewVector = ([x, y, z]) => [z * direction.x - x * direction.z, y, x * direction.x + z * direction.z];
         const toViewPoint = ([x, y, z]) => toViewVector([x - start.x, y - eyeHeight, z - start.z]);
@@ -432,9 +481,50 @@
             const lightDirection = gl.getUniformLocation(program, 'lightDirection');
             const patchUniforms = Object.fromEntries(['patchCenter', 'patchNormal', 'patchLong', 'patchCross', 'patchSize']
                 .map(name => [name, gl.getUniformLocation(program, name)]));
+            const useLightDepth = gl.getUniformLocation(program, 'useLightDepth');
+            const lightRight = gl.getUniformLocation(program, 'lightRight');
+            const lightUp = gl.getUniformLocation(program, 'lightUp');
+            gl.activeTexture(gl.TEXTURE0);
+            gl.uniform1i(gl.getUniformLocation(program, 'lightDepth'), 0);
             for (const spot of spots) {
-                gl.uniform3fv(lightPosition, toViewPoint(spot.position));
-                gl.uniform3fv(lightDirection, toViewVector(spot.direction));
+                const source = toViewPoint(spot.position), axis = toViewVector(spot.direction);
+                if (depthMap) {
+                    const horizontal = Math.hypot(axis[0], axis[2]);
+                    const right = horizontal > 1e-5 ? [axis[2] / horizontal, 0, -axis[0] / horizontal] : [1, 0, 0];
+                    const up = cross(axis, right);
+                    gl.bindTexture(gl.TEXTURE_2D, null);
+                    gl.bindFramebuffer(gl.FRAMEBUFFER, depthMap.frame);
+                    gl.viewport(0, 0, depthMap.resolution, depthMap.resolution);
+                    gl.depthFunc(gl.LESS);
+                    gl.depthMask(true);
+                    gl.disable(gl.BLEND);
+                    gl.disable(gl.DITHER);
+                    gl.clearColor(1, 0, 0, 1);
+                    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+                    gl.useProgram(depthMap.program);
+                    for (const [name, value] of [['source', source], ['axis', axis], ['right', right], ['up', up]]) {
+                        gl.uniform3fv(gl.getUniformLocation(depthMap.program, name), value);
+                    }
+                    const vertex = gl.getAttribLocation(depthMap.program, 'p');
+                    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+                    gl.enableVertexAttribArray(vertex);
+                    gl.vertexAttribPointer(vertex, 3, gl.FLOAT, false, stride * 4, 0);
+                    gl.drawArrays(gl.TRIANGLES, 0, vertices.length / stride);
+                    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                    gl.viewport(0, 0, surface.width, surface.height);
+                    gl.depthFunc(gl.EQUAL);
+                    gl.depthMask(false);
+                    gl.enable(gl.BLEND);
+                    gl.enable(gl.DITHER);
+                    gl.useProgram(program);
+                    bind(buffer);
+                    gl.bindTexture(gl.TEXTURE_2D, depthMap.texture);
+                    gl.uniform3fv(lightRight, right);
+                    gl.uniform3fv(lightUp, up);
+                }
+                gl.uniform1i(useLightDepth, depthMap ? 1 : 0);
+                gl.uniform3fv(lightPosition, source);
+                gl.uniform3fv(lightDirection, axis);
                 const patch = spot.patch;
                 gl.uniform3fv(patchUniforms.patchSize, patch?.size || [0, 0, 0]);
                 if (patch) {
@@ -448,6 +538,7 @@
         }
         gl.depthMask(true);
         gl.disable(gl.BLEND);
+        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
     function planObjects(raw) {
@@ -527,7 +618,8 @@
                     const distance = Math.hypot(...ray);
                     if (!(distance > 0)) { omitted++; continue; }
                     const direction = ray.map(value => value / distance);
-                    const patch = surface.normal ? wallLightPatch(light, surface, destination, direction, distance) : null;
+                    // Off-centre aiming uses the cone/surface intersection, not a centred ellipse.
+                    const patch = surface.normal && !pointMode ? wallLightPatch(light, surface, destination, direction, distance) : null;
                     spots.push({ position, direction, patch });
                     continue;
                 }
