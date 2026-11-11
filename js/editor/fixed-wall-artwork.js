@@ -7,16 +7,20 @@
     window.snapArtworkToFixedWall = (artwork, snappedToMovableWall = false) => {
         if (currentViewMode === 'floor' && artwork?.type === 'activeSelection') pendingSnaps.set(artwork, null);
         if (!canLink(artwork)) return false;
+        const previousWallId = pendingSnaps.has(artwork) ? pendingSnaps.get(artwork)?.id : artwork.fixedWallId;
         pendingSnaps.set(artwork, null);
         if (snappedToMovableWall) return false;
         const body = artwork.item(0);
         if (!body) return false;
         const center = artwork.getCenterPoint();
         const zoom = canvas.lowerCanvasEl.getBoundingClientRect().width / canvas.getWidth() || 1;
-        const threshold = Math.min(40, 22 / zoom);
+        const snapDistance = Math.min(64, 32 / zoom);
+        const releaseDistance = Math.min(80, 42 / zoom);
+        const maxClearance = 40;
         const halfWidth = body.width * Math.abs(artwork.scaleX || 1) / 2;
         const halfDepth = body.height * Math.abs(artwork.scaleY || 1) / 2;
-        const candidates = [];
+        const original = { left: artwork.left, top: artwork.top, angle: artwork.angle };
+        let best = null;
         for (const { id, start, end, faceSide } of window.getFixedWallSegments(selectedFloorId, configuredScale)) {
             const length = Math.hypot(end.x - start.x, end.z - start.z);
             if (!(length > 0) || halfWidth * 2 > length) continue;
@@ -26,33 +30,38 @@
             const dx = center.x - start.x, dy = center.y - start.z;
             const away = dx * nx + dy * ny;
             if (away < 0) continue;
-            const along = Math.max(halfWidth, Math.min(length - halfWidth, dx * tx + dy * ty));
+            const projection = dx * tx + dy * ty;
+            const along = Math.max(halfWidth, Math.min(length - halfWidth, projection));
+            const continuing = id === previousWallId && projection >= 0 && projection <= length;
+            const threshold = continuing ? releaseDistance : snapDistance;
+            const nearestClearance = Math.max(.75, Math.min(maxClearance, away - halfDepth));
+            if (Math.hypot(along - projection, halfDepth + nearestClearance - away) > threshold) continue;
             const x = start.x + tx * along, y = start.z + ty * along;
-            const gap = Math.hypot(x + nx * halfDepth - center.x, y + ny * halfDepth - center.y);
-            if (gap > threshold) continue;
             const angle = (Math.atan2(ty * side, tx * side) * 180 / Math.PI + 360) % 360;
             const fraction = (side > 0 ? along : length - along) / length;
-            candidates.push({ id, x, y, nx, ny, gap, angle, fraction });
-        }
-        if (!candidates.length) return false;
-        const original = { left: artwork.left, top: artwork.top, angle: artwork.angle };
-        for (const candidate of candidates.sort((a, b) => a.gap - b.gap)) {
-            artwork.set('angle', candidate.angle);
+            artwork.set('angle', angle);
             // The registered line may sit inside the black pixels of the floor plan.
-            // Step toward the room until the artwork clears the drawn wall.
-            for (let clearance = .75; clearance <= threshold; clearance += 1) {
+            // Find the wall contact point before checking the snap distance.
+            for (let clearance = .75; clearance <= maxClearance; clearance += 1) {
                 const distance = halfDepth + clearance;
-                const x = candidate.x + candidate.nx * distance;
-                const y = candidate.y + candidate.ny * distance;
-                if (Math.hypot(x - center.x, y - center.y) > threshold) continue;
-                artwork.setPositionByOrigin(new fabric.Point(x, y), 'center', 'center');
+                const point = new fabric.Point(x + nx * distance, y + ny * distance);
+                artwork.setPositionByOrigin(point, 'center', 'center');
                 if (getWallCollisionScore(artwork) > 0) continue;
-                artwork.setCoords();
-                pendingSnaps.set(artwork, candidate);
-                if (artwork.crowdCircle && original.angle !== candidate.angle) updateCrowdSemicircle(artwork);
-                return true;
+                const gap = Math.hypot(point.x - center.x, point.y - center.y);
+                const score = gap - (continuing ? 5 / zoom : 0);
+                if (gap <= threshold && (!best || score < best.score)) best = { id, point, angle, fraction, score };
+                break;
             }
         }
+        if (best) {
+            artwork.set('angle', best.angle);
+            artwork.setPositionByOrigin(best.point, 'center', 'center');
+            artwork.setCoords();
+            pendingSnaps.set(artwork, best);
+            if (artwork.crowdCircle && original.angle !== best.angle) updateCrowdSemicircle(artwork);
+            return true;
+        }
+        if (artwork.left === original.left && artwork.top === original.top && artwork.angle === original.angle) return false;
         artwork.set(original);
         artwork.setCoords();
         return false;
