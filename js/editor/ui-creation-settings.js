@@ -118,6 +118,7 @@ function initializeCreationSettingsUi() {
             isUndoRedoOperation = true;
             try {
                 window.removeMovableWallFaces?.(removable.filter(obj => obj.isMovableWall));
+                removable.forEach(object => window.removeFixedWallArtwork?.(object));
                 canvas.discardActiveObject();
                 canvas.remove(...removable);
             } finally { isUndoRedoOperation = wasRestoring; }
@@ -178,6 +179,7 @@ function initializeCreationSettingsUi() {
                 isUndoRedoOperation = true;
                 try {
                     if (movableWalls.length) window.removeMovableWallFaces?.(movableWalls);
+                    deletableObjects.forEach(object => window.removeFixedWallArtwork?.(object));
                     canvas.discardActiveObject();
                     canvas.remove(...deletableObjects, ...relatedObjects, ...attachedSpotlights);
                 } finally { isUndoRedoOperation = wasRestoring; }

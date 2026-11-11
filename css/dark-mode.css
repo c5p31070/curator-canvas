@@ -1348,6 +1348,7 @@ header h1 .brand-subtitle {
 .perspective-wall-guide { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .perspective-wall-existing { stroke: #507a8b; stroke-width: 2px; }
 .perspective-wall-endpoint { stroke: #507a8b; stroke-width: 7px; stroke-linecap: round; }
+.perspective-wall-endpoint-active { stroke: #853f4a; stroke-width: 10px; }
 .perspective-wall-preview { stroke: #853f4a; stroke-width: 2px; stroke-dasharray: 5 3; }
 .perspective-picker[data-kind="camera"] { touch-action: none; }
 .perspective-camera-arrow, .perspective-camera-arrow-outline {

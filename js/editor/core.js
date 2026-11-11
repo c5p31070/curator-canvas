@@ -511,6 +511,7 @@ function getCustomProperties() {
         'cmHeight',
         'cmDepth',
         'artworkCenterHeightCm',
+        'fixedWallId', 'fixedWallArtworkId',
         'pxWidth',
         'pxHeight',
         'crowdCountValue',

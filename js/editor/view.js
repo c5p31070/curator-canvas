@@ -59,7 +59,7 @@ window.repairArtworkHeightLinks = () => {
     const repair = (object, wall = false) => {
         const previousId = object.artworkCatalogId;
         const catalog = findArtworkCatalogReference(object);
-        if (wall && catalog && object.artworkCenterHeightCm != null &&
+        if (wall && catalog && !object.fixedWallArtworkId && object.artworkCenterHeightCm != null &&
             Number.isFinite(Number(object.artworkCenterHeightCm))) {
             if (!heights.has(catalog.id)) heights.set(catalog.id, new Set());
             heights.get(catalog.id).add(Number(object.artworkCenterHeightCm));
@@ -84,7 +84,8 @@ window.applyArtworkCatalogHeightsToFloor = () => {
     const visit = objects => objects.forEach(object => {
         if (object.isArtwork) {
             const catalog = findArtworkCatalogReference(object);
-            const height = artworkWallHeights.get(catalog?.id) ?? object.artworkCenterHeightCm ?? catalog?.artworkCenterHeightCm;
+            const height = object.fixedWallArtworkId ? object.artworkCenterHeightCm
+                : artworkWallHeights.get(catalog?.id) ?? object.artworkCenterHeightCm ?? catalog?.artworkCenterHeightCm;
             if (height != null && Number.isFinite(Number(height))) {
                 object.artworkCenterHeightCm = Number(height);
             }
@@ -95,6 +96,7 @@ window.applyArtworkCatalogHeightsToFloor = () => {
 };
 
 window.getArtworkCenterHeightCm = artwork => {
+    if (artwork?.fixedWallArtworkId) return Number.isFinite(artwork.artworkCenterHeightCm) ? artwork.artworkCenterHeightCm : null;
     const catalog = findArtworkCatalogReference(artwork);
     const sharedHeight = currentViewMode === 'floor' ? artworkWallHeights.get(catalog?.id) : null;
     const value = sharedHeight ?? artwork?.artworkCenterHeightCm ?? catalog?.artworkCenterHeightCm;
@@ -124,13 +126,14 @@ window.placeArtworkAtSavedHeight = artwork => {
 };
 
 window.shareArtworkCenterHeight = artwork => {
+    if (window.shareFixedWallArtworkHeight?.(artwork)) return;
     const catalog = findArtworkCatalogReference(artwork);
     if (!artwork?.artworkCatalogId) return;
     const height = artwork.artworkCenterHeightCm ?? null;
     if (height !== null && catalog) artworkWallHeights.set(catalog.id, height);
     else if (catalog) artworkWallHeights.delete(catalog.id);
     const matches = object => {
-        if (!object.isArtwork || object.isFixture) return false;
+        if (!object.isArtwork || object.isFixture || object.fixedWallArtworkId) return false;
         findArtworkCatalogReference(object);
         return object.artworkCatalogId === artwork.artworkCatalogId;
     };
@@ -704,6 +707,23 @@ window.addEventListener('resize', () => {
     if (currentViewMode === 'wall') renderWallRulers();
 });
 
+function createWallOutline(wall, scale) {
+    const pxW = wall.widthCm * scale;
+    const pxH = wall.heightCm * scale;
+    return new fabric.Rect({
+        left: (canvas.width - pxW) / 2,
+        top: (canvas.height - pxH) / 2,
+        width: pxW,
+        height: pxH,
+        fill: '#f8fafc',
+        stroke: 'transparent',
+        strokeWidth: 3,
+        isWallOutline: true,
+        selectable: false,
+        evented: false
+    });
+}
+
 async function renderWallCanvas(callback = null) {
     window.beginVenueWallRender?.();
     try {
@@ -718,39 +738,9 @@ async function renderWallCanvas(callback = null) {
     }
 
     const scale = configuredScale ?? 0.5;
-
-    const pxW =
-        selectedWallInfo.widthCm * scale;
-
-    const pxH =
-        selectedWallInfo.heightCm * scale;
-
-    const wallRect =
-        new fabric.Rect({
-
-            left:
-                (canvas.width - pxW) / 2,
-
-            top:
-                (canvas.height - pxH) / 2,
-
-            width: pxW,
-
-            height: pxH,
-
-            fill: '#f8fafc',
-
-            stroke: 'transparent',
-
-            strokeWidth: 3,
-
-            isWallOutline: true,
-
-            selectable: false,
-
-            evented: false
-        });
-
+    const wallRect = createWallOutline(selectedWallInfo, scale);
+    const pxW = wallRect.width;
+    const pxH = wallRect.height;
     canvas.add(wallRect);
 
     const wallItem =
@@ -784,6 +774,11 @@ async function renderWallCanvas(callback = null) {
         const oldScale = previousHeight && outline ? outline.height * (outline.scaleY || 1) / previousHeight : null;
         canvas.getObjects().filter(object => object.isArtwork).forEach(object => {
             if (window.getArtworkCenterHeightCm(object) === null) window.updateArtworkHeightFromWall(object, false, oldScale);
+            if (object.fixedWallArtworkId && outline?.width > 0) {
+                const center = object.getCenterPoint();
+                const fraction = (center.x - outline.left) / (outline.width * (outline.scaleX || 1));
+                object.setPositionByOrigin(new fabric.Point(wallRect.left + fraction * pxW, center.y), 'center', 'center');
+            }
         });
         if (outline) {
             outline.set({ width: pxW, height: pxH, scaleX: 1, scaleY: 1,

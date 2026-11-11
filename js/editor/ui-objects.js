@@ -281,7 +281,8 @@ function initializeObjectControlsUi() {
             configureArtworkTransform(artworkGroup);
 
             window.snapObjectToGrid?.(artworkGroup);
-            window.snapArtworkToMovableWall?.(artworkGroup);
+            const movableWallSnapped = window.snapArtworkToMovableWall?.(artworkGroup);
+            if (window.snapArtworkToFixedWall?.(artworkGroup, movableWallSnapped)) window.commitFixedWallArtwork?.(artworkGroup);
             if (currentViewMode === 'wall') {
                 if (!window.placeArtworkAtSavedHeight(artworkGroup)) window.updateArtworkHeightFromWall(artworkGroup, true);
             }

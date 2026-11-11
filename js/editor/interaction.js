@@ -458,6 +458,7 @@ function getCrowdColor(count) {
 canvas.on(
     'object:modified',
     function(event) {
+        window.commitFixedWallArtwork?.(event.target);
         window.updateArtworkHeightFromWall?.(event.target, true);
         window.queueVenueWallFixtureChange?.(event.target);
         window.persistLightingEquipmentChange?.(event.target);
@@ -482,6 +483,7 @@ canvas.on(
 canvas.on(
     'object:removed',
     function(e) {
+        if (!isUndoRedoOperation && !isTransitioning) window.removeFixedWallArtwork?.(e.target);
         window.handleLightingObjectRemoved?.(e.target);
         window.queueVenueWallFixtureChange?.(e.target);
 
@@ -704,7 +706,8 @@ canvas.on(
 
         const previousAngle = obj.angle || 0;
         const wallSnapped = window.snapArtworkToMovableWall?.(obj);
-        const floorWallSnapped = !wallSnapped && snapObjectToFloorWall(obj);
+        const fixedWallSnapped = window.snapArtworkToFixedWall?.(obj, wallSnapped);
+        const floorWallSnapped = fixedWallSnapped || (!wallSnapped && snapObjectToFloorWall(obj));
         if (!wallSnapped && !floorWallSnapped) window.snapObjectToGrid?.(obj);
         let collisionScore = getWallCollisionScore(obj);
         const canMoveOutOfExistingCollision =
