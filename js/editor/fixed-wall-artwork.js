@@ -141,23 +141,65 @@
         wall.json = JSON.stringify({ ...plan, objects });
     };
 
+    function updateLinkedArtwork(plan, artwork, update) {
+        plan.json = updateArtworkPlan(plan.json, object =>
+            object.fixedWallArtworkId === artwork.fixedWallArtworkId && object.fixedWallId === artwork.fixedWallId
+            && update(object));
+    }
+
+    window.syncFixedWallArtworkPosition = event => {
+        const target = event.target;
+        if (currentViewMode !== 'wall' || isTransitioning || isUndoRedoOperation || window.CURATOR_ROLE === 'viewer' ||
+            (event.action || event.transform?.action) !== 'drag' || !target ||
+            event.transform?.original?.left === target.left) return;
+        const artworks = target.type === 'activeSelection' ? target.getObjects() : [target];
+        const linked = artworks.filter(artwork => artwork.fixedWallArtworkId && artwork.fixedWallId === selectedWallInfo.id);
+        if (!linked.length) return;
+        const frame = canvas.getObjects().find(object => object.isWallOutline);
+        const width = frame?.width * (frame?.scaleX || 1);
+        const floor = floorPlanData[selectedFloorId];
+        const segment = window.getFixedWallSegments(selectedFloorId, configuredScale).find(wall => wall.id === selectedWallInfo.id);
+        if (!floor || !(width > 0) || !segment) return;
+        // The wall's left edge is defined as seen from its exhibition side.
+        const [start, end] = segment.faceSide === -1 ? [segment.end, segment.start] : [segment.start, segment.end];
+        const length = Math.hypot(end.x - start.x, end.z - start.z);
+        if (!(length > 0)) return;
+        const tx = (end.x - start.x) / length, ty = (end.z - start.z) / length;
+        for (const artwork of linked) {
+            const body = artwork.item?.(0);
+            const center = body ? fabric.util.transformPoint(new fabric.Point(0, 0), body.calcTransformMatrix()) : artwork.getCenterPoint();
+            const along = (center.x - frame.left) * length / width;
+            if (!Number.isFinite(along)) continue;
+            updateLinkedArtwork(floor, artwork, object => {
+                if (![object.left, object.top].every(Number.isFinite)) return false;
+                const previous = (object.left - start.x) * tx + (object.top - start.z) * ty;
+                const delta = along - previous;
+                if (Math.abs(delta) < .01) return false;
+                object.left += tx * delta;
+                object.top += ty * delta;
+                return true;
+            });
+        }
+        floorPlanJsonData = floor.json;
+    };
+
     window.shareFixedWallArtworkHeight = artwork => {
         if (!artwork?.fixedWallArtworkId || !artwork.fixedWallId) return false;
         const height = artwork.artworkCenterHeightCm;
-        const update = raw => updateArtworkPlan(raw, object => {
-            if (object.fixedWallArtworkId !== artwork.fixedWallArtworkId || object.artworkCenterHeightCm === height) return false;
+        const update = object => {
+            if (object.artworkCenterHeightCm === height) return false;
             object.artworkCenterHeightCm = height;
             return true;
-        });
+        };
         if (currentViewMode === 'wall') {
             const floor = floorPlanData[selectedFloorId];
             if (floor) {
-                floor.json = update(floor.json);
+                updateLinkedArtwork(floor, artwork, update);
                 floorPlanJsonData = floor.json;
             }
         } else {
             const wall = wallPlanJsonData[artwork.fixedWallId];
-            if (wall) wall.json = update(wall.json);
+            if (wall) updateLinkedArtwork(wall, artwork, update);
         }
         return true;
     };

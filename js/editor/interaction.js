@@ -459,6 +459,7 @@ canvas.on(
     'object:modified',
     function(event) {
         window.commitFixedWallArtwork?.(event.target);
+        window.syncFixedWallArtworkPosition?.(event);
         window.updateArtworkHeightFromWall?.(event.target, true);
         window.queueVenueWallFixtureChange?.(event.target);
         window.persistLightingEquipmentChange?.(event.target);
