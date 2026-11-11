@@ -102,12 +102,12 @@ window.prepareFloorLighting = (plan, floorId) => {
         if (legacy.length) { venueLightingData[floorId] = { objects: legacy }; persistVenueLighting(); }
     }
     const equipment = venueLightingData[floorId]?.objects || [];
-    const railIds = new Set(equipment.filter(obj => obj.isLightRail).map(obj => obj.lightId));
     const power = new Map(existing.filter(obj => obj.isLightObject && obj.lightKind === 'fixed').map(obj => [obj.lightId, obj.lightOn !== false]));
     return {
         ...plan,
         objects: [
-            ...existing.filter(obj => !isVenueEquipment(obj) && !(obj.lightKind === 'spot' && !railIds.has(obj.lightRailId))),
+            // Venue presets may differ across devices. Keep spots at their saved positions until their rails are available.
+            ...existing.filter(obj => !isVenueEquipment(obj)),
             ...equipment.map(obj => normalizeFixedLightShape({ ...obj, lightOn: power.get(obj.lightId) ?? true }))
         ]
     };
@@ -310,7 +310,10 @@ function refreshSpotlightReadout(light, direction = null) {
     const readout = document.getElementById('lightOrientationReadout');
     const reference = spotlightRailReference(light);
     const horizontal = light.lightAimMode === 'down' || direction.tilt === 0 || !reference ? '—' : reference.relative.toFixed(2) + '°';
-    if (readout) readout.textContent = `水平 ${horizontal} / 仰角 ${direction.tilt === null ? '—' : direction.tilt.toFixed(2) + '°'}${direction.note ? ' · ' + direction.note : ''}`;
+    if (readout) {
+        const notes = [direction.note, reference ? '' : '対応するライトレールが見つかりません'].filter(Boolean);
+        readout.textContent = [`水平 ${horizontal} / 仰角 ${direction.tilt === null ? '—' : direction.tilt.toFixed(2) + '°'}`, ...notes].join(' · ');
+    }
     if (light.lightAimMode !== 'free') {
         document.getElementById('lightDirection').value = horizontal === '—' ? '' : reference.relative.toFixed(2);
         document.getElementById('lightTilt').value = direction.tilt === null ? '' : direction.tilt.toFixed(2);
@@ -337,8 +340,9 @@ function refreshLighting(updateControls = true) {
                 const t = Math.max(0, Math.min(1, Number(light.lightRailT) || 0));
                 light.set({ left: start.x + (end.x - start.x) * t, top: start.y + (end.y - start.y) * t });
             }
-            const editablePosition = !lightingReadOnly() && (spot || isAdminMode);
-            light.set({ visible: lightingVisible, selectable: editablePosition, evented: lightingVisible,
+            const selectable = !lightingReadOnly() && (spot || isAdminMode);
+            const editablePosition = selectable && (!spot || Boolean(rail));
+            light.set({ visible: lightingVisible, selectable, evented: lightingVisible,
                 ...(spot ? { radius: 5 } : { width: fixedLightSize, height: fixedLightSize, rx: 0, ry: 0 }),
                 lockMovementX: !editablePosition, lockMovementY: !editablePosition,
                 lockScalingX: true, lockScalingY: true, lockRotation: true,
@@ -452,7 +456,7 @@ function refreshLightingControls() {
     if (angle) angle.disabled = lightingReadOnly() || !light || light.lightAimMode !== 'free' || !railReference;
     const flip = document.getElementById('btnFlipSpotlightSide');
     if (flip) flip.disabled = lightingReadOnly() || !light || light.lightAimMode !== 'free' || !railReference;
-    document.getElementById('lightTilt').disabled = lightingReadOnly() || !light || light.lightAimMode !== 'free';
+    document.getElementById('lightTilt').disabled = lightingReadOnly() || !light || light.lightAimMode !== 'free' || !railReference;
     refreshSpotlightReadout(light);
     refreshLightTargetPoint(light);
     const groundPick = document.getElementById('btnPickLightGround');
@@ -607,7 +611,6 @@ function finishLightingPlacement(object) {
 function applyLightSettings(debounce = false) {
     const light = lightingById(selectedLightId);
     if (!light?.isLightObject || lightingReadOnly()) return;
-    light.lightOn = document.getElementById('lightPower').checked;
     if (light.lightKind === 'spot') {
         const mode = document.getElementById('lightAimMode').value;
         const targetX = Number(document.getElementById('lightTargetX').value);
@@ -917,7 +920,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const light = lightingById(selectedLightId);
         if (light?.selectable) canvas.setActiveObject(light);
     });
-    ['lightPower', 'lightAimMode', 'lightTargetSelect'].forEach(id => document.getElementById(id)?.addEventListener('change', () => applyLightSettings()));
+    document.getElementById('lightPower')?.addEventListener('change', event => {
+        const light = lightingById(selectedLightId);
+        if (!light?.isLightObject || lightingReadOnly()) return;
+        cancelLightingPlacement();
+        light.lightOn = event.target.checked;
+        refreshLighting();
+        saveState();
+    });
+    ['lightAimMode', 'lightTargetSelect'].forEach(id => document.getElementById(id)?.addEventListener('change', () => applyLightSettings()));
     ['lightDirection', 'lightTilt'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', () => applyLightSettings(true));
         document.getElementById(id)?.addEventListener('change', () => { flushPendingLightingEdit(); refreshLightingControls(); });

@@ -42,7 +42,8 @@
         }
         const targetEquipment = equipment(targetId);
         const oldIds = new Set(rails(targetId).map(rail => rail.lightId));
-        const spots = targetPlan.objects.filter(object => object.lightKind === 'spot' && oldIds.has(object.lightRailId)).length;
+        const isSpotOnReplacedRail = object => object.lightKind === 'spot' && oldIds.has(object.lightRailId);
+        const spots = targetPlan.objects.filter(isSpotOnReplacedRail).length;
         const message = `${FLOOR_PLANS[sourceId].title}のレール${sourceRails.length}本を${FLOOR_PLANS[targetId].title}に${replace ? '置き換えコピー' : '追加'}しますか？`
             + (replace ? `\nコピー先のレール${oldIds.size}本を削除します。` : '')
             + (replace && spots ? `\nそのレール上のスポットライト${spots}個も削除します。` : '');
@@ -63,6 +64,7 @@
             // Persist first so a storage failure leaves the existing venue intact.
             editorStorage.setItem(VENUE_LIGHTING_KEY, JSON.stringify(next));
             venueLightingData = next;
+            if (replace) targetPlan.objects = targetPlan.objects.filter(object => !isSpotOnReplacedRail(object));
             targetPlan = window.prepareFloorLighting(targetPlan, targetId);
             delete targetPlan.backgroundImage;
             floorPlanData[targetId] = { json: JSON.stringify(targetPlan) };
