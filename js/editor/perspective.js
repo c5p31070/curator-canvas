@@ -276,6 +276,7 @@
 
     const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
     const subtract = (a, b) => a.map((value, i) => value - b[i]);
+    const dot = (a, b) => a.reduce((sum, value, i) => sum + value * b[i], 0);
     const quad = (out, a, b, c, d, color, opacity = [1, 1, 1, 1]) => {
         const normal = cross(subtract(b, a), subtract(d, a));
         const size = Math.hypot(...normal);
@@ -349,6 +350,8 @@
                 'precision ' + precision + ' float;',
                 'varying vec3 position; varying vec3 normal; varying vec4 color;',
                 'uniform int lightPass; uniform vec3 lightPosition; uniform vec3 lightDirection;',
+                'uniform vec3 patchCenter; uniform vec3 patchNormal; uniform vec3 patchLong; uniform vec3 patchCross;',
+                'uniform vec3 patchSize;',
                 'void main(){',
                 'if(lightPass==0){gl_FragColor=color;return;}',
                 'vec3 ray=lightPosition-position;',
@@ -357,6 +360,14 @@
                 'float cone=smoothstep(0.9681,0.9936,dot(-towardLight,lightDirection));',
                 'vec3 facing=dot(normal,-position)>=0.0?normal:-normal;',
                 'float intensity=cone*max(dot(facing,towardLight),0.0)/(1.0+0.022*distanceMeters*distanceMeters);',
+                'if(patchSize.x>0.0 && abs(dot(normal,patchNormal))>0.995){',
+                'vec3 offset=position-patchCenter;',
+                'if(abs(dot(offset,patchNormal))<=patchSize.z){',
+                'vec2 uv=vec2(dot(offset,patchLong)/patchSize.x,dot(offset,patchCross)/patchSize.y);',
+                'float meters=length((patchCenter-lightPosition)/100.0);',
+                'intensity=(1.0-smoothstep(0.18,1.0,length(uv)))*max(dot(facing,-lightDirection),0.0)/(1.0+0.022*meters*meters);',
+                '}',
+                '}',
                 'vec3 reflectance=clamp(color.rgb*2.25,0.0,1.0);',
                 'gl_FragColor=vec4(reflectance*vec3(0.68,0.65,0.59)*intensity,0.0);',
                 '}'
@@ -419,9 +430,19 @@
             gl.uniform1i(pass, 1);
             const lightPosition = gl.getUniformLocation(program, 'lightPosition');
             const lightDirection = gl.getUniformLocation(program, 'lightDirection');
+            const patchUniforms = Object.fromEntries(['patchCenter', 'patchNormal', 'patchLong', 'patchCross', 'patchSize']
+                .map(name => [name, gl.getUniformLocation(program, name)]));
             for (const spot of spots) {
                 gl.uniform3fv(lightPosition, toViewPoint(spot.position));
                 gl.uniform3fv(lightDirection, toViewVector(spot.direction));
+                const patch = spot.patch;
+                gl.uniform3fv(patchUniforms.patchSize, patch?.size || [0, 0, 0]);
+                if (patch) {
+                    gl.uniform3fv(patchUniforms.patchCenter, toViewPoint(patch.center));
+                    gl.uniform3fv(patchUniforms.patchNormal, toViewVector(patch.normal));
+                    gl.uniform3fv(patchUniforms.patchLong, toViewVector(patch.long));
+                    gl.uniform3fv(patchUniforms.patchCross, toViewVector(patch.across));
+                }
                 gl.drawArrays(gl.TRIANGLES, 0, vertices.length / stride);
             }
         }
@@ -439,9 +460,9 @@
         return { x: (b.x - a.x) / length, z: (b.z - a.z) / length };
     };
 
-    function renderedArtworkTarget(target, artworkSurfaces, x, y, scale) {
+    function renderedArtworkTarget(target, artworkSurfaces, scale) {
         const direct = artworkSurfaces.find(surface => surface.object === target);
-        if (direct) return direct.point(x, y);
+        if (direct) return direct;
         const targetId = target.lightingTargetId;
         const catalogId = target.artworkCatalogId;
         const number = target.artworkNumber;
@@ -461,7 +482,29 @@
                 best = { surface, priority, distance };
             }
         }
-        return best?.surface.point(x, y);
+        return best?.surface;
+    }
+
+    function wallLightPatch(light, surface, center, direction, distance) {
+        const normal = surface.normal;
+        const incidence = dot(direction, normal);
+        const projected = direction.map((value, i) => value - incidence * normal[i]);
+        const projectedLength = Math.hypot(...projected);
+        const probe = { ...light, getCenterPoint: () => light.getCenterPoint() };
+        lightingDirection(probe);
+        const reference = spotlightRailReference(probe);
+        const rail = lightingById(light.lightRailId);
+        const ends = rail?.isLightRail ? railEndpoints(rail) : null;
+        const railLength = ends ? Math.hypot(ends.end.x - ends.start.x, ends.end.y - ends.start.y) : 0;
+        const parallel = railLength > 0 && Math.abs(
+            ((ends.end.x - ends.start.x) * normal[0] + (ends.end.y - ends.start.y) * normal[2]) / railLength
+        ) < .02;
+        const straight = parallel && reference && Math.abs(reference.relative) < .25;
+        // On a wall, keep the footprint centred and keep a straight-on beam vertical.
+        const long = straight || projectedLength < 1e-6 ? [0, 1, 0] : projected.map(value => value / projectedLength);
+        const radius = distance * Math.tan(14.5 * Math.PI / 180);
+        return { center, normal, long, across: cross(normal, long),
+            size: [radius / Math.max(.38, Math.abs(incidence)), radius, surface.depth + 4] };
     }
 
     function perspectiveSpotlights(objects, artworkSurfaces, scale, height) {
@@ -477,12 +520,15 @@
                 const pointMode = light.lightAimMode === 'artwork-point';
                 const x = pointMode ? lightTargetPercent(light.lightTargetXPercent) / 100 : .5;
                 const y = pointMode ? lightTargetPercent(light.lightTargetYPercent) / 100 : .5;
-                const destination = renderedArtworkTarget(target, artworkSurfaces, x, y, scale);
+                const surface = renderedArtworkTarget(target, artworkSurfaces, scale);
+                const destination = surface?.point(x, y);
                 if (destination) {
                     const ray = subtract(destination, position);
                     const distance = Math.hypot(...ray);
                     if (!(distance > 0)) { omitted++; continue; }
-                    spots.push({ position, direction: ray.map(value => value / distance) });
+                    const direction = ray.map(value => value / distance);
+                    const patch = surface.normal ? wallLightPatch(light, surface, destination, direction, distance) : null;
+                    spots.push({ position, direction, patch });
                     continue;
                 }
             }
@@ -603,7 +649,8 @@
                                 a.z + t.z * distance + t.x * offset];
                         };
                         const offset = 1 + Math.max(0, Number(object.cmDepth) || 0);
-                        artworkSurfaces.push({ object, point: (x, y) => p((2 * x - 1) * halfW, (1 - 2 * y) * halfH, offset) });
+                        artworkSurfaces.push({ object, normal: [-t.z, 0, t.x], depth: offset,
+                            point: (x, y) => p((2 * x - 1) * halfW, (1 - 2 * y) * halfH, offset) });
                         quad(vertices, p(-halfW,-halfH,offset), p(halfW,-halfH,offset),
                             p(halfW,halfH,offset), p(-halfW,halfH,offset), colors.artwork);
                         numberOnFace(vertices, object.artworkNumber, p(-halfW,-halfH,offset + .15),
