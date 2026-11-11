@@ -134,6 +134,7 @@ function initializeObjectControlsUi() {
         addButton.addEventListener("click", function() {
 
             if (window.CURATOR_ROLE === 'viewer' || isTransitioning) return;
+            if (!requireVenueScale()) return;
             const centerHeightText = document.getElementById('artworkCenterHeight').value.trim();
             let centerHeight = centerHeightText === '' ? null : mmToCm(centerHeightText);
             if (centerHeight !== null && (!Number.isFinite(centerHeight) || centerHeight < 0)) {

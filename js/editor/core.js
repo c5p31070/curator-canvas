@@ -28,6 +28,10 @@ fabric.Object.prototype.transparentCorners = false;
 const STORAGE_KEY = 'curator_canvas_draft_data';
 const EXHIBITIONS_KEY = 'curator_canvas_saved_exhibitions';
 const SCALE_SETTINGS_KEY = 'curator_canvas_floor_scale';
+const VENUE_NAMES = { special: '企画展', public: '公募展' };
+const venueOf = data => data?.venueId === 'public' ? 'public' : 'special';
+let activeVenueId = 'special';
+const venueScaleStorageKey = venue => venue === 'public' ? SCALE_SETTINGS_KEY + '_public' : SCALE_SETTINGS_KEY;
 let crowdVisible = true;
 try { crowdVisible = editorStorage.getItem('curator_canvas_crowd_visible') !== 'false'; } catch {}
 let configuredScale = loadConfiguredScale();
@@ -36,16 +40,17 @@ if (configuredScale !== null) {
     if (input) input.value = scaleToPxPerMm(configuredScale);
 }
 
-function loadConfiguredScale() {
+function loadConfiguredScale(venue = activeVenueId) {
     if (window.CURATOR_SUPABASE_CONFIG) return null;
     try {
-        const saved = editorStorage.getItem(SCALE_SETTINGS_KEY);
+        const saved = editorStorage.getItem(venueScaleStorageKey(venue));
         const value = Number(saved);
         if (saved !== null && Number.isFinite(value) && value > 0) return value;
         // Preserve calibration from drafts created before scale had its own setting.
-        const legacy = Number(JSON.parse(editorStorage.getItem(STORAGE_KEY) || 'null')?.scale);
+        const draft = JSON.parse(editorStorage.getItem(STORAGE_KEY) || 'null');
+        const legacy = venueOf(draft) === venue ? Number(draft?.scale) : 0;
         if (Number.isFinite(legacy) && legacy > 0) {
-            editorStorage.setItem(SCALE_SETTINGS_KEY, String(legacy));
+            editorStorage.setItem(venueScaleStorageKey(venue), String(legacy));
             return legacy;
         }
     } catch (error) {
@@ -58,7 +63,7 @@ function setConfiguredScale(value) {
     const scale = Number(value);
     const input = document.getElementById('scale');
     if (!Number.isFinite(scale) || scale <= 0 || scale >= 1000000) {
-        if (input) input.value = scaleToPxPerMm(configuredScale ?? 0.5);
+        if (input) input.value = configuredScale == null ? '' : scaleToPxPerMm(configuredScale);
         return false;
     }
     configuredScale = scale;
@@ -66,11 +71,16 @@ function setConfiguredScale(value) {
     window.refreshWorkspaceScaleBar?.();
     try {
         // Signed-in teams always obtain this value from the server.
-        if (!window.CURATOR_SUPABASE_CONFIG) editorStorage.setItem(SCALE_SETTINGS_KEY, String(scale));
+        if (!window.CURATOR_SUPABASE_CONFIG) editorStorage.setItem(venueScaleStorageKey(activeVenueId), String(scale));
     } catch (error) {
         console.warn('縮尺設定の保存に失敗しました。', error);
     }
     return true;
+}
+function requireVenueScale() {
+    if (activeVenueId !== 'public' || configuredScale > 0) return true;
+    alert('先に管理者モードで公募展会場の縮尺を設定してください。');
+    return false;
 }
 let selectedExhibitionId = '';
 let cloudExhibitionCache = [];
@@ -177,7 +187,11 @@ function refreshExhibitionList(fetchCloud = true) {
         .forEach(item => {
             const option = document.createElement('option');
             option.value = item.id;
-            option.textContent = item.title || '名称未設定';
+            let data = item.data;
+            if (typeof data === 'string') {
+                try { data = JSON.parse(data); } catch { data = null; }
+            }
+            option.textContent = `【${VENUE_NAMES[venueOf(data)]}】${item.title || '名称未設定'}`;
             select.appendChild(option);
         });
     select.value = selectedExhibitionId;
@@ -287,22 +301,28 @@ async function persistExhibitionSnapshot() {
 }
 
 async function loadExhibitionSnapshot(id) {
-    if (exhibitionWriteBusy || isTransitioning) return;
-    if (window.refreshTeamFloorScale && !await window.refreshTeamFloorScale()) return;
+    if (exhibitionWriteBusy || isTransitioning || isUndoRedoOperation || window.isCombinedPdfBusy || window.isLayoutVariantBusy?.()) return;
     const record = window.CURATOR_TEAM
         ? cloudExhibitionCache.find(item => item.id === id)
         : getSavedExhibitions().find(item => item.id === id);
     if (!record) return;
-    if (cloudExhibitionSaveTimer) { clearTimeout(cloudExhibitionSaveTimer); cloudExhibitionSaveTimer = null; }
-    cloudExhibitionConflict = false;
-    selectedExhibitionId = id;
+    window.flushPendingItemEditHistory?.();
+    const previous = getSerializedCanvasData();
+    const previousVenue = activeVenueId;
     isUndoRedoOperation = true;
-    const data = typeof record.data === 'string' ? JSON.parse(record.data) : { ...record.data };
-    data.exhibitionTitle = record.title;
-    const snapshot = JSON.stringify(data);
-    applyStateData(snapshot, function(loaded) {
-        isUndoRedoOperation = false;
-        if (loaded === false) return;
+    try {
+        const data = typeof record.data === 'string' ? JSON.parse(record.data) : { ...record.data };
+        data.exhibitionTitle = record.title;
+        if (!await window.refreshTeamFloorScale?.(venueOf(data))) {
+            return alert('会場の縮尺設定を読み込めません。公募展の場合はSupabaseの会場別縮尺設定を確認してください。');
+        }
+        if (!await applyStateData(JSON.stringify(data))) {
+            if (activeVenueId !== previousVenue || !window.isDiagramReady?.()) await applyStateData(previous);
+            return alert('展覧会の図面を読み込めませんでした。');
+        }
+        if (cloudExhibitionSaveTimer) { clearTimeout(cloudExhibitionSaveTimer); cloudExhibitionSaveTimer = null; }
+        cloudExhibitionConflict = false;
+        selectedExhibitionId = id;
         historyStack = [getSerializedCanvasData()];
         redoStack = [];
         updateUndoRedoButtons();
@@ -310,7 +330,11 @@ async function loadExhibitionSnapshot(id) {
         window.applyCuratorRoleRestrictions?.();
         const status = document.getElementById('saveStatus');
         if (status) status.innerText = `「${record.title}」を読み込みました`;
-    });
+        refreshExhibitionList(false);
+    } catch (error) {
+        console.error('展覧会を読み込めませんでした:', error);
+        alert('展覧会のデータを読み込めませんでした。');
+    } finally { isUndoRedoOperation = false; }
 }
 
 async function deleteExhibitionSnapshot() {
@@ -353,11 +377,35 @@ let isAdminMode = false;
 // ------------------------------------------------------------
 
 let floorPlanJsonData = null;
-const FLOOR_PLANS = {
+const SPECIAL_FLOOR_PLANS = {
     lobby: { title: 'ロビー階', image: 'images/LBF01.png' },
     floor1: { title: '1階', image: 'images/1F01.png' },
     floor2: { title: '2階', image: 'images/2F01.png' }
 };
+const PUBLIC_ROOMS = ['01', '02', '03', '04'];
+const publicRoomTitle = room => `第${Number(room)}公募展会場`;
+const PUBLIC_FLOOR_PLANS = Object.fromEntries(PUBLIC_ROOMS.flatMap(room =>
+    [
+        ['LBF', 'LBF', 'ロビー階'],
+        // Keep the former combined ID for 1F so previously saved layouts still open.
+        ['12F', '12F', '1階'],
+        ['2F', '12F', '2階']
+    ].map(([level, imageGroup, levelTitle]) => [
+        `koubo_${level}_${room}`,
+        { room, level, levelTitle, title: `${publicRoomTitle(room)}・${levelTitle}`, image: `images/koubo${imageGroup}${room}.png` }
+    ])
+));
+const ALL_FLOOR_PLANS = { ...SPECIAL_FLOOR_PLANS, ...PUBLIC_FLOOR_PLANS };
+let FLOOR_PLANS = SPECIAL_FLOOR_PLANS;
+const firstVenueFloor = () => Object.keys(FLOOR_PLANS)[0];
+const isVenueFloor = id => Object.hasOwn(FLOOR_PLANS, id || 'lobby');
+function fillVenueFloorSelect(select, fallback = selectedFloorId) {
+    if (!select || select.dataset.venue === activeVenueId) return;
+    const previous = select.value;
+    select.replaceChildren(...Object.entries(FLOOR_PLANS).map(([id, floor]) => new Option(floor.title, id)));
+    select.value = isVenueFloor(previous) && previous ? previous : fallback;
+    select.dataset.venue = activeVenueId;
+}
 let selectedFloorId = 'lobby';
 let floorPlanData = Object.fromEntries(Object.keys(FLOOR_PLANS).map(id => [id, { json: null }]));
 const floorBackgroundImages = new Map();
@@ -566,10 +614,11 @@ function getSerializedCanvasData() {
         ? titleInput.value
         : "";
 
-    const currentScale = configuredScale ?? 0.5;
+    const currentScale = configuredScale ?? (activeVenueId === 'public' ? null : 0.5);
 
     const data = {
         exhibitionTitle: exhibitionTitle,
+        venueId: activeVenueId,
         scale: currentScale,
         currentViewMode: currentViewMode,
         selectedWallInfo: selectedWallInfo,
@@ -736,6 +785,16 @@ async function applyStateData(jsonString, callback) {
     try {
 
         const parsed = JSON.parse(jsonString);
+        const venue = venueOf(parsed);
+        if (venue !== activeVenueId) {
+            if (!await window.refreshTeamFloorScale?.(venue)) {
+                throw new Error('会場の縮尺設定を読み込めません。公募展の場合はSupabaseの会場別縮尺設定を確認してください。');
+            }
+            activeVenueId = venue;
+            FLOOR_PLANS = venue === 'public' ? PUBLIC_FLOOR_PLANS : SPECIAL_FLOOR_PLANS;
+            configuredScale = window.CURATOR_SUPABASE_CONFIG ? null : loadConfiguredScale(venue);
+        }
+        window.applyActiveVenueScale?.();
         window.rememberLegacyVenueWalls?.(parsed);
         window.restoreVenueLightingData?.(parsed);
         window.restoreLayoutVariants?.(parsed);
@@ -763,7 +822,7 @@ async function applyStateData(jsonString, callback) {
         const scaleInput =
             document.getElementById("scale");
 
-        selectedFloorId = FLOOR_PLANS[parsed.selectedFloorId] ? parsed.selectedFloorId : 'lobby';
+        selectedFloorId = Object.hasOwn(FLOOR_PLANS, parsed.selectedFloorId) ? parsed.selectedFloorId : firstVenueFloor();
         floorPlanData = Object.fromEntries(Object.keys(FLOOR_PLANS).map(id => [id, {
             json: parsed.floorPlanData
                 ? parsed.floorPlanData[id]?.json || null
@@ -771,12 +830,10 @@ async function applyStateData(jsonString, callback) {
         }]));
         floorPlanJsonData = floorPlanData[selectedFloorId].json;
         cachedBackgroundImage = floorBackgroundImages.get(selectedFloorId) || null;
-        if (scaleInput) scaleInput.value = scaleToPxPerMm(scaleValue);
+        if (scaleInput) scaleInput.value = activeVenueId === 'public' && configuredScale === null ? '' : scaleToPxPerMm(scaleValue);
 
-        if (parsed.wallPlanJsonData) {
-            wallPlanJsonData =
-                parsed.wallPlanJsonData;
-        }
+        wallPlanJsonData = Object.fromEntries(Object.entries(parsed.wallPlanJsonData || {})
+            .filter(([, wall]) => wall && isVenueFloor(wall.floorId)));
         window.applyVenueWallsToPlans?.();
 
         const hasArtworkCatalog = Array.isArray(parsed.savedArtworkCatalog);
@@ -788,10 +845,7 @@ async function applyStateData(jsonString, callback) {
         window.normalizeArtworkNumbers?.();
         window.refreshArtworkCatalog?.();
 
-        if (parsed.selectedWallInfo) {
-            selectedWallInfo =
-                parsed.selectedWallInfo;
-        }
+        selectedWallInfo = parsed.selectedWallInfo || { id: '', title: '', widthCm: 0, heightCm: 0 };
 
         updateWallDropdownOptions();
 
@@ -804,6 +858,7 @@ async function applyStateData(jsonString, callback) {
             true
         );
         callback?.(loaded);
+        return loaded;
 
     } catch (e) {
 
@@ -815,6 +870,7 @@ async function applyStateData(jsonString, callback) {
         if (callback) {
             callback(false);
         }
+        return false;
     }
 }
 

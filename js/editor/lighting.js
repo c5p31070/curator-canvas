@@ -64,10 +64,15 @@ function persistVenueLighting() {
     window.refreshVenuePresetList?.();
     window.refreshLightRailCopyControls?.();
 }
-window.getVenueLightingData = () => JSON.parse(JSON.stringify(venueLightingData));
+window.getVenueLightingData = () => JSON.parse(JSON.stringify(Object.fromEntries(
+    Object.entries(venueLightingData).filter(([id]) => isVenueFloor(id)))));
 window.applyVenueLightingHistory = state => {
     if (!isAdminMode || lightingReadOnly() || !state.venueLightingData) return;
-    venueLightingData = JSON.parse(JSON.stringify(state.venueLightingData));
+    venueLightingData = {
+        ...Object.fromEntries(Object.entries(venueLightingData).filter(([id]) => !isVenueFloor(id))),
+        ...JSON.parse(JSON.stringify(Object.fromEntries(
+            Object.entries(state.venueLightingData).filter(([id]) => isVenueFloor(id)))))
+    };
     persistVenueLighting();
 };
 window.restoreVenueLightingData = state => {
@@ -517,6 +522,7 @@ window.cancelLightingPlacement = cancelLightingPlacement;
 
 async function startLightingPlacement(mode) {
     if (lightingReadOnly() || isTransitioning || isUndoRedoOperation) return;
+    if (!requireVenueScale()) return;
     if (['fixed', 'rail'].includes(mode) && !isAdminMode) return;
     if (lightingPlacementMode === mode) return cancelLightingPlacement();
     cancelLightingPlacement();

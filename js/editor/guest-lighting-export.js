@@ -3,6 +3,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnExportGuestLighting')?.addEventListener('click', () => {
         if (!isAdminMode || window.CURATOR_GUEST?.active || window.CURATOR_ROLE === 'viewer' || isTransitioning || isUndoRedoOperation || !window.isDiagramReady?.()) return;
         const status = document.getElementById('guestLightingExportStatus');
+        if (activeVenueId !== 'special') {
+            status.textContent = '現在のゲスト体験は企画展会場に対応しています。';
+            return;
+        }
         if (!(Number.isFinite(configuredScale) && configuredScale > 0)) {
             status.textContent = '先に平面図の縮尺を設定してください。';
             return;

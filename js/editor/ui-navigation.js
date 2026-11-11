@@ -52,6 +52,7 @@ function initializeNavigationUi() {
     const btnAddWall = document.getElementById('btnAddWall');
     if (btnAddWall) {
         btnAddWall.addEventListener('click', async () => {
+            if (!isAdminMode || !requireVenueScale()) return;
             const name = (document.getElementById('newWallTitle')?.value || '').trim();
             const width = mmToCm(document.getElementById('newWallWidthCm')?.value);
             const height = FIXED_WALL_HEIGHT_CM;

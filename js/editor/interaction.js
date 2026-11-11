@@ -305,6 +305,7 @@ function loadSavedData() {
         redoStack = [];
         updateUndoRedoButtons();
         window.applyCuratorRoleRestrictions?.();
+        window.openNewExhibitionDialog?.();
         return;
     }
 
@@ -356,6 +357,7 @@ function loadSavedData() {
 
         saveState();
         window.applyCuratorRoleRestrictions?.();
+        window.openNewExhibitionDialog?.();
     }
 }
 

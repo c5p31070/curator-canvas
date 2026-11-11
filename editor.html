@@ -127,6 +127,7 @@
             <!-- データ保存・復元セクション -->
             <div class="panel-section data-section tool-panel" data-tool-panel="data">
                 <h2>データ保存・復元</h2>
+                <button id="btnNewExhibition" class="btn btn-primary" type="button">新規展覧会</button>
 
                 <div class="form-group">
                     <label for="exhibitionTitle">保存する展覧会名</label>
@@ -206,7 +207,7 @@
                             id="scale"
                             class="form-control"
                             value="0.05"
-                            data-tooltip="チーム全員の平面図に共通の縮尺です。変更は全展覧会に適用されます。"
+                            data-tooltip="現在の会場の平面図に共通の縮尺です。変更は同じ会場の展覧会に適用されます。"
                             step="0.001"
                             min="0.001"
                         >
@@ -813,7 +814,10 @@
                 </div>
             </nav>
 
-            <nav id="floorTabs" class="wall-tabs" role="tablist" aria-label="平面図の階を選択"></nav>
+            <nav id="floorTabs" class="wall-tabs" aria-label="会場・階を選択">
+                <select id="publicRoomSelect" aria-label="公募展会場を選択" hidden></select>
+                <div id="floorTabList" role="tablist" aria-label="図面の階を選択"></div>
+            </nav>
             <nav id="wallTabs" class="wall-tabs" aria-label="壁面を選択" hidden>
                 <div id="wallTabList" role="tablist" aria-label="壁を選択"></div>
                 <select id="wallFaceSelect" aria-label="選択中の移動壁の面" hidden></select>
@@ -864,6 +868,29 @@
 
     </div>
 
+    <dialog id="newExhibitionDialog" aria-labelledby="newExhibitionHeading">
+        <form id="newExhibitionForm">
+            <h2 id="newExhibitionHeading">新規展覧会</h2>
+            <div class="form-group">
+                <label for="newExhibitionName">展覧会名</label>
+                <input id="newExhibitionName" class="form-control" type="text" required maxlength="120" autofocus>
+            </div>
+            <div class="form-group">
+                <label for="newExhibitionVenue">会場</label>
+                <select id="newExhibitionVenue" class="form-control" required>
+                    <option value="">会場を選択</option>
+                    <option value="special">企画展会場</option>
+                    <option value="public">公募展会場</option>
+                </select>
+            </div>
+            <p id="newExhibitionStatus" class="field-note" role="status"></p>
+            <div class="btn-group">
+                <button id="btnCreateExhibition" class="btn btn-primary" type="submit">作成を始める</button>
+                <button id="btnOpenSavedFromNew" class="btn btn-secondary" type="button">保存済みを開く</button>
+                <button id="btnCancelNewExhibition" class="btn btn-secondary" type="button">閉じる</button>
+            </div>
+        </form>
+    </dialog>
     <dialog id="perspectiveDialog" aria-labelledby="perspectiveDialogTitle">
         <div class="perspective-header">
             <h2 id="perspectiveDialogTitle">パース試作</h2>

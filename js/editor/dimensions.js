@@ -112,6 +112,7 @@ function cancelDimensionDrawing() {
 window.cancelDimensionDrawing = cancelDimensionDrawing;
 
 function startDimensionDrawing() {
+    if (!requireVenueScale()) return;
     window.endShapeFreeTransform?.();
     if (window.CURATOR_ROLE === 'viewer') return;
     window.cancelLightingPlacement?.();

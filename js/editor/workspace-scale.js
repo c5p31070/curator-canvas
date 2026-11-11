@@ -11,6 +11,7 @@
         const viewport = document.getElementById('canvasViewport');
         if (!bar || !viewport) return;
         bar.hidden = !visible || !window.isDiagramReady?.() || isTransitioning || (currentViewMode === 'wall' && !selectedWallInfo.id);
+        if (activeVenueId === 'public' && !configuredScale) bar.hidden = true;
         if (bar.hidden) return;
         // Use the actual CSS display size, including the zoom slider and touch zoom.
         const zoom = canvas.lowerCanvasEl.getBoundingClientRect().width / canvas.getWidth();

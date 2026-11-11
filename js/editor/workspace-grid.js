@@ -13,6 +13,7 @@
 
     function gridGeometry() {
         if (!window.isDiagramReady?.() || isTransitioning) return null;
+        if (activeVenueId === 'public' && !configuredScale) return null;
         const scale = getDimensionScale();
         if (!Number.isFinite(scale) || scale <= 0) return null;
         let bounds;

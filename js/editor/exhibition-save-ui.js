@@ -7,8 +7,8 @@ function refreshExhibitionSaveUi() {
     const draftName = (input?.value || '').trim();
     const headerName = document.getElementById('currentExhibitionName');
     if (headerName) {
-        headerName.textContent = draftName || '名称未設定';
-        headerName.title = draftName || '名称未設定';
+        headerName.textContent = `【${VENUE_NAMES[activeVenueId]}】${draftName || '名称未設定'}`;
+        headerName.title = headerName.textContent;
     }
     if (input) input.disabled = exhibitionWriteBusy || readOnly;
     if (save) {
@@ -101,5 +101,90 @@ async function renameCurrentExhibition() {
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnRenameExhibition')?.addEventListener('click', renameCurrentExhibition);
+    const dialog = document.getElementById('newExhibitionDialog');
+    const form = document.getElementById('newExhibitionForm');
+    const status = document.getElementById('newExhibitionStatus');
+    const create = document.getElementById('btnCreateExhibition');
+    const venueSelect = document.getElementById('newExhibitionVenue');
+    if (window.CURATOR_GUEST?.active) {
+        const option = venueSelect.querySelector('[value="public"]');
+        option.disabled = true;
+        option.textContent = '公募展会場（通常ログインで利用可）';
+    }
+    window.openNewExhibitionDialog = () => {
+        if (window.CURATOR_ROLE === 'viewer' || !window.isDiagramReady?.() || isTransitioning ||
+            isUndoRedoOperation || exhibitionWriteBusy || window.isCombinedPdfBusy || window.isLayoutVariantBusy?.() || dialog.open) return;
+        window.cancelDimensionDrawing?.();
+        window.cancelLightingPlacement?.();
+        window.cancelPerspectivePick?.();
+        form.reset();
+        status.textContent = '';
+        dialog.showModal();
+    };
+    document.getElementById('btnNewExhibition').addEventListener('click', window.openNewExhibitionDialog);
+    document.getElementById('btnCancelNewExhibition').addEventListener('click', () => { if (!create.disabled) dialog.close(); });
+    document.getElementById('btnOpenSavedFromNew').addEventListener('click', () => {
+        if (create.disabled) return;
+        dialog.close();
+        window.activateToolPanel?.('data');
+        document.getElementById('savedExhibitions')?.focus();
+    });
+    dialog.addEventListener('cancel', event => { if (create.disabled) event.preventDefault(); });
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const title = document.getElementById('newExhibitionName').value.trim();
+        const venueId = venueSelect.value;
+        if (isTransitioning || isUndoRedoOperation || exhibitionWriteBusy) return;
+        if (create.disabled || window.CURATOR_ROLE === 'viewer' || !title || !Object.hasOwn(VENUE_NAMES, venueId)) {
+            status.textContent = '展覧会名と会場を指定してください。';
+            return;
+        }
+        const records = window.CURATOR_TEAM ? cloudExhibitionCache : getSavedExhibitions();
+        if (records.some(item => item.title.trim() === title)) {
+            status.textContent = '同じ名前の展覧会があります。別の名前を入力してください。';
+            return;
+        }
+        window.flushPendingItemEditHistory?.();
+        const previous = getSerializedCanvasData();
+        const previousVenue = activeVenueId;
+        const draft = JSON.parse(previous);
+        const hasLayout = Object.values(draft.floorPlanData).some(floor =>
+            floor.json && (typeof floor.json === 'string' ? JSON.parse(floor.json) : floor.json).objects?.some(object => !object.isFixture)) ||
+            Object.values(draft.wallPlanJsonData).some(wall => wall.movableWallId || (wall.json &&
+                (typeof wall.json === 'string' ? JSON.parse(wall.json) : wall.json).objects?.some(object => !object.isFixture && !object.isWallOutline)));
+        if ((hasLayout || draft.exhibitionTitle.trim()) &&
+            !confirm('新規展覧会を作成します。現在の下書きを置き換えますが、保存済みの展覧会は残ります。続けますか？')) return;
+        create.disabled = true;
+        isUndoRedoOperation = true;
+        status.textContent = '会場の図面を読み込み中…';
+        try {
+            const loaded = await applyStateData(JSON.stringify({
+                venueId, exhibitionTitle: title, currentViewMode: 'floor',
+                floorPlanData: {}, wallPlanJsonData: {}, savedArtworkCatalog: []
+            }));
+            if (!loaded) {
+                if (activeVenueId !== previousVenue || !window.isDiagramReady?.()) await applyStateData(previous);
+                status.textContent = venueId === 'public'
+                    ? '公募展会場を開けませんでした。通信状態とSupabaseの会場別縮尺設定を確認してください。'
+                    : '企画展会場を開けませんでした。通信状態を確認してください。';
+                return;
+            }
+            selectedExhibitionId = '';
+            cloudExhibitionConflict = false;
+            historyStack = [getSerializedCanvasData()];
+            redoStack = [];
+            updateUndoRedoButtons();
+            refreshExhibitionList(false);
+            saveLocalStorage();
+            dialog.close();
+            window.activateToolPanel?.('data');
+            document.getElementById('saveStatus').textContent = activeVenueId === 'public' && configuredScale === null
+                ? '公募展会場を開きました。寸法付きの配置を始める前に、管理者モードで縮尺を設定してください。'
+                : '新規展覧会を開きました。「展覧会を保存」で保存できます。';
+        } finally {
+            isUndoRedoOperation = false;
+            create.disabled = false;
+        }
+    });
     refreshExhibitionSaveUi();
 });

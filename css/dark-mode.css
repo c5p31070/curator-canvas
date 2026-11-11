@@ -1285,6 +1285,21 @@ header h1 .brand-subtitle {
     line-height: 14px;
 }
 
+#floorTabList { display: flex; flex: 0 0 auto; gap: 5px; }
+#floorTabs.floor-tabs-compact #floorTabList { gap: 0; }
+#publicRoomSelect {
+    flex: 0 0 auto;
+    padding: 0 5px;
+    font-size: 10px;
+    border: 0 !important;
+    border-right: 1px solid #51595d !important;
+    border-radius: 0;
+    background: #24282a !important;
+    color: #d0d5d6 !important;
+    color-scheme: dark;
+}
+#publicRoomSelect[hidden] { display: none; }
+
 /* Keep wall tabs and the active wall's face picker in one compact row. */
 #wallTabs {
     flex: 0 0 25px;
@@ -1370,6 +1385,17 @@ header h1 .brand-subtitle {
 .perspective-header h2 { font-size: 14px; margin: 0; }
 #perspectiveCanvas { display: block; width: 100%; max-height: 73vh; object-fit: contain; background: #15191c; }
 #perspectiveSummary { margin: 8px 0 0; }
+
+#newExhibitionDialog {
+    box-sizing: border-box;
+    width: min(420px, 94vw);
+    padding: 18px;
+    border: 1px solid #48525a;
+    background: #20262a;
+    color: #e0e5e8;
+}
+#newExhibitionDialog::backdrop { background: rgba(10, 13, 15, .76); }
+#newExhibitionHeading { font-size: 16px; margin: 0 0 14px; }
 
 /* Visibility toggles are secondary to the tools that edit the drawing. */
 .tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"]) {

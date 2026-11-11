@@ -80,6 +80,7 @@ async function applyVariantLayout(variant, sharedState) {
     const state = {
         ...variant.layout,
         exhibitionTitle: sharedState.exhibitionTitle,
+        venueId: sharedState.venueId,
         scale: sharedState.scale,
         savedArtworkCatalog: sharedState.savedArtworkCatalog,
         layoutVariants,

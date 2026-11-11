@@ -184,6 +184,7 @@
     window.refreshMovableWallPanel = refreshPanel;
 
     async function addWall() {
+        if (!requireVenueScale()) return;
         if (!canEdit() || isTransitioning || isUndoRedoOperation) return;
         const data = parameters();
         if (!data) return;

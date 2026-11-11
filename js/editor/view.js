@@ -205,7 +205,7 @@ function updateWallDropdownOptions() {
 }
 
 function getWallFloorId(wall) {
-    return FLOOR_PLANS[wall?.floorId] ? wall.floorId : 'lobby';
+    return Object.hasOwn(ALL_FLOOR_PLANS, wall?.floorId) ? wall.floorId : 'lobby';
 }
 
 function selectWallForCurrentFloor() {
@@ -235,6 +235,9 @@ function wallTabOrder(faces) {
 function updateWallTabs() {
     normalizeFixedWallHeights();
     updateFloorTabs();
+    fillVenueFloorSelect(document.getElementById('wallFloorSelect'));
+    window.refreshVenuePresetList?.();
+    window.refreshLightRailCopyControls?.();
     window.refreshPerspectiveControls?.();
     const strip = document.getElementById('wallTabs');
     const tabList = document.getElementById('wallTabList');
@@ -303,19 +306,36 @@ function updateWallTabs() {
 }
 
 function updateFloorTabs() {
-    const tabList = document.getElementById('floorTabs');
-    if (!tabList) return;
-    tabList.hidden = false;
-    tabList.classList.toggle('floor-tabs-compact', currentViewMode === 'wall');
+    const strip = document.getElementById('floorTabs');
+    const tabList = document.getElementById('floorTabList');
+    const roomSelect = document.getElementById('publicRoomSelect');
+    if (!strip || !tabList || !roomSelect) return;
+    strip.hidden = false;
+    strip.classList.toggle('floor-tabs-compact', currentViewMode === 'wall');
+    const room = activeVenueId === 'public' ? FLOOR_PLANS[selectedFloorId]?.room || PUBLIC_ROOMS[0] : null;
+    roomSelect.hidden = !room;
+    if (room) {
+        if (!roomSelect.options.length) roomSelect.replaceChildren(...PUBLIC_ROOMS.map(id => new Option(publicRoomTitle(id), id)));
+        roomSelect.value = room;
+        roomSelect.onchange = () => {
+            if (isTransitioning || isUndoRedoOperation || window.isCombinedPdfBusy || window.isLayoutVariantBusy?.()) {
+                roomSelect.value = FLOOR_PLANS[selectedFloorId]?.room || PUBLIC_ROOMS[0];
+                return;
+            }
+            const level = FLOOR_PLANS[selectedFloorId]?.level || 'LBF';
+            handleFloorSelectChange(`koubo_${level}_${roomSelect.value}`, false, currentViewMode);
+        };
+    }
     tabList.replaceChildren();
     Object.entries(FLOOR_PLANS).forEach(([id, floor]) => {
+        if (room && floor.room !== room) return;
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'wall-tab';
         button.setAttribute('role', 'tab');
         button.setAttribute('aria-selected', String(id === selectedFloorId));
         button.classList.toggle('active', id === selectedFloorId);
-        button.textContent = floor.title;
+        button.textContent = floor.levelTitle || floor.title;
         button.addEventListener('click', () => handleFloorSelectChange(id, false, currentViewMode));
         tabList.appendChild(button);
     });
@@ -347,6 +367,7 @@ async function handleWallSelectChange(wallId) {
 
     if (
         !wallPlanJsonData[wallId] ||
+        !isVenueFloor(wallPlanJsonData[wallId].floorId) ||
         isTransitioning
     ) {
         return;

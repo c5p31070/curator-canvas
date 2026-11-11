@@ -5,6 +5,7 @@ create table if not exists public.teams (
     id uuid primary key default gen_random_uuid(),
     name text not null,
     floor_scale double precision not null default 0.5 check (floor_scale > 0 and floor_scale < 1000000),
+    public_floor_scale double precision check (public_floor_scale > 0 and public_floor_scale < 1000000),
     venue_walls jsonb,
     venue_walls_revision bigint not null default 0,
     created_by uuid not null references auth.users(id) on delete restrict,
@@ -12,6 +13,7 @@ create table if not exists public.teams (
 );
 
 alter table public.teams
+    add column if not exists public_floor_scale double precision check (public_floor_scale > 0 and public_floor_scale < 1000000),
     add column if not exists venue_walls jsonb,
     add column if not exists venue_walls_revision bigint not null default 0;
 
@@ -75,6 +77,7 @@ alter table public.exhibitions enable row level security;
 revoke all on public.teams, public.team_members, public.exhibitions from anon, authenticated;
 grant select on public.teams, public.team_members to authenticated;
 grant update (floor_scale) on public.teams to authenticated;
+grant update (public_floor_scale) on public.teams to authenticated;
 -- Existing projects: run migrations/20261026_shared_venue_walls.sql first.
 grant update (venue_walls, venue_walls_revision) on public.teams to authenticated;
 grant select, insert, update, delete on public.exhibitions to authenticated;

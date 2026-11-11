@@ -51,7 +51,7 @@ function initializeCreationSettingsUi() {
             const newScale =
                 Number(scaleInput.value) * 10;
             await window.saveTeamFloorScale(newScale);
-            scaleInput.value = scaleToPxPerMm(configuredScale ?? 0.5);
+            scaleInput.value = configuredScale === null ? '' : scaleToPxPerMm(configuredScale);
 
         });
 

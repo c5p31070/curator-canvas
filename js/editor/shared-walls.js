@@ -34,7 +34,7 @@
         const plan = parsePlan(wall.json);
         const objects = (plan.objects || []).filter(object => object.isFixture || object.isWallOutline);
         const outline = objects.find(object => object.isWallOutline);
-        return { title: wall.title, floorId: FLOOR_PLANS[wall.floorId] ? wall.floorId : 'lobby',
+        return { title: wall.title, floorId: Object.hasOwn(ALL_FLOOR_PLANS, wall.floorId) ? wall.floorId : 'lobby',
             widthCm: Number(wall.widthCm), heightCm: FIXED_WALL_HEIGHT_CM,
             fixtureScale: Number(wall.fixtureScale) || (outline
                 ? outline.height * (outline.scaleY || 1) / (Number(wall.legacyHeightCm) || Number(wall.heightCm) || 450)
@@ -54,7 +54,8 @@
     };
     try { window.rememberLegacyVenueWalls(JSON.parse(editorStorage.getItem(STORAGE_KEY) || 'null')); } catch {}
     const currentWalls = () => pending || publishing || walls;
-    window.getVenueWallData = () => clone(currentWalls());
+    window.getVenueWallData = () => clone(Object.fromEntries(
+        Object.entries(currentWalls()).filter(([, wall]) => isVenueFloor(wall.floorId))));
     window.beginVenueWallRender = () => { rendering++; };
     window.endVenueWallRender = () => { rendering = Math.max(0, rendering - 1); };
     window.isVenueWallRendering = () => rendering > 0;
@@ -64,12 +65,13 @@
         const previous = wallPlanJsonData;
         const next = {};
         Object.entries(currentWalls()).forEach(([id, definition]) => {
+            if (!isVenueFloor(definition.floorId)) return;
             const layout = previous[id];
             next[id] = { ...definition, json: layout?.json || null };
             if (layout?.legacyHeightCm) next[id].legacyHeightCm = layout.legacyHeightCm;
             else if (Number(layout?.heightCm) > 0 && Number(layout.heightCm) !== FIXED_WALL_HEIGHT_CM) next[id].legacyHeightCm = Number(layout.heightCm);
         });
-        Object.entries(previous).forEach(([id, wall]) => { if (wall.movableWallId) next[id] = wall; });
+        Object.entries(previous).forEach(([id, wall]) => { if (wall.movableWallId && isVenueFloor(wall.floorId)) next[id] = wall; });
         wallPlanJsonData = next;
         window.refreshVenuePresetList?.();
     };
@@ -263,10 +265,10 @@
         document.getElementById('btnImportVenueWalls')?.addEventListener('click', async () => {
             if (!editable() || busy || !ready) return;
             if (pending && !await flush()) return;
-            const entries = Object.entries(legacyWalls);
+            const entries = Object.entries(legacyWalls).filter(([, wall]) => isVenueFloor(wall.floorId));
             if (!entries.length) return alert('取り込める既存の固定壁がありません。以前の展覧会を読み込んでから実行してください。');
             if (!confirm(`既存の固定壁 ${entries.length}件をチーム共通設定へ取り込みます。同じIDの壁の事前設定を上書きします。\n${entries.map(([, wall]) => wall.title).join('、')}`)) return;
-            await publish({ ...walls, ...legacyWalls });
+            await publish({ ...walls, ...Object.fromEntries(entries) });
         });
         if (!cloud()) {
             try { walls = normalize(JSON.parse(editorStorage.getItem(storageKey()) || 'null')?.walls || legacyWalls); } catch { walls = clone(legacyWalls); }

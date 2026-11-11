@@ -11,6 +11,8 @@
         const source = element('lightRailCopySource');
         const target = element('lightRailCopyTarget');
         if (!source || !target) return;
+        fillVenueFloorSelect(source);
+        fillVenueFloorSelect(target, Object.keys(FLOOR_PLANS).find(id => id !== source.value));
         const disabled = busy || !allowed();
         [source, target, element('lightRailCopyMode')].forEach(input => { input.disabled = disabled; });
         const count = rails(source.value).length;
@@ -85,12 +87,6 @@
         ['lightRailCopySource', 'lightRailCopyTarget'].forEach(id => {
             const select = element(id);
             if (!select) return;
-            Object.entries(FLOOR_PLANS).forEach(([floorId, floor]) => {
-                const option = document.createElement('option');
-                option.value = floorId;
-                option.textContent = floor.title;
-                select.appendChild(option);
-            });
             select.addEventListener('change', window.refreshLightRailCopyControls);
         });
         element('lightRailCopySource').value = selectedFloorId;

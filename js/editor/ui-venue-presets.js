@@ -18,6 +18,7 @@
         const select = document.getElementById('venuePresetSelect');
         if (!select) return;
         const floorSelect = document.getElementById('venuePresetFloorSelect');
+        fillVenueFloorSelect(floorSelect);
         if (floorSelect && lastCanvasFloor !== selectedFloorId && !selecting && !deleting) floorSelect.value = selectedFloorId;
         lastCanvasFloor = selectedFloorId;
         const floorId = presetFloor();
@@ -65,12 +66,7 @@
         const select = document.getElementById('venuePresetSelect');
         const remove = document.getElementById('btnDeleteVenuePreset');
         const floorSelect = document.getElementById('venuePresetFloorSelect');
-        Object.entries(FLOOR_PLANS).forEach(([id, floor]) => {
-            const option = document.createElement('option');
-            option.value = id;
-            option.textContent = floor.title;
-            floorSelect?.appendChild(option);
-        });
+        fillVenueFloorSelect(floorSelect);
         if (floorSelect) floorSelect.value = selectedFloorId;
         floorSelect?.addEventListener('change', async () => {
             if (!isAdminMode || window.CURATOR_ROLE === 'viewer' || isTransitioning) return;
