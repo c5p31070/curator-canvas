@@ -124,12 +124,35 @@ function initializeItemDetailsUi() {
         }
         positionTooltip(e.e);
     };
+    const showFixedWallTooltip = (wall, event, touch = false) => {
+        if (!itemTooltip) return;
+        hoveredItem = wall.id;
+        tooltipTitle.textContent = wall.title;
+        tooltipMeta.textContent = '固定壁';
+        tooltipDescription.textContent = touch ? 'もう一度タップで壁面図を開く' : 'ダブルクリックで壁面図を開く';
+        tooltipDescription.hidden = false;
+        positionTooltip(event.e);
+    };
     canvas.on('mouse:over', showItemTooltip);
     canvas.on('mouse:move', e => {
-        if (hoveredItem && e.target === hoveredItem) positionTooltip(e.e);
+        if (hoveredItem && e.target === hoveredItem) {
+            positionTooltip(e.e);
+            return;
+        }
+        if (e.e?.touches || e.e?.buttons || e.e?.pointerType === 'touch') return;
+        const wall = window.getFixedWallAtPointer?.(e);
+        if (wall) showFixedWallTooltip(wall, e);
+        else if (typeof hoveredItem === 'string') hideItemTooltip();
     });
     canvas.on('mouse:out', hideItemTooltip);
+    canvas.on('mouse:dblclick', event => {
+        const wall = window.getFixedWallAtPointer?.(event);
+        if (!wall) return;
+        hideItemTooltip();
+        void handleWallSelectChange(wall.id);
+    });
     let tapStart = null;
+    let lastWallTap = null;
     const touchPoint = event => event?.changedTouches?.[0] || event?.touches?.[0] || event;
     canvas.on('mouse:down', event => {
         hideItemTooltip();
@@ -144,7 +167,22 @@ function initializeItemDetailsUi() {
     canvas.on('mouse:up', event => {
         const point = touchPoint(event.e);
         if (tapStart && !tapStart.moved && event.target === tapStart.target &&
-            Math.hypot(point.clientX - tapStart.x, point.clientY - tapStart.y) <= 6 && !isFreeDrawingMode) showItemTooltip(event);
+            Math.hypot(point.clientX - tapStart.x, point.clientY - tapStart.y) <= 6 && !isFreeDrawingMode) {
+            const wall = window.getFixedWallAtPointer?.(event);
+            if (wall) {
+                const now = Date.now();
+                if (lastWallTap?.id === wall.id && now - lastWallTap.time < 1200) {
+                    lastWallTap = null;
+                    void handleWallSelectChange(wall.id);
+                } else {
+                    lastWallTap = { id: wall.id, time: now };
+                    showFixedWallTooltip(wall, event, true);
+                }
+            } else {
+                lastWallTap = null;
+                showItemTooltip(event);
+            }
+        } else lastWallTap = null;
         tapStart = null;
     });
 

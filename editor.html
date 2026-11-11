@@ -130,6 +130,16 @@
                     </div>
                 </div>
                 <button id="btnAddWall" class="btn btn-primary" type="button">この壁を登録</button>
+                <div id="perspectiveWallSettings" class="drawing-subsection" hidden>
+                    <h3>固定壁と平面図の連携</h3>
+                    <div class="form-group">
+                        <label for="perspectiveWall">壁面図</label>
+                        <select id="perspectiveWall" class="form-control"></select>
+                    </div>
+                    <button id="btnLinkPerspectiveWall" class="btn btn-secondary" type="button">平面図で壁の位置を指定</button>
+                    <button id="btnUnlinkPerspectiveWall" class="btn btn-secondary" type="button" disabled>位置登録を解除</button>
+                    <p id="fixedWallPositionStatus" class="field-note" role="status"></p>
+                </div>
                 <label class="fixture-option">
                     <input id="addAsFixture" type="checkbox">
                     これから追加する物を管理者設定の備品として登録
@@ -384,6 +394,7 @@
                     <div id="lightSettingsFields" hidden>
                         <label><input id="lightPower" type="checkbox" checked>点灯</label>
                         <div id="spotlightDirectionFields" hidden>
+                            <p id="lightRailDistanceReadout" class="field-note" hidden></p>
                             <div class="form-group">
                                 <label for="lightAimMode">光の向き</label>
                                 <select id="lightAimMode" class="form-control"><option value="free">角度で指定</option><option value="artwork">作品中央にスナップ</option><option value="artwork-point">作品内の位置にスナップ</option><option value="ground">地面の位置を指定</option><option value="down">真下を照らす</option></select>
@@ -786,18 +797,6 @@
                 </div>
                 <button id="btnPickPerspective" class="btn btn-secondary" type="button">視点と見る方向を指定</button>
                 <p id="perspectiveStatus" class="field-note" role="status">平面図で立つ位置 → 見る方向の順に指定します。</p>
-                <div id="perspectiveWallSettings" class="drawing-subsection" hidden>
-                    <label for="perspectiveWall">固定壁の位置登録</label>
-                    <select id="perspectiveWall" class="form-control"></select>
-                    <label for="perspectiveJoinEnd">先に指定する端（展示側から見て）</label>
-                    <select id="perspectiveJoinEnd" class="form-control">
-                        <option value="start">左端</option>
-                        <option value="end">右端</option>
-                    </select>
-                    <button id="btnLinkPerspectiveWall" class="btn btn-secondary" type="button">平面図で壁の向きを指定</button>
-                    <button id="btnUnlinkPerspectiveWall" class="btn btn-secondary" type="button" disabled>パース用の位置登録を解除</button>
-                    <p class="field-note">登録済みの壁の端に吸着します。向きは上下左右、長さは登録寸法で固定します。</p>
-                </div>
             </section>
 
         </aside>

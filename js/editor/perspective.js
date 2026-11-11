@@ -1,19 +1,21 @@
-// Read-only perspective scene. Fixed-wall anchors are local venue preferences.
+// The floor guide and perspective scene use the same venue wall positions.
 (() => {
     const $ = id => document.getElementById(id);
-    const storageKey = () => 'curator_canvas_perspective_walls:' + (window.CURATOR_TEAM?.id || 'local');
-    const loadAnchors = () => {
-        try { return JSON.parse(editorStorage.getItem(storageKey()) || '{}') || {}; }
-        catch { return {}; }
-    };
+    const loadAnchors = () => Object.fromEntries(Object.entries(wallPlanJsonData)
+        .filter(([, wall]) => !wall.movableWallId && wall.planPosition)
+        .map(([id, wall]) => [id, wall.planPosition]));
     const canLink = () => isAdminMode && !window.CURATOR_GUEST?.active && window.CURATOR_ROLE !== 'viewer';
     const say = message => { $('perspectiveStatus').textContent = message; };
+    const sayWall = message => { $('fixedWallPositionStatus').textContent = message; };
     let picker = null;
     let busy = false;
+    let savingWallPosition = false;
     let renderer = null;
     let wallGuide = null;
     let guideFrame = null;
     let guideSignature = '';
+    let floorWallSegments = [];
+    let guideFloorId = null;
     const svgNamespace = 'http://www.w3.org/2000/svg';
 
     function scheduleWallGuide() {
@@ -24,21 +26,24 @@
     function renderWallGuide() {
         guideFrame = null;
         if (currentViewMode !== 'floor' || isTransitioning || !window.isDiagramReady?.() ||
-            !(configuredScale > 0) || picker?.dataset.kind === 'wall' ||
-            !document.querySelector('[data-tool-panel="perspective"].is-open')) {
+            !(configuredScale > 0) || picker) {
             if (wallGuide) wallGuide.hidden = true;
+            floorWallSegments = [];
             return;
         }
+        const detailed = Boolean(document.querySelector('[data-tool-panel="perspective"].is-open, [data-tool-panel="setup"].is-open'));
         const anchors = loadAnchors();
-        const selected = canLink() ? $('perspectiveWall').value : '';
+        const selected = detailed && canLink() ? $('perspectiveWall').value : '';
         const walls = Object.keys(anchors).flatMap(id => {
             if (anchors[id]?.floorId !== selectedFloorId) return [];
             const ends = resolveWallEnds(id, anchors, configuredScale);
-            return ends ? [{ ...ends, title: wallPlanJsonData[id].title || '固定壁', active: id === selected }] : [];
+            return ends ? [{ id, ...ends, faceSide: anchors[id].faceSide, title: wallPlanJsonData[id].title || '固定壁', active: id === selected }] : [];
         });
+        guideFloorId = selectedFloorId;
+        floorWallSegments = walls;
         const width = canvas.getWidth(), height = canvas.getHeight();
         const zoom = canvas.wrapperEl.getBoundingClientRect().width / width || 1;
-        const signature = JSON.stringify([width, height, zoom, walls]);
+        const signature = JSON.stringify([width, height, zoom, detailed, walls]);
         if (!wallGuide) {
             wallGuide = document.createElement('div');
             wallGuide.className = 'perspective-registered-guide';
@@ -54,26 +59,48 @@
             return node;
         };
         const svg = element('svg', { viewBox: '0 0 ' + width + ' ' + height, preserveAspectRatio: 'none' });
-        for (const { start, end, title, active } of walls) {
-            const group = element('g', { class: active ? 'perspective-registered-wall active' : 'perspective-registered-wall' });
+        for (const { start, end, faceSide, title, active } of walls) {
+            const group = element('g', { class: 'perspective-registered-wall' + (active ? ' active' : '') + (detailed ? '' : ' subtle') });
             group.appendChild(element('line', { x1: start.x, y1: start.z, x2: end.x, y2: end.z,
                 'vector-effect': 'non-scaling-stroke' }));
+            svg.appendChild(group);
+            if (!detailed) continue;
             for (const point of [start, end]) group.appendChild(element('circle', {
                 cx: point.x, cy: point.z, r: 3 / zoom, 'vector-effect': 'non-scaling-stroke'
             }));
             const direction = unit(start, end);
             const x = (start.x + end.x) / 2, y = (start.z + end.z) / 2;
-            const offsetX = -direction.z / zoom, offsetY = direction.x / zoom;
+            const side = faceSide === -1 ? -1 : 1;
+            const offsetX = -direction.z * side / zoom, offsetY = direction.x * side / zoom;
             group.appendChild(element('line', { x1: x, y1: y, x2: x + offsetX * 7, y2: y + offsetY * 7,
                 'vector-effect': 'non-scaling-stroke' }));
             const label = element('text', { x: x + offsetX * 16, y: y + offsetY * 16, 'font-size': 11 / zoom,
                 'stroke-width': 3 / zoom, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
             label.textContent = title;
             group.appendChild(label);
-            svg.appendChild(group);
         }
         wallGuide.replaceChildren(svg);
     }
+
+    window.getFixedWallAtPointer = event => {
+        if (event.target || event.e?.altKey || event.e?.button > 0 || picker ||
+            currentViewMode !== 'floor' || guideFloorId !== selectedFloorId || isTransitioning ||
+            isFreeDrawingMode || isMeasuringMode || isDimensionDrawingMode ||
+            window.isLightingPlacementActive?.() || window.isCombinedPdfBusy || !floorWallSegments.length) return null;
+        const pointer = canvas.getPointer(event.e);
+        const zoom = canvas.wrapperEl.getBoundingClientRect().width / canvas.getWidth() || 1;
+        let closest = null;
+        let limit = (window.matchMedia('(pointer: coarse)').matches ? 13 : 7) / zoom;
+        for (const wall of floorWallSegments) {
+            if (!wallPlanJsonData[wall.id]?.planPosition) continue;
+            const { start, end } = wall;
+            const dx = end.x - start.x, dz = end.z - start.z;
+            const t = Math.max(0, Math.min(1, ((pointer.x - start.x) * dx + (pointer.y - start.z) * dz) / (dx * dx + dz * dz)));
+            const distance = Math.hypot(pointer.x - start.x - t * dx, pointer.y - start.z - t * dz);
+            if (distance < limit) { closest = wall; limit = distance; }
+        }
+        return closest;
+    };
 
     function resolveWallEnds(id, anchors, scale, visited = new Set()) {
         const wall = wallPlanJsonData[id], anchor = anchors[id];
@@ -107,10 +134,12 @@
 
     function cancelPick() {
         if (!picker) return;
+        const kind = picker.dataset.kind;
         picker.remove();
         picker = null;
         scheduleWallGuide();
-        say('平面図で立つ位置 → 見る方向の順に指定します。');
+        if (kind === 'wall') sayWall('');
+        else say('平面図で立つ位置 → 見る方向の順に指定します。');
     }
     window.cancelPerspectivePick = cancelPick;
 
@@ -125,46 +154,58 @@
         select.replaceChildren(...walls.map(([id, wall]) =>
             new Option(wall.title + (anchors[id] ? '（登録済み）' : ''), id)));
         if (walls.some(([id]) => id === previous)) select.value = previous;
-        $('btnLinkPerspectiveWall').disabled = !walls.length || !canLink();
+        $('btnLinkPerspectiveWall').disabled = !walls.length || !canLink() || savingWallPosition;
         updateUnlinkButton();
         scheduleWallGuide();
     };
 
     function updateUnlinkButton() {
-        $('btnUnlinkPerspectiveWall').disabled = !canLink() || !loadAnchors()[$('perspectiveWall').value];
+        $('btnUnlinkPerspectiveWall').disabled = !canLink() || savingWallPosition || !loadAnchors()[$('perspectiveWall').value];
     }
 
-    function unlinkWall() {
-        if (!canLink() || busy || isTransitioning) return;
+    async function saveWallPositions(floorId, changes, message) {
+        savingWallPosition = true;
+        window.refreshPerspectiveControls();
+        try {
+            const saved = await window.saveVenueWallPositions(floorId, changes);
+            sayWall(saved ? message : '位置を保存できませんでした。共通壁の保存状態を確認してください。');
+        } catch (error) {
+            console.error('固定壁の位置を保存できませんでした。', error);
+            sayWall('位置を保存できませんでした。共通壁の保存状態を確認してください。');
+        } finally {
+            savingWallPosition = false;
+            window.refreshPerspectiveControls();
+        }
+    }
+
+    async function unlinkWall() {
+        if (!canLink() || savingWallPosition || busy || isTransitioning) return;
         const id = $('perspectiveWall').value;
         const wall = wallPlanJsonData[id];
         const anchors = loadAnchors();
         if (!wall || getWallFloorId(wall) !== selectedFloorId || !anchors[id]) return;
-        if (!confirm('「' + wall.title + '」のパース用の位置登録を解除しますか？ 壁面図と作品配置は残ります。')) return;
+        if (!confirm('「' + wall.title + '」の共通の位置登録を解除しますか？ 壁面図と作品配置は残ります。')) return;
         cancelPick();
         const detached = Object.entries(anchors)
             .filter(([, anchor]) => anchor?.connection?.wallId === id)
             .map(([otherId, anchor]) => [otherId, anchor, resolveWallEnds(otherId, anchors, configuredScale)]);
-        for (const [otherId, anchor, ends] of detached) {
-            anchors[otherId] = { ...anchor, ...(ends || {}), connection: null };
-        }
-        delete anchors[id];
-        try {
-            editorStorage.setItem(storageKey(), JSON.stringify(anchors));
-            window.refreshPerspectiveControls();
-            say('位置登録を解除しました。「平面図で壁の向きを指定」から再登録できます。');
-        } catch { say('位置登録を解除できませんでした。'); }
+        const changes = Object.fromEntries(detached.map(([otherId, anchor, ends]) =>
+            [otherId, { ...anchor, ...(ends || {}), connection: null }]));
+        changes[id] = null;
+        await saveWallPositions(selectedFloorId, changes, '位置登録を解除しました。');
     }
 
     async function pickPoints(kind) {
-        if (busy || isTransitioning || window.isCombinedPdfBusy || (kind === 'wall' && !canLink())) return;
+        if (busy || isTransitioning || window.isCombinedPdfBusy || (kind === 'wall' && (!canLink() || savingWallPosition))) return;
         cancelPick();
+        window.cancelMovableWallSlotPick?.();
         window.cancelDimensionDrawing?.();
         window.cancelLightingPlacement?.();
         if (isFreeDrawingMode) toggleFreeDrawingMode(false);
         if (currentViewMode !== 'floor' && !await switchViewMode('floor')) return;
         if (!window.isDiagramReady?.()) return;
-        if (!(configuredScale > 0)) return say('先に平面図の縮尺を設定してください。');
+        const status = kind === 'wall' ? sayWall : say;
+        if (!(configuredScale > 0)) return status('先に平面図の縮尺を設定してください。');
         const wallId = $('perspectiveWall').value;
         if (kind === 'wall' && !wallPlanJsonData[wallId]) return;
         if (kind === 'wall' && !(Number(wallPlanJsonData[wallId].widthCm) > 0)) return say('壁の長さを登録してください。');
@@ -179,7 +220,6 @@
         picker = overlay;
         scheduleWallGuide();
         const floorId = selectedFloorId;
-        const joinedEnd = $('perspectiveJoinEnd').value;
         const length = Number(wallPlanJsonData[wallId]?.widthCm) * configuredScale;
         const anchors = kind === 'wall' ? loadAnchors() : {};
         const segments = Object.keys(anchors).flatMap(id => {
@@ -190,6 +230,7 @@
         const endpoints = segments.filter(segment => segment.snap).flatMap(({ id, ends }) =>
             ['start', 'end'].map(endpoint => ({ wallId: id, endpoint, point: ends[endpoint] })));
         let first = null;
+        let second = null;
         let connection = null;
         let cameraPointer = null;
         let previewCameraDirection = () => {};
@@ -230,9 +271,52 @@
             for (const { ends } of segments) line('perspective-wall-existing', ends.start, ends.end);
             for (const { point } of endpoints) line('perspective-wall-endpoint', point, point);
             const preview = line('perspective-wall-preview');
+            const faceGuide = line('perspective-wall-preview');
+            const showSide = point => {
+                const direction = unit(first, second);
+                const side = Math.sign(direction.x * (point.z - first.z) - direction.z * (point.x - first.x));
+                const offset = 14 / (overlay.getBoundingClientRect().width / canvas.getWidth() || 1);
+                const middle = { x: (first.x + second.x) / 2, z: (first.z + second.z) / 2 };
+                positionLine(faceGuide, middle, { x: middle.x - side * direction.z * offset, z: middle.z + side * direction.x * offset });
+                return side;
+            };
             overlay.addEventListener('pointermove', event => {
-                if (first) positionLine(preview, first, wallEnd(coordinates(event)));
+                if (second) showSide(coordinates(event));
+                else if (first) positionLine(preview, first, wallEnd(coordinates(event)));
             });
+            overlay.addEventListener('pointerdown', event => {
+                if (event.button !== 0 || !event.isPrimary || floorId !== selectedFloorId || currentViewMode !== 'floor' || !canLink()) return;
+                event.preventDefault();
+                const point = coordinates(event);
+                if (!first) {
+                    const zoom = overlay.getBoundingClientRect().width / canvas.getWidth() || 1;
+                    let closest = 16 / zoom;
+                    for (const endpoint of endpoints) {
+                        const distance = Math.hypot(endpoint.point.x - point.x, endpoint.point.z - point.z);
+                        if (distance < closest) { closest = distance; connection = endpoint; }
+                    }
+                    first = connection?.point || point;
+                    addMarker(first);
+                    sayWall('壁を伸ばす方向（上下左右）を指定してください。');
+                    return;
+                }
+                if (!second) {
+                    if (Math.hypot(point.x - first.x, point.z - first.z) < 2) return;
+                    second = wallEnd(point);
+                    positionLine(preview, first, second);
+                    sayWall('平面図で、作品を展示する側をクリックしてください。');
+                    return;
+                }
+                const side = showSide(point);
+                if (!side) return;
+                cancelPick();
+                void saveWallPositions(floorId, { [wallId]: {
+                    floorId, start: first, end: second, faceSide: side,
+                    connection: connection ? { wallId: connection.wallId, endpoint: connection.endpoint } : null
+                } }, '壁の位置を会場設定に保存しました。');
+            });
+            sayWall('壁の端を指定してください。登録済みの壁の端につなげられます。');
+            return;
         } else {
             const guide = document.createElementNS(svgNamespace, 'svg');
             guide.classList.add('perspective-wall-guide');
@@ -280,28 +364,24 @@
                 if (first) previewCameraDirection(first);
             });
         }
-        say(kind === 'wall' ? '壁の' + (joinedEnd === 'end' ? '右端' : '左端') + 'を指定してください。既存の端からつなげられます。' : '立つ位置を指定してください。');
+        say('立つ位置を指定してください。');
+        function addMarker(point) {
+            const marker = document.createElement('span');
+            marker.style.left = point.x / canvas.getWidth() * 100 + '%';
+            marker.style.top = point.z / canvas.getHeight() * 100 + '%';
+            overlay.appendChild(marker);
+        }
         overlay.addEventListener('pointerdown', event => {
             if (event.button !== 0 || !event.isPrimary || currentViewMode !== 'floor' || floorId !== selectedFloorId) return;
             event.preventDefault();
-            const bounds = overlay.getBoundingClientRect();
             const point = coordinates(event);
             if (!first) {
-                let closest = 16;
-                for (const endpoint of endpoints) {
-                    const distance = Math.hypot((endpoint.point.x - point.x) * bounds.width / canvas.getWidth(),
-                        (endpoint.point.z - point.z) * bounds.height / canvas.getHeight());
-                    if (distance < closest) { closest = distance; connection = endpoint; }
-                }
-                first = connection?.point || point;
-                const marker = document.createElement('span');
-                marker.style.left = first.x / canvas.getWidth() * 100 + '%';
-                marker.style.top = first.z / canvas.getHeight() * 100 + '%';
-                overlay.appendChild(marker);
-                say(kind === 'wall' ? (connection ? '壁の端に接続しました。' : '') + '壁を伸ばす向き（上下左右）を指定してください。' : '見る方向を指定してください。');
+                first = point;
+                addMarker(first);
+                say('見る方向を指定してください。');
                 return;
             }
-            if (kind === 'camera' && event.pointerType !== 'mouse') {
+            if (event.pointerType !== 'mouse') {
                 cameraPointer = event.pointerId;
                 overlay.setPointerCapture(event.pointerId);
                 previewCameraDirection(point);
@@ -309,22 +389,7 @@
             }
             if (Math.hypot(point.x - first.x, point.z - first.z) < 2) return;
             cancelPick();
-            if (kind === 'camera') {
-                showPerspective(first, point, eyeHeight);
-            } else if (canLink()) {
-                const other = wallEnd(point);
-                anchors[wallId] = {
-                    floorId, joinedEnd,
-                    start: joinedEnd === 'end' ? other : first,
-                    end: joinedEnd === 'end' ? first : other,
-                    connection: connection ? { wallId: connection.wallId, endpoint: connection.endpoint } : null
-                };
-                try {
-                    editorStorage.setItem(storageKey(), JSON.stringify(anchors));
-                    say('固定壁の位置をこのブラウザーに登録しました。');
-                    window.refreshPerspectiveControls();
-                } catch { say('固定壁の位置を保存できませんでした。'); }
-            }
+            showPerspective(first, point, eyeHeight);
         });
     }
 
@@ -773,7 +838,7 @@
                     const position = resolveWallEnds(id, anchors, scale);
                     if (!position) { missingWalls++; continue; }
                     const a = inCm(position.start), b = inCm(position.end);
-                    ends = [a, b];
+                    ends = anchors[id].faceSide === -1 ? [b, a] : [a, b];
                     quad(vertices, pointAt(a, height), pointAt(b, height), pointAt(b, 0), pointAt(a, 0), colors.wall);
                     const direction = unit(a, b);
                     const edge = (point, side) => ({ x: point.x - direction.z * side, z: point.z + direction.x * side });
@@ -843,7 +908,6 @@
             updateUnlinkButton();
             scheduleWallGuide();
         });
-        $('perspectiveJoinEnd').addEventListener('change', cancelPick);
         window.refreshPerspectiveControls();
     });
     canvas.on('after:render', scheduleWallGuide);

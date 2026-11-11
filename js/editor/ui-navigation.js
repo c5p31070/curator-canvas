@@ -40,6 +40,8 @@ function initializeNavigationUi() {
             el.hidden = !enabled;
         });
         applyFixtureEditability();
+        window.cancelPerspectivePick?.();
+        window.refreshPerspectiveControls?.();
         window.cancelMovableWallSlotPick?.();
         window.refreshMovableWallSlots?.();
         window.cancelLightingPlacement?.();

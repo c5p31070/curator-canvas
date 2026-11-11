@@ -122,6 +122,31 @@ function railEndpoints(rail) {
     };
 }
 
+function spotlightRailPosition(light) {
+    return Math.max(0, Math.min(1, Number(light.lightRailT) || 0));
+}
+
+function formatSpotlightRailDistances(light, rail) {
+    if (!rail?.isLightRail) return '';
+    const { start, end } = railEndpoints(rail);
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const length = Math.hypot(dx, dy);
+    if (!Number.isFinite(length) || length < .001) return '';
+    const scale = Number(configuredScale);
+    if (!Number.isFinite(scale) || scale <= 0) return 'レール端からの距離には縮尺設定が必要です';
+
+    const t = spotlightRailPosition(light);
+    const lengthMm = cmToMm(length / scale);
+    const startMm = Math.round(lengthMm * t);
+    const endMm = Math.round(lengthMm * (1 - t));
+    const horizontal = Math.abs(dx) >= Math.abs(dy);
+    const [firstEnd, secondEnd] = horizontal ? ['左端', '右端'] : ['上端', '下端'];
+    const startIsFirst = horizontal ? dx >= 0 : dy >= 0;
+    const [firstMm, secondMm] = startIsFirst ? [startMm, endMm] : [endMm, startMm];
+    return `${firstEnd}から ${firstMm} mm ／ ${secondEnd}から ${secondMm} mm`;
+}
+
 function projectOntoRail(rail, point) {
     const { start, end } = railEndpoints(rail);
     const dx = end.x - start.x, dy = end.y - start.y;
@@ -301,13 +326,21 @@ window.getLightPopupDetails = light => {
             : `${name} / 中央`;
     }
     return { title, meta: `${power} / 水平 ${horizontal} / 仰角 ${tilt}`,
-        description: [rail?.lightName, aim, direction.note].filter(Boolean).join(' / ') };
+        description: [rail?.lightName, formatSpotlightRailDistances(light, rail), aim, direction.note].filter(Boolean).join(' / ') };
 };
 
 function refreshSpotlightReadout(light, direction = null) {
     if (!light || light.lightKind !== 'spot') return;
     direction ||= lightingDirection(light);
     const readout = document.getElementById('lightOrientationReadout');
+    const railReadout = document.getElementById('lightRailDistanceReadout');
+    if (railReadout) {
+        const rail = lightingById(light.lightRailId);
+        const distances = formatSpotlightRailDistances(light, rail);
+        const text = distances ? [rail.lightName, distances].filter(Boolean).join(' · ') : '';
+        if (railReadout.textContent !== text) railReadout.textContent = text;
+        railReadout.hidden = !text;
+    }
     const reference = spotlightRailReference(light);
     const horizontal = light.lightAimMode === 'down' || direction.tilt === 0 || !reference ? '—' : reference.relative.toFixed(2) + '°';
     if (readout) {
@@ -337,7 +370,7 @@ function refreshLighting(updateControls = true) {
             const rail = spot ? rails.find(item => item.lightId === light.lightRailId) : null;
             if (rail) {
                 const { start, end } = railEndpoints(rail);
-                const t = Math.max(0, Math.min(1, Number(light.lightRailT) || 0));
+                const t = spotlightRailPosition(light);
                 light.set({ left: start.x + (end.x - start.x) * t, top: start.y + (end.y - start.y) * t });
             }
             const selectable = !lightingReadOnly() && (spot || isAdminMode);

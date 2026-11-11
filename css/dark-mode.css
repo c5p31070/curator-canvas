@@ -1369,6 +1369,7 @@ header h1 .brand-subtitle {
 .perspective-registered-wall { color: #356779; }
 .perspective-registered-wall.active { color: #8a3547; }
 .perspective-registered-wall line { stroke: currentColor; stroke-width: 2px; }
+.perspective-registered-wall.subtle line { opacity: .65; stroke-width: 1.5px; }
 .perspective-registered-wall circle { fill: #f7f9f9; stroke: currentColor; stroke-width: 1px; }
 .perspective-registered-wall text {
     fill: currentColor;

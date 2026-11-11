@@ -30,17 +30,35 @@
     const backup = () => {
         try { editorStorage.setItem(storageKey(), JSON.stringify({ walls, revision })); } catch {}
     };
-    function template(wall) {
+    function normalizePlanPosition(position, floorId, id) {
+        if (!position || position.floorId !== floorId) return null;
+        const { start, end, connection } = position;
+        if (![start?.x, start?.z, end?.x, end?.z].every(Number.isFinite) ||
+            (start.x === end.x && start.z === end.z)) return null;
+        return {
+            floorId,
+            start: { x: start.x, z: start.z },
+            end: { x: end.x, z: end.z },
+            joinedEnd: position.joinedEnd === 'end' ? 'end' : 'start',
+            faceSide: position.faceSide === -1 ? -1 : 1,
+            connection: typeof connection?.wallId === 'string' && connection.wallId !== id &&
+                ['start', 'end'].includes(connection.endpoint)
+                ? { wallId: connection.wallId, endpoint: connection.endpoint } : null
+        };
+    }
+    function template(wall, id) {
         const plan = parsePlan(wall.json);
         const objects = (plan.objects || []).filter(object => object.isFixture || object.isWallOutline);
         const outline = objects.find(object => object.isWallOutline);
         const floorId = Object.hasOwn(ALL_FLOOR_PLANS, wall.floorId) ? wall.floorId : 'lobby';
+        const position = normalizePlanPosition(wall.planPosition, floorId, id);
         return { title: wall.title, floorId,
             widthCm: Number(wall.widthCm), heightCm: venueCeilingHeightCm(floorId),
             fixtureScale: Number(wall.fixtureScale) || (outline
                 ? outline.height * (outline.scaleY || 1) / (Number(wall.legacyHeightCm) || Number(wall.heightCm) || venueCeilingHeightCm(floorId))
                 : Number(configuredScale) || .5),
-            json: JSON.stringify({ version: plan.version, objects }) };
+            json: JSON.stringify({ version: plan.version, objects }),
+            ...(position ? { planPosition: position } : {}) };
     }
     function normalize(data) {
         const result = {};
@@ -48,7 +66,7 @@
             if (wall?.movableWallSlot === true) {
                 const slot = normalizeSlot(wall);
                 if (slot) result[id] = slot;
-            } else if (wall && !wall.movableWallId && Number(wall.widthCm) > 0) result[id] = template(wall);
+            } else if (wall && !wall.movableWallId && Number(wall.widthCm) > 0) result[id] = template(wall, id);
         });
         return result;
     }
@@ -258,11 +276,25 @@
         if (saved) window.applyVenueWallsToPlans();
         return saved;
     };
+    window.saveVenueWallPositions = async (floorId, changes) => {
+        if (!ready || !editable() || !isAdminMode || busy || !isVenueFloor(floorId)) return false;
+        if (pending && !await flush()) return false;
+        const next = clone(walls);
+        for (const [id, position] of Object.entries(changes)) {
+            const wall = Object.hasOwn(next, id) ? next[id] : null;
+            if (!wall || wall.movableWallSlot || wall.floorId !== floorId) return false;
+            const normalized = normalizePlanPosition(position, floorId, id);
+            if (position && !normalized) return false;
+            if (normalized) wall.planPosition = normalized;
+            else delete wall.planPosition;
+        }
+        return publish(next);
+    };
     window.saveVenueWallDefinition = async (id, wall) => {
         if (!ready || !editable() || busy) return false;
         if (pending && !await flush()) return false;
         const next = clone(walls);
-        if (wall) next[id] = template({ ...wall, fixtureScale: null });
+        if (wall) next[id] = template({ ...wall, planPosition: next[id]?.planPosition, fixtureScale: null }, id);
         else delete next[id];
         const saved = await publish(next);
         if (saved) window.applyVenueWallsToPlans();
@@ -288,7 +320,7 @@
         if (!walls[id]) return;
         const definition = { ...wallPlanJsonData[id], fixtureScale: null, json: JSON.stringify(canvas.toJSON(getCustomProperties())) };
         const next = clone(currentWalls());
-        next[id] = template(definition);
+        next[id] = template(definition, id);
         pending = next;
         try { editorStorage.setItem(`${storageKey()}_unsaved`, JSON.stringify(next)); } catch {}
         status('共通壁の変更を保存待ち…');
@@ -309,7 +341,12 @@
             const entries = Object.entries(legacyWalls).filter(([, wall]) => !wall.movableWallSlot && isVenueFloor(wall.floorId));
             if (!entries.length) return alert('取り込める既存の固定壁がありません。以前の展覧会を読み込んでから実行してください。');
             if (!confirm(`既存の固定壁 ${entries.length}件をチーム共通設定へ取り込みます。同じIDの壁の事前設定を上書きします。\n${entries.map(([, wall]) => wall.title).join('、')}`)) return;
-            await publish({ ...walls, ...Object.fromEntries(entries) });
+            const next = clone(walls);
+            for (const [id, wall] of entries) {
+                const position = normalizePlanPosition(next[id]?.planPosition, wall.floorId, id) || wall.planPosition;
+                next[id] = { ...wall, ...(position ? { planPosition: position } : {}) };
+            }
+            await publish(next);
         });
         if (!cloud()) {
             try { walls = normalize(JSON.parse(editorStorage.getItem(storageKey()) || 'null')?.walls || legacyWalls); } catch { walls = clone(legacyWalls); }
