@@ -5,7 +5,7 @@
     const equipment = floorId => venueLightingData[floorId]?.objects
         ?? equipmentFromPlan(floorPlanData[floorId]?.json);
     const rails = floorId => equipment(floorId).filter(object => object.isLightRail && !object.excludeFromExport);
-    const allowed = () => isAdminMode && window.CURATOR_ROLE !== 'viewer' && !window.CURATOR_GUEST?.active;
+    const allowed = () => isAdminMode && window.CURATOR_ROLE !== 'viewer';
 
     window.refreshLightRailCopyControls = () => {
         const source = element('lightRailCopySource');

@@ -13,7 +13,7 @@
     let legacyWalls = {};
     const clone = value => JSON.parse(JSON.stringify(value));
     const cloud = () => Boolean(window.CURATOR_SUPABASE_CONFIG);
-    const editable = () => !cloud() || canEditSharedExhibitions();
+    const editable = () => !cloud() || canEditSharedVenue();
     const storageKey = () => `curator_canvas_venue_walls_${window.CURATOR_TEAM?.id || 'local'}`;
     const parsePlan = raw => {
         try { return typeof raw === 'string' ? JSON.parse(raw) : clone(raw || { objects: [] }); }

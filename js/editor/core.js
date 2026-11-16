@@ -5,7 +5,7 @@
 // ============================================================
 
 // Fabric.js キャンバス
-const editorStorage = window.CURATOR_GUEST?.storage || {
+const editorStorage = {
     getItem: key => window.localStorage.getItem(key),
     setItem: (key, value) => window.localStorage.setItem(key, value),
     removeItem: key => window.localStorage.removeItem(key)
@@ -95,6 +95,10 @@ function getActiveExhibitionRecord() {
 }
 
 function canEditSharedExhibitions() {
+    return canEditSharedVenue() || Boolean(window.CURATOR_USER && window.CURATOR_TEAM && window.CURATOR_ROLE === 'guest');
+}
+
+function canEditSharedVenue() {
     return Boolean(window.CURATOR_USER && window.CURATOR_TEAM && ['owner', 'editor'].includes(window.CURATOR_ROLE));
 }
 

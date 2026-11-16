@@ -106,11 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const status = document.getElementById('newExhibitionStatus');
     const create = document.getElementById('btnCreateExhibition');
     const venueSelect = document.getElementById('newExhibitionVenue');
-    if (window.CURATOR_GUEST?.active) {
-        const option = venueSelect.querySelector('[value="public"]');
-        option.disabled = true;
-        option.textContent = '公募展会場（通常ログインで利用可）';
-    }
     window.openNewExhibitionDialog = () => {
         if (window.CURATOR_ROLE === 'viewer' || !window.isDiagramReady?.() || isTransitioning ||
             isUndoRedoOperation || exhibitionWriteBusy || window.isCombinedPdfBusy || window.isLayoutVariantBusy?.() || dialog.open) return;

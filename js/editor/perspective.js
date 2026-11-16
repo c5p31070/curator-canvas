@@ -4,7 +4,7 @@
     const loadAnchors = () => Object.fromEntries(Object.entries(wallPlanJsonData)
         .filter(([, wall]) => !wall.movableWallId && wall.planPosition)
         .map(([id, wall]) => [id, wall.planPosition]));
-    const canLink = () => isAdminMode && !window.CURATOR_GUEST?.active && window.CURATOR_ROLE !== 'viewer';
+    const canLink = () => isAdminMode && window.CURATOR_ROLE !== 'viewer';
     const say = message => { $('perspectiveStatus').textContent = message; };
     const sayWall = message => { $('fixedWallPositionStatus').textContent = message; };
     let picker = null;

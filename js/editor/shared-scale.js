@@ -21,7 +21,7 @@ function lockTeamScaleWorkspace(message = '') {
 
 function updateTeamScaleControls() {
     const disabled = Boolean(window.CURATOR_SUPABASE_CONFIG) &&
-        (!sharedVenueScales.has(activeVenueId) || sharedScaleWriteBusy || !canEditSharedExhibitions());
+        (!sharedVenueScales.has(activeVenueId) || sharedScaleWriteBusy || !canEditSharedVenue());
     for (const id of ['scale', 'btnMeasureScale']) {
         const field = document.getElementById(id);
         if (field) field.disabled = disabled;
@@ -113,7 +113,7 @@ async function saveTeamFloorScale(value) {
         applyScaleToAllArtworks(scale);
         return true;
     }
-    if (sharedScaleWriteBusy || !canEditSharedExhibitions()) return false;
+    if (sharedScaleWriteBusy || !canEditSharedVenue()) return false;
     const venue = activeVenueId;
     const column = scaleColumn(venue);
     // Wait for any outstanding read before taking the expected server value.

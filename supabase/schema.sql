@@ -20,7 +20,7 @@ alter table public.teams
 create table if not exists public.team_members (
     team_id uuid not null references public.teams(id) on delete cascade,
     user_id uuid not null references auth.users(id) on delete cascade,
-    role text not null check (role in ('owner', 'editor', 'viewer')),
+    role text not null check (role in ('owner', 'editor', 'viewer', 'guest')),
     created_at timestamptz not null default now(),
     primary key (team_id, user_id)
 );
@@ -70,6 +70,22 @@ revoke all on function public.is_team_member(uuid) from public;
 grant execute on function public.current_team_role(uuid) to authenticated;
 grant execute on function public.is_team_member(uuid) to authenticated;
 
+-- Used by the owner-only invite-member Edge Function for accounts created in advance.
+create or replace function public.find_confirmed_invite_user(target_email text)
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select id from auth.users
+    where lower(email) = lower(target_email) and email_confirmed_at is not null
+    limit 1
+$$;
+
+revoke all on function public.find_confirmed_invite_user(text) from public, anon, authenticated;
+grant execute on function public.find_confirmed_invite_user(text) to service_role;
+
 alter table public.teams enable row level security;
 alter table public.team_members enable row level security;
 alter table public.exhibitions enable row level security;
@@ -109,23 +125,23 @@ drop policy if exists "editors can create exhibitions" on public.exhibitions;
 create policy "editors can create exhibitions"
     on public.exhibitions for insert to authenticated
     with check (
-        (select public.current_team_role(team_id)) in ('owner', 'editor')
+        (select public.current_team_role(team_id)) in ('owner', 'editor', 'guest')
         and updated_by = (select auth.uid())
     );
 
 drop policy if exists "editors can update exhibitions" on public.exhibitions;
 create policy "editors can update exhibitions"
     on public.exhibitions for update to authenticated
-    using ((select public.current_team_role(team_id)) in ('owner', 'editor'))
+    using ((select public.current_team_role(team_id)) in ('owner', 'editor', 'guest'))
     with check (
-        (select public.current_team_role(team_id)) in ('owner', 'editor')
+        (select public.current_team_role(team_id)) in ('owner', 'editor', 'guest')
         and updated_by = (select auth.uid())
     );
 
 drop policy if exists "editors can delete exhibitions" on public.exhibitions;
 create policy "editors can delete exhibitions"
     on public.exhibitions for delete to authenticated
-    using ((select public.current_team_role(team_id)) in ('owner', 'editor'));
+    using ((select public.current_team_role(team_id)) in ('owner', 'editor', 'guest'));
 
 -- Bootstrap the first administrator after creating their invited user in Authentication > Users.
 -- Replace the email and team name, then run this block once.

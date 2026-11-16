@@ -7,7 +7,7 @@ function initializeToolPalette() {
     const buttons = [...palette.querySelectorAll('[data-tool]')];
 
     const activate = (tool, toggle = false) => {
-        if (window.CURATOR_GUEST?.allowsTool(tool) === false) return;
+        if (tool === 'setup' && window.CURATOR_ROLE === 'guest') return;
         window.cancelPerspectivePick?.();
         window.cancelMovableWallSlotPick?.();
         if (tool !== 'draw') window.endShapeFreeTransform?.();

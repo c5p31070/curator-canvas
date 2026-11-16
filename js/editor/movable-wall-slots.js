@@ -1,7 +1,7 @@
 // Venue presets mark the center and angle of a wall on a single floor plan.
 (() => {
     const $ = id => document.getElementById(id);
-    const canManage = () => isAdminMode && window.CURATOR_ROLE !== 'viewer' && !window.CURATOR_GUEST?.active;
+    const canManage = () => isAdminMode && window.CURATOR_ROLE !== 'viewer';
     const slots = () => window.getVenueMovableWallSlots?.(selectedFloorId) || {};
     const svgNs = 'http://www.w3.org/2000/svg';
     let overlay, picker, frame = null, saving = false;

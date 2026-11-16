@@ -1,8 +1,4 @@
 (function () {
-    if (window.CURATOR_GUEST?.active) {
-        window.CURATOR_GUEST.initializeAuth();
-        return;
-    }
     const client = window.curatorSupabase;
     const isLoginPage = /(^|\/)login\.html$/.test(location.pathname);
     if (!client) return;
@@ -95,6 +91,12 @@
 
     if (!isLoginPage) {
         window.applyCuratorRoleRestrictions = () => {
+            if (window.CURATOR_ROLE === 'guest') {
+                document.querySelectorAll('[data-tool="setup"], #btnToggleAdminMode, [data-tool-panel="setup"], #teamInviteFields').forEach(control => {
+                    control.hidden = true;
+                    if ('disabled' in control) control.disabled = true;
+                });
+            }
             if (window.CURATOR_ROLE !== 'viewer') return;
             document.body.classList.add('viewer-mode');
             document.querySelectorAll('.sidebar input, .sidebar textarea, .sidebar button, .sidebar select').forEach(control => {
@@ -126,7 +128,7 @@
                 const teamName = document.getElementById('teamNameLabel');
                 const roleLabel = document.getElementById('teamRoleLabel');
                 const inviteFields = document.getElementById('teamInviteFields');
-                const roleNames = { owner: '管理者', editor: '編集者', viewer: '閲覧者' };
+                const roleNames = { owner: '管理者', editor: '編集者', viewer: '閲覧者', guest: 'ゲスト' };
                 if (account) account.textContent = `${context.user.email} · ${roleNames[context.role] || context.role}`;
                 if (teamName) teamName.textContent = `展覧会チーム：${context.team?.name || 'チーム'}`;
                 if (roleLabel) roleLabel.textContent = `あなたの権限：${roleNames[context.role] || context.role}`;
@@ -152,17 +154,24 @@
                 }
                 button.disabled = true;
                 status.textContent = '招待を送信しています…';
-                const { error } = await client.functions.invoke('invite-member', {
-                    body: { email, role: roleInput.value, teamId: window.CURATOR_TEAM.id }
-                });
-                button.disabled = false;
-                if (error) {
-                    console.error('チーム招待に失敗しました:', error);
-                    status.textContent = '招待を送信できませんでした。Edge Functionの設定を確認してください。';
-                    return;
+                try {
+                    const { data, error } = await client.functions.invoke('invite-member', {
+                        body: { email, role: roleInput.value, teamId: window.CURATOR_TEAM.id }
+                    });
+                    if (error) {
+                        let message = '';
+                        try { message = (await error.context?.json())?.error; } catch {}
+                        console.error('チーム招待に失敗しました:', error);
+                        status.textContent = message || '招待を送信できませんでした。Edge Functionの設定を確認してください。';
+                        return;
+                    }
+                    emailInput.value = '';
+                    status.textContent = data?.existingAccount
+                        ? '既存アカウントをゲストとして追加しました。通常のログイン画面から利用できます。'
+                        : '招待メールを送信しました。';
+                } finally {
+                    button.disabled = false;
                 }
-                emailInput.value = '';
-                status.textContent = '招待メールを送信しました。';
             });
         });
     }

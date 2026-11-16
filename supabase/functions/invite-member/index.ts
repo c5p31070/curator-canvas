@@ -35,10 +35,12 @@ Deno.serve(async request => {
     catch { return reply({ error: '入力内容を読み取れません。' }, 400); }
 
     const email = payload.email?.trim().toLowerCase();
-    const role = payload.role === 'editor' ? 'editor' : payload.role === 'viewer' ? 'viewer' : null;
+    const { role } = payload;
     const teamId = payload.teamId;
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return reply({ error: 'メールアドレスを確認してください。' }, 400);
-    if (!teamId || !role) return reply({ error: '招待内容が正しくありません。' }, 400);
+    if (!teamId || (role !== 'editor' && role !== 'viewer' && role !== 'guest')) {
+        return reply({ error: '招待内容が正しくありません。' }, 400);
+    }
 
     const { data: callerMembership, error: membershipError } = await userClient
         .from('team_members')
@@ -50,19 +52,30 @@ Deno.serve(async request => {
         return reply({ error: 'メンバーを招待する権限がありません。' }, 403);
     }
 
-    const origin = request.headers.get('origin') || '';
-    const redirectTo = origin ? `${origin}/login.html` : undefined;
-    const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, { redirectTo });
-    if (inviteError || !inviteData.user) return reply({ error: inviteError?.message || '招待を送信できませんでした。' }, 400);
+    let userId: string | null = null;
+    if (role === 'guest') {
+        const { data, error } = await adminClient.rpc('find_confirmed_invite_user', { target_email: email });
+        if (error) return reply({ error: 'ゲストアカウントを確認できません。ゲスト権限のSQL設定を確認してください。' }, 500);
+        userId = data;
+    }
+    const existingAccount = Boolean(userId);
+    if (!userId) {
+        const origin = request.headers.get('origin') || '';
+        const redirectTo = origin ? `${origin}/login.html` : undefined;
+        const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, { redirectTo });
+        if (inviteError || !inviteData.user) return reply({ error: inviteError?.message || '招待を送信できませんでした。' }, 400);
+        userId = inviteData.user.id;
+    }
 
-    const { error: insertError } = await adminClient.from('team_members').upsert({
+    const { error: insertError } = await adminClient.from('team_members').insert({
         team_id: teamId,
-        user_id: inviteData.user.id,
+        user_id: userId,
         role
     });
-    if (insertError) return reply({ error: '招待は送信されましたが、チーム権限を登録できませんでした。管理者に連絡してください。' }, 500);
+    if (insertError?.code === '23505') return reply({ error: 'このアカウントはすでにチームに所属しています。現在の権限は保持されています。' }, 409);
+    if (insertError) return reply({ error: 'チーム権限を登録できませんでした。管理者に連絡してください。' }, 500);
 
-    return reply({ ok: true });
+    return reply({ ok: true, existingAccount });
 
     function reply(body: unknown, status = 200) {
         return new Response(JSON.stringify(body), {
