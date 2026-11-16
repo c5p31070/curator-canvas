@@ -1007,41 +1007,41 @@ input:focus, select:focus, textarea:focus {
 
 /* Unify the editor panes; use borders instead of dark gaps between cards. */
 body {
-    background: #24282a !important;
+    background: var(--cc-workspace) !important;
 }
 header {
-    background: #281719 !important;
-    border-bottom: 1px solid #4b292e !important;
+    background: var(--cc-brand) !important;
+    border-bottom: 1px solid var(--cc-brand-line) !important;
 }
 .main-layout {
     gap: 0 !important;
     padding: 0 !important;
-    background: #24282a !important;
+    background: var(--cc-workspace) !important;
 }
 .sidebar {
-    background: #262b30 !important;
+    background: var(--cc-sidebar) !important;
     border: 0 !important;
-    border-right: 2px solid #51595d !important;
+    border-right: 1px solid var(--cc-divider-strong) !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     gap: 0 !important;
 }
 .canvas-container-wrapper {
-    background: #24282a !important;
+    background: var(--cc-workspace) !important;
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
 }
 .tool-palette {
-    background: #2b3033 !important;
+    background: var(--cc-toolbar) !important;
     border: 0 !important;
-    border-bottom: 1px solid #51595d !important;
+    border-bottom: 1px solid var(--cc-divider-strong) !important;
 }
 .wall-tabs {
-    background: #24282a !important;
+    background: var(--cc-sidebar) !important;
     gap: 5px !important;
     padding: 4px 5px !important;
-    border-bottom-color: #41484b !important;
+    border-bottom-color: var(--cc-divider-strong) !important;
 }
 .wall-tabs[hidden] {
     display: none !important;
@@ -1057,7 +1057,7 @@ header {
     color: #b8c0c2 !important;
 }
 .wall-tabs .wall-tab + .wall-tab {
-    border-left: 1px solid #51595d !important;
+    border-left: 1px solid var(--cc-divider) !important;
 }
 .wall-tabs .wall-tab:hover {
     color: #e1e5e6 !important;
@@ -1070,13 +1070,13 @@ header {
 .wall-tabs .wall-tab[aria-selected="true"]::after {
     right: 5px;
     left: 5px;
-    background: #aeb8bb;
+    background: var(--cc-brass);
 }
 
 /* Use a restrained, utilitarian type style across the editor UI. */
 body,
 body :is(h1, h2, h3, label, button, input, select, textarea, output, p, span, strong, small) {
-    font-family: "Arial Narrow", "Yu Gothic UI", "Meiryo", sans-serif !important;
+    font-family: var(--cc-font) !important;
 }
 header h1,
 .panel-section h2,
@@ -1093,7 +1093,7 @@ header h1,
 }
 .panel-section h2,
 header h1 {
-    font-family: "Arial Narrow", "Yu Gothic UI", "Meiryo", sans-serif !important;
+    font-family: var(--cc-font) !important;
 }
 header h1 .brand-subtitle {
     display: inline-block;
@@ -1111,7 +1111,7 @@ header h1 .brand-subtitle {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: #aa9093;
+    color: #d2b9bb;
     font-size: 11px;
     font-weight: 400;
 }
@@ -1232,22 +1232,6 @@ header h1 .brand-subtitle {
 .tool-group-views .tool-icon[aria-pressed="true"] {
     color: #d5dde0 !important;
 }
-.tool-group-views .tool-icon::after {
-    position: absolute;
-    right: 8px;
-    bottom: 0;
-    left: 8px;
-    height: 1px;
-    background: #9aa8ae;
-    content: '';
-    opacity: 0;
-    transition: opacity .15s ease;
-}
-.tool-group-views .tool-icon.active::after,
-.tool-group-views .tool-icon[aria-pressed="true"]::after,
-.tool-group-views .tool-icon:focus-visible::after {
-    opacity: 1;
-}
 .tool-group-views .tool-icon + .tool-icon::before {
     position: absolute;
     top: calc(50% - 7px);
@@ -1258,14 +1242,14 @@ header h1 .brand-subtitle {
     content: '';
 }
 .canvas-viewport {
-    background: #24282a !important;
-    scrollbar-color: #51595d #24282a !important;
+    background: radial-gradient(circle, #3c4143 0.65px, transparent 0.8px) 0 0 / 16px 16px var(--cc-workspace) !important;
+    scrollbar-color: var(--cc-divider-strong) var(--cc-workspace) !important;
 }
 .canvas-viewport::-webkit-scrollbar-track {
-    background: #24282a !important;
+    background: var(--cc-workspace) !important;
 }
 .canvas-viewport::-webkit-scrollbar-thumb {
-    border-color: #24282a !important;
+    border-color: var(--cc-workspace) !important;
 }
 
 /* Reserve the main tab row for walls while retaining compact floor navigation. */
@@ -1403,7 +1387,8 @@ header h1 .brand-subtitle {
 #perspectiveCanvas { display: block; width: 100%; max-height: 73vh; object-fit: contain; background: #15191c; }
 #perspectiveSummary { margin: 8px 0 0; }
 
-#newExhibitionDialog {
+#newExhibitionDialog,
+#artworkOutlineDialog {
     box-sizing: border-box;
     width: min(420px, 94vw);
     padding: 18px;
@@ -1411,8 +1396,32 @@ header h1 .brand-subtitle {
     background: #20262a;
     color: #e0e5e8;
 }
-#newExhibitionDialog::backdrop { background: rgba(10, 13, 15, .76); }
-#newExhibitionHeading { font-size: 16px; margin: 0 0 14px; }
+#newExhibitionDialog::backdrop,
+#artworkOutlineDialog::backdrop { background: rgba(10, 13, 15, .76); }
+#newExhibitionHeading,
+#artworkOutlineHeading { font-size: 16px; margin: 0 0 14px; }
+.artwork-outline-controls { margin-bottom: 5px; }
+#artworkOutlinePreview {
+    display: block;
+    width: 100%;
+    max-height: min(42vh, 260px);
+    background: var(--cc-input);
+    border: 1px solid var(--cc-divider-strong);
+    touch-action: none;
+}
+.artwork-outline-bounds { fill: none; stroke: #747d80; stroke-width: .65; stroke-dasharray: 3 3; }
+.artwork-outline-face { fill: #a9dce9; stroke: #427c91; stroke-width: 1.2; }
+.artwork-outline-face.invalid { fill: #b97e83; }
+.artwork-outline-edge { stroke: var(--cc-brass); stroke-width: 2; pointer-events: none; }
+.artwork-outline-edges line { stroke: transparent; stroke-width: 12; pointer-events: stroke; cursor: pointer; }
+.artwork-outline-vertex { fill: #22282a; stroke: #fffaf1; stroke-width: 1.2; cursor: grab; }
+.artwork-outline-vertex.is-selected,
+.artwork-outline-vertex:focus-visible { fill: var(--cc-brass); }
+.artwork-outline-options { display: grid; gap: 6px; margin-top: 8px; }
+.artwork-outline-measure { margin-top: 8px; }
+#artworkOutlineDimensions { display: block; margin-top: 4px; min-height: 1.4em; font-variant-numeric: tabular-nums; }
+#artworkWidth:read-only, #artworkHeight:read-only { color: var(--cc-brass) !important; }
+#artworkOutlineStatus { min-height: 1.5em; }
 
 /* Visibility toggles are secondary to the tools that edit the drawing. */
 .tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"]) {
@@ -1438,4 +1447,79 @@ header h1 .brand-subtitle {
 }
 .tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"]) .tool-label {
     font-size: 8px;
+}
+
+/* Drawing details stay subordinate to each tool's silhouette. */
+.tool-palette .tool-icon .tool-icon-detail {
+    stroke: var(--cc-brass);
+    opacity: .85;
+}
+.tool-palette .tool-icon:disabled .tool-icon-detail {
+    stroke: currentColor;
+}
+.tool-palette .tool-icon .tool-icon-off { display: none; }
+.tool-palette .tool-icon[aria-pressed="false"] .tool-icon-off { display: inline; }
+.tool-palette .tool-icon[aria-pressed="false"]:has(.tool-icon-off) .tool-icon-detail {
+    visibility: hidden;
+}
+
+/* Workbench finish. These colors leave diagram graphics and zoom geometry intact. */
+body > header h1 { color: var(--cc-brand-text) !important; font-weight: 600 !important; }
+.current-exhibition-name {
+    padding-left: 12px;
+    border-left: 1px solid var(--cc-brand-line);
+}
+.account-controls { color: #cfbfc0; }
+.account-controls button { border-color: var(--cc-brand-line); color: var(--cc-brand-text); }
+.account-controls button:hover { border-color: #a78489; }
+
+.tool-palette .tool-group { border-right-color: var(--cc-divider) !important; }
+.tool-palette .tool-icon svg { stroke-width: 1.75; }
+.tool-palette .tool-icon:not(:disabled):focus-visible {
+    outline: 1px solid var(--cc-brass);
+    outline-offset: -2px;
+}
+.tool-palette .tool-icon:disabled { opacity: .45; cursor: not-allowed; }
+.tool-palette .tool-group:not(.tool-group-views) .tool-icon:not(:disabled):hover {
+    background: #2b3032 !important;
+    border-color: var(--cc-divider-strong) !important;
+}
+.tool-palette .tool-icon:is(.active, [aria-pressed="true"]):not([data-action$="-visibility"]) {
+    background: #323638 !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    color: var(--cc-text) !important;
+}
+
+.sidebar .panel-section h2 {
+    border-bottom-color: var(--cc-divider-strong) !important;
+    color: var(--cc-text) !important;
+    font-weight: 600 !important;
+}
+.sidebar .drawing-subsection + .drawing-subsection,
+.sidebar .layout-variants-section { border-color: var(--cc-divider); }
+.sidebar .form-group label { color: var(--cc-text) !important; }
+.sidebar :is(.form-control, input[type="email"], textarea, select) {
+    background: var(--cc-input) !important;
+    border-color: var(--cc-divider-strong) !important;
+}
+.sidebar :is(.form-control, input[type="email"], textarea, select):focus {
+    border-color: var(--cc-brass-muted) !important;
+}
+.sidebar :is(.section-help, .field-note, .mode-description) { color: var(--cc-muted) !important; }
+.sidebar .save-status-text { color: var(--cc-brass) !important; }
+.sidebar .btn-primary {
+    background: #44372b !important;
+    border-color: #76604a !important;
+    color: #f0e5d5 !important;
+}
+.sidebar .btn-primary:not(:disabled):hover {
+    background: #524333 !important;
+    border-color: var(--cc-brass-muted) !important;
+}
+.canvas-viewport .canvas-container {
+    box-shadow: 0 0 0 1px #4c5153, 0 5px 16px #0004;
+}
+@media (max-width: 700px) {
+    .current-exhibition-name { margin-inline: 6px; padding-left: 6px; }
 }

@@ -9,6 +9,16 @@ function getCanvasZoomKey() {
     return null;
 }
 
+function refreshCanvasRenderDensity(zoom) {
+    // Fabric maps hit tests using its retina ratio and the CSS bounds together.
+    // Change only its drawing buffers, keeping both logical dimensions intact.
+    const screenDensity = window.devicePixelRatio || 1;
+    const density = Math.min(4, Math.ceil(screenDensity * Math.max(1, zoom)));
+    if (fabric.devicePixelRatio === density) return;
+    fabric.devicePixelRatio = density;
+    canvas.setDimensions({ width: canvas.getWidth(), height: canvas.getHeight() }, { backstoreOnly: true });
+}
+
 function initializeCanvasZoom() {
     const viewport = document.getElementById('canvasViewport');
     const zoomSlider = document.getElementById('canvasZoom');
@@ -116,6 +126,7 @@ function initializeCanvasZoom() {
         canvasWrapper.style.top = `${offsets.top}px`;
         canvasWrapper.style.transform = `scale(${nextZoom})`;
         currentCanvasZoom = nextZoom;
+        refreshCanvasRenderDensity(nextZoom);
         refreshSelectionControls();
         canvas.requestRenderAll();
 
@@ -276,7 +287,16 @@ function initializeCanvasZoom() {
     resizeObserver?.observe(viewport);
     window.addEventListener('resize', () => {
         if (!canvasZoomByView.has(getCanvasZoomKey())) fitCanvas();
+        else refreshCanvasRenderDensity(currentCanvasZoom);
     });
+    const watchScreenDensity = () => {
+        const query = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+        query.addEventListener('change', () => {
+            refreshCanvasRenderDensity(currentCanvasZoom);
+            watchScreenDensity();
+        }, { once: true });
+    };
+    watchScreenDensity();
 
     canvasZoomApiReady = true;
     requestAnimationFrame(() => requestAnimationFrame(() => refreshCanvasZoomForView(false)));

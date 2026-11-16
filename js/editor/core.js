@@ -494,6 +494,7 @@ function getCustomProperties() {
         'artworkName',
         'artworkNumber',
         'artworkCatalogId',
+        'artworkOutline',
         'description',
         'isPin',
         'pinName',
@@ -532,8 +533,8 @@ function getCustomProperties() {
 function getArtworkAppearance(artwork) {
     if (artwork.isFixture) return { fill: '#d4d9de', stroke: '#66727d', text: '#26323b', dash: [4, 3] };
     return artwork.displayType === 'floor'
-        ? { fill: '#f3d58b', stroke: '#94702f', text: '#42341b', dash: null }
-        : { fill: '#a9dce9', stroke: '#427c91', text: '#193e4c', dash: null };
+        ? { fill: '#f3d58b', stroke: '#94702f', text: '#172127', dash: null }
+        : { fill: '#a9dce9', stroke: '#427c91', text: '#172127', dash: null };
 }
 
 function configureArtworkTransform(artwork) {
@@ -542,6 +543,7 @@ function configureArtworkTransform(artwork) {
     artwork.item?.(0)?.set({ fill: appearance.fill, stroke: appearance.stroke,
         strokeWidth: 1.5, strokeDashArray: appearance.dash });
     artwork.item?.(1)?.set({ fill: appearance.text });
+    configureArtworkOutline(artwork);
     window.refreshArtworkNumberLabel?.(artwork);
     artwork.set({
         dirty: true,

@@ -48,14 +48,23 @@
         const label = object.item?.(1);
         const body = object.item?.(0);
         if (!label || !body) return;
-        const number = window.getArtworkNumber(object);
-        label.set({ text: `No.${number}`, fontSize: 9, scaleX: 1, scaleY: 1 });
+        label.set({
+            text: `No.${window.getArtworkNumber(object)}`,
+            fontSize: 9, fontWeight: 'normal', fontFamily: 'sans-serif',
+            scaleX: 1, scaleY: 1, originX: 'center', originY: 'center',
+            fill: getArtworkAppearance(object).text, backgroundColor: ''
+        });
         label.initDimensions();
-        const fit = Math.min(1, Math.max(1, body.width - 2) / Math.max(1, label.width),
-            Math.max(1, body.height - 2) / Math.max(1, label.height));
-        label.set({ fontSize: 9 * fit });
-        label.initDimensions();
-        // The text must not enlarge the physical bounds used for placement.
+        const area = currentViewMode === 'wall'
+            ? artworkOutlineLabelArea(object.artworkOutline, triangulateArtworkOutline(object.artworkOutline), body.width, body.height) : null;
+        const width = area?.size ?? body.width;
+        const height = area?.size ?? body.height;
+        const innerWidth = width - Math.min(2, width * .2);
+        const innerHeight = height - Math.min(2, height * .2);
+        const fit = Math.min(1, innerWidth / Math.max(1, label.width), innerHeight / Math.max(1, label.height));
+        const center = body.getCenterPoint();
+        label.set({ left: center.x + (area?.x || 0), top: center.y + (area?.y || 0), scaleX: fit, scaleY: fit });
+        // Keep the artwork footprint independent of the label size.
         object.set({ width: body.width, height: body.height, dirty: true });
         object.setCoords();
     };

@@ -416,14 +416,15 @@
     const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
     const subtract = (a, b) => a.map((value, i) => value - b[i]);
     const dot = (a, b) => a.reduce((sum, value, i) => sum + value * b[i], 0);
-    const quad = (out, a, b, c, d, color, opacity = [1, 1, 1, 1]) => {
-        const normal = cross(subtract(b, a), subtract(d, a));
+    function meshFace(out, corners, color, opacity = [1, 1, 1, 1]) {
+        const [a, b, c, d] = corners;
+        const normal = cross(subtract(b, a), subtract(d || c, a));
         const size = Math.hypot(...normal);
         if (!(size > 0)) return;
         const direction = normal.map(value => value / size);
-        const corners = [a, b, c, d];
-        for (const i of [0, 1, 2, 0, 2, 3]) out.push(...corners[i], ...direction, ...color, opacity[i]);
-    };
+        for (const i of d ? [0, 1, 2, 0, 2, 3] : [0, 1, 2]) out.push(...corners[i], ...direction, ...color, opacity[i]);
+    }
+    const quad = (out, a, b, c, d, color, opacity) => meshFace(out, [a, b, c, d], color, opacity);
     // A soft contact shadow around a floor footprint, without a full scene light simulation.
     function contactShadow(out, points, spread = 18) {
         const outer = points.map((point, i) => {
@@ -440,7 +441,7 @@
     }
     const pointAt = (p, height) => [p.x, height, p.z];
     const colors = {
-        floor: [.18, .12, .10], ceiling: [.32, .33, .35], wall: [.49, .47, .44],
+        floor: [.18, .12, .10], ceiling: [.32, .33, .35], rail: [.035, .036, .038], wall: [.49, .47, .44],
         artwork: [.19, .34, .40], plinth: [.37, .39, .41], ink: [.69, .70, .70]
     };
     const digits = ['012345', '12', '01643', '01236', '5612', '05623', '056234', '012', '0123456', '012356'];
@@ -805,6 +806,22 @@
             const objects = canvas.getObjects();
             const artworkSurfaces = [];
             quad(vertices, [0,ceiling,0], [0,ceiling,h], [w,ceiling,h], [w,ceiling,0], colors.ceiling);
+            for (const rail of objects) {
+                if (!rail.isLightRail || rail.excludeFromExport) continue;
+                const { start, end } = railEndpoints(rail);
+                const a = inCm({ x: start.x, z: start.y });
+                const b = inCm({ x: end.x, z: end.y });
+                const direction = unit(a, b);
+                if (!Number.isFinite(direction.x) || !Number.isFinite(direction.z)) continue;
+                const halfWidthCm = 1.8;
+                // Keep the strip slightly below the ceiling so the surfaces do not flicker.
+                const underside = ceiling - .4;
+                const edge = (point, side) => [
+                    point.x - direction.z * side * halfWidthCm, underside,
+                    point.z + direction.x * side * halfWidthCm
+                ];
+                quad(vertices, edge(a, 1), edge(b, 1), edge(b, -1), edge(a, -1), colors.rail);
+            }
             const faces = new Map();
             const corners = object => {
                 const body = object.item?.(0);
@@ -897,6 +914,20 @@
                         const offset = 1 + Math.max(0, Number(object.cmDepth) || 0);
                         artworkSurfaces.push({ object, normal: [-t.z, 0, t.x], depth: offset,
                             point: (x, y) => p((2 * x - 1) * halfW, (1 - 2 * y) * halfH, offset) });
+                        const triangles = object.displayType === 'wall' ? triangulateArtworkOutline(object.artworkOutline) : [];
+                        if (triangles.length) {
+                            for (const triangle of triangles) {
+                                const vertices3d = triangle.map(([x, y]) => p((2 * x - 1) * halfW, (2 * y - 1) * halfH, offset));
+                                meshFace(vertices, vertices3d, colors.artwork);
+                            }
+                            const area = artworkOutlineLabelArea(object.artworkOutline, triangles, halfW * 2, halfH * 2);
+                            if (area) {
+                                const size = area.size / 2;
+                                numberOnFace(vertices, object.artworkNumber, p(area.x - size, area.y - size, offset + .15),
+                                    p(area.x + size, area.y - size, offset + .15), p(area.x - size, area.y + size, offset + .15));
+                            }
+                            continue;
+                        }
                         quad(vertices, p(-halfW,-halfH,offset), p(halfW,-halfH,offset),
                             p(halfW,halfH,offset), p(-halfW,halfH,offset), colors.artwork);
                         numberOnFace(vertices, object.artworkNumber, p(-halfW,-halfH,offset + .15),

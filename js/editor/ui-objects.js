@@ -31,7 +31,8 @@ function upsertArtworkCatalogEntry(data, preferredId = '') {
     const existing = savedArtworkCatalog.find(item => item.id === preferredId) ||
         savedArtworkCatalog.find(item => item.displayType === data.displayType &&
             item.name === data.name && Number(item.cmWidth) === Number(data.cmWidth) &&
-            Number(item.cmHeight) === Number(data.cmHeight) && Number(item.cmDepth) === Number(data.cmDepth));
+            Number(item.cmHeight) === Number(data.cmHeight) && Number(item.cmDepth) === Number(data.cmDepth) &&
+            JSON.stringify(item.artworkOutline || null) === JSON.stringify(data.artworkOutline || null));
     const id = existing?.id || (window.crypto?.randomUUID?.() || `artwork_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     const entry = { ...data, id, artworkNumber: existing?.artworkNumber || window.nextArtworkNumber() };
     if (existing) savedArtworkCatalog = savedArtworkCatalog.map(item => item.id === id ? entry : item);
@@ -51,6 +52,7 @@ window.updateArtworkCatalogEntry = obj => {
         cmWidth: Number(obj.cmWidth) || 150,
         cmHeight: Number(obj.cmHeight) || 100,
         cmDepth: Number(obj.cmDepth) || 5,
+        artworkOutline: obj.artworkOutline,
         artworkCenterHeightCm: window.getArtworkCenterHeightCm(obj)
     }, obj.artworkCatalogId);
 };
@@ -68,6 +70,7 @@ window.migrateArtworkCatalogFromPlans = () => {
                     cmWidth: Number(obj.cmWidth) || 150,
                     cmHeight: Number(obj.cmHeight) || 100,
                     cmDepth: Number(obj.cmDepth) || 5,
+                    artworkOutline: obj.artworkOutline,
                     artworkCenterHeightCm: window.getArtworkCenterHeightCm(obj)
                 }, obj.artworkCatalogId || '');
             }
@@ -81,6 +84,7 @@ window.migrateArtworkCatalogFromPlans = () => {
 };
 
 function initializeObjectControlsUi() {
+    const outlineEditor = initializeArtworkOutlineEditor();
     const pinKindInput = document.getElementById('pinIcon');
     const refreshPinNumberField = () => {
         const field = document.getElementById('pinNumberField');
@@ -122,8 +126,10 @@ function initializeObjectControlsUi() {
         document.getElementById('artworkDepth').value = cmToMm(item.cmDepth);
         document.getElementById('artworkCenterHeight').value = item.artworkCenterHeightCm == null ? '' : cmToMm(item.artworkCenterHeightCm);
         document.getElementById('displayType').dispatchEvent(new Event('change', { bubbles: true }));
+        outlineEditor.set(item.artworkOutline);
         pendingArtworkCatalogId = item.id;
         addButton.click();
+        pendingArtworkCatalogId = '';
     });
     // ----------------------------------------------------
     // 展示品（作品）の追加
@@ -185,6 +191,11 @@ function initializeObjectControlsUi() {
                 (depthEl && depthEl.value)
                     ? mmToCm(depthEl.value)
                     : 5;
+            const artworkOutline = outlineEditor.get();
+            if (![cmW, cmH, cmD].every(value => Number.isFinite(value) && value > 0)) {
+                alert('作品の寸法は0より大きい数値を入力してください。');
+                return;
+            }
 
             const addAsFixture =
                 isAdminMode &&
@@ -198,6 +209,7 @@ function initializeObjectControlsUi() {
                 cmWidth: cmW,
                 cmHeight: cmH,
                 cmDepth: cmD,
+                artworkOutline,
                 artworkCenterHeightCm: centerHeight
             }, pendingArtworkCatalogId);
             pendingArtworkCatalogId = '';
@@ -207,7 +219,7 @@ function initializeObjectControlsUi() {
             // 平面図は幅×奥行き（壁面展示では厚み）、壁面図は幅×高さで描画。
             const pxH = Math.max(
                 (isFloorPlan ? cmD : cmH) * currentScale,
-                isFloorPlan ? 8 : 6
+                isFloorPlan ? 8 : artworkOutline ? 0 : 6
             );
 
             const appearance = getArtworkAppearance({ displayType, isFixture: Boolean(addAsFixture) });
@@ -261,6 +273,7 @@ function initializeObjectControlsUi() {
                         isArtwork: true,
                         artworkName: nameText,
                         artworkCatalogId: catalogId,
+                        artworkOutline,
                         artworkNumber: savedArtworkCatalog.find(item => item.id === catalogId)?.artworkNumber,
                         description: descriptionEl ? descriptionEl.value.trim() : '',
 

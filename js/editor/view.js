@@ -34,7 +34,8 @@ function findArtworkCatalogReference(artwork) {
     const matches = savedArtworkCatalog.filter(item => String(item.name || '').trim() === name &&
         Number(item.cmWidth) === (Number(artwork.cmWidth) || 150) &&
         Number(item.cmHeight) === (Number(artwork.cmHeight) || 100) &&
-        Number(item.cmDepth) === (Number(artwork.cmDepth) || 5));
+        Number(item.cmDepth) === (Number(artwork.cmDepth) || 5) &&
+        JSON.stringify(item.artworkOutline || null) === JSON.stringify(artwork.artworkOutline || null));
     if (matches.length !== 1) return null;
     artwork.artworkCatalogId = matches[0].id;
     return matches[0];
@@ -819,7 +820,7 @@ function applyArtworkDimensions(obj, scale) {
     const isFloorPlan = currentViewMode === 'floor';
     const newPxH = Math.max(
         (isFloorPlan ? (Number(obj.cmDepth) || 5) : (Number(obj.cmHeight) || 100)) * scale,
-        isFloorPlan ? 8 : 6
+        isFloorPlan ? 8 : obj.artworkOutline ? 0 : 6
     );
 
     obj.pxWidth = newPxW;
