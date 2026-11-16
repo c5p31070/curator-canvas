@@ -56,10 +56,38 @@
             showStatus('招待を確認しました。パスワードを設定してください。');
         }
 
-        document.getElementById('loginForm')?.addEventListener('submit', async event => {
+        const loginForm = document.getElementById('loginForm');
+        const passwordLogin = loginForm.querySelector('button[type="submit"]');
+        const demoLogin = document.getElementById('btnDemoLogin');
+        const setLoginBusy = busy => {
+            passwordLogin.disabled = busy;
+            demoLogin.disabled = busy;
+        };
+        if (!loginForm.hidden) demoLogin.disabled = false;
+        demoLogin.addEventListener('click', async () => {
+            setLoginBusy(true);
+            showStatus('デモにログインしています…');
+            try {
+                const { data, error } = await client.functions.invoke('demo-login', { method: 'POST' });
+                if (error || !data?.access_token || !data?.refresh_token) {
+                    const unavailable = [404, 503].includes(error?.context?.status);
+                    showStatus(unavailable ? 'デモログインは準備中です。' : 'デモにログインできませんでした。時間をおいて再試行してください。');
+                    return;
+                }
+                const { error: sessionError } = await client.auth.setSession(data);
+                if (sessionError) throw sessionError;
+                location.replace('editor.html');
+            } catch {
+                showStatus('デモにログインできませんでした。時間をおいて再試行してください。');
+            } finally {
+                setLoginBusy(false);
+            }
+        });
+
+        loginForm.addEventListener('submit', async event => {
             event.preventDefault();
-            const button = event.currentTarget.querySelector('button');
-            button.disabled = true;
+            if (passwordLogin.disabled) return;
+            setLoginBusy(true);
             showStatus('ログインしています…');
             const { error } = await client.auth.signInWithPassword({
                 email: document.getElementById('loginEmail').value.trim(),
@@ -67,7 +95,7 @@
             });
             if (error) {
                 showStatus('ログインできませんでした。メールアドレスとパスワードを確認してください。');
-                button.disabled = false;
+                setLoginBusy(false);
                 return;
             }
             location.replace('editor.html');
@@ -138,7 +166,7 @@
             });
             window.CURATOR_AUTH_READY?.then(() => window.applyCuratorRoleRestrictions?.());
             document.getElementById('btnLogout')?.addEventListener('click', async () => {
-                await client.auth.signOut();
+                await client.auth.signOut({ scope: window.CURATOR_ROLE === 'guest' ? 'local' : 'global' });
                 location.replace('login.html');
             });
             document.getElementById('btnInviteMember')?.addEventListener('click', async event => {

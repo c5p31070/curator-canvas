@@ -16,3 +16,12 @@
 - 管理者がSupabase Authenticationで先に作成し、メールアドレスを確認済みにしたアカウントも、同じ画面からゲストとして追加できます。この場合は既存のパスワードでログインできます。
 
 以前のアカウント不要の体験版で作った配置図は、使用したブラウザーに保存されています。
+
+## 発表用のワンクリックログイン
+
+1. 発表に使う確認済みアカウントを、チームに `guest` として登録します。
+2. Supabaseの **Edge Functions → Secrets** に `DEMO_GUEST_EMAIL` と `DEMO_GUEST_PASSWORD` を追加し、そのアカウントのメールアドレスとパスワードを設定します。
+3. `supabase/functions/demo-login/index.ts` を `demo-login` としてデプロイします。ログイン前に呼ぶ関数なので、この関数のJWT検証はオフにします。CLIでは `supabase functions deploy demo-login --no-verify-jwt` を使えます。
+4. Vercelに反映し、ログイン画面で「デモでログイン」を押します。
+
+公開中は、ログイン画面を開ける人がこの共有ゲストとしてチームの展覧会を編集できます。設定したパスワードはSupabaseのSecretsで管理されます。発表後に新規のデモログインを止めるには、`DEMO_GUEST_PASSWORD` のSecretを削除します。
