@@ -1,0 +1,13 @@
+/* Editor account controls and viewer permissions. */
+.account-controls { display: flex; align-items: center; gap: 10px; margin-left: auto; color: #a5b0ad; font-size: 11px; }
+.account-controls button { padding: 6px 9px; border: 1px solid #374142; background: transparent; color: #c2cbc8; font: inherit; cursor: pointer; }
+.account-controls button:hover { border-color: #55766e; color: #e7ecea; }
+.viewer-mode .sidebar input:disabled,
+.viewer-mode .sidebar textarea:disabled,
+.viewer-mode .sidebar select:disabled,
+.viewer-mode .sidebar button:disabled { opacity: .48; cursor: not-allowed; }
+.viewer-mode .canvas-container-wrapper { cursor: grab; }
+@media (max-width: 700px) {
+    .account-controls { gap: 6px; }
+    #accountLabel { max-width: 145px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}

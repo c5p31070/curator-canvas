@@ -357,24 +357,34 @@ function refreshLighting(updateControls = true) {
     if (lightingRenderBusy) return;
     lightingRenderBusy = true;
     try {
-        canvas.remove(...canvas.getObjects().filter(obj => obj.isLightBeam));
-        const rails = canvas.getObjects().filter(obj => obj.isLightRail);
-        rails.forEach(rail => {
+        const beams = [], rails = [], lights = [];
+        for (const object of canvas.getObjects()) {
+            if (object.isLightBeam) {
+                beams.push(object);
+                continue;
+            }
+            if (object.isLightRail) rails.push(object);
+            if (object.isLightObject) lights.push(object);
+        }
+        canvas.remove(...beams);
+        const railPositions = new Map();
+        for (const rail of rails) {
+            if (!railPositions.has(rail.lightId)) railPositions.set(rail.lightId, { rail, endpoints: null });
             rail.set({ visible: lightingVisible, selectable: isAdminMode && !lightingReadOnly(),
                 evented: lightingVisible, lockMovementX: !isAdminMode || lightingReadOnly(),
                 lockMovementY: !isAdminMode || lightingReadOnly(), lockScalingX: true, lockScalingY: true });
             rail.setControlsVisibility({ tl: false, tr: false, bl: false, br: false, ml: false, mt: false, mr: false, mb: false, mtr: isAdminMode });
-        });
-        canvas.getObjects().filter(obj => obj.isLightObject).forEach(light => {
+        }
+        lights.forEach(light => {
             const spot = light.lightKind === 'spot';
-            const rail = spot ? rails.find(item => item.lightId === light.lightRailId) : null;
-            if (rail) {
-                const { start, end } = railEndpoints(rail);
+            const railPosition = spot ? railPositions.get(light.lightRailId) : null;
+            if (railPosition) {
+                const { start, end } = railPosition.endpoints ??= railEndpoints(railPosition.rail);
                 const t = spotlightRailPosition(light);
                 light.set({ left: start.x + (end.x - start.x) * t, top: start.y + (end.y - start.y) * t });
             }
             const selectable = !lightingReadOnly() && (spot || isAdminMode);
-            const editablePosition = selectable && (!spot || Boolean(rail));
+            const editablePosition = selectable && (!spot || Boolean(railPosition));
             light.set({ visible: lightingVisible, selectable, evented: lightingVisible,
                 ...(spot ? { radius: 5 } : { width: fixedLightSize, height: fixedLightSize, rx: 0, ry: 0 }),
                 lockMovementX: !editablePosition, lockMovementY: !editablePosition,
@@ -430,7 +440,7 @@ function refreshLighting(updateControls = true) {
             axis.moveTo(1);
         });
         // Mount markers stay above artworks; beams remain behind the drawing.
-        canvas.getObjects().filter(object => object.isLightObject).forEach(light => canvas.bringToFront(light));
+        lights.forEach(light => canvas.bringToFront(light));
         if (updateControls) refreshLightingControls();
         canvas.requestRenderAll();
     } finally { lightingRenderBusy = false; }
@@ -885,6 +895,12 @@ canvas.on('mouse:up', event => {
     }
     finishLightingPlacement(createLightRail(lightingRailStart, end));
 });
+function artworkAffectsLighting(artwork) {
+    return artwork?.isArtwork && canvas.getObjects().some(light =>
+        light.isLightObject && light.lightKind === 'spot' && isArtworkLightAim(light) &&
+        light.lightAimTargetId === artwork.lightingTargetId);
+}
+
 canvas.on('object:moving', event => {
     const light = event.target;
     if (light?.isLightObject && light.lightKind === 'spot') {
@@ -894,11 +910,11 @@ canvas.on('object:moving', event => {
             light.lightRailT = position.t; light.set({ left: position.x, top: position.y }); light.setCoords();
         }
     }
-    if (light?.isLightObject || light?.isLightRail || light?.isArtwork) refreshLighting(false);
+    if (light?.isLightObject || light?.isLightRail || artworkAffectsLighting(light)) refreshLighting(false);
 });
 canvas.on('object:modified', () => refreshLighting());
 canvas.on('object:rotating', event => {
-    if (event.target?.isLightRail || event.target?.isArtwork) refreshLighting(false);
+    if (event.target?.isLightRail || artworkAffectsLighting(event.target)) refreshLighting(false);
 });
 canvas.on('object:added', event => {
     if (!lightingRenderBusy && !isTransitioning && !isUndoRedoOperation && !lightingPlacementMode &&

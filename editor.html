@@ -17,7 +17,8 @@
     <link rel="stylesheet" href="css/visual-tokens.css">
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/dark-mode.css">
-    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/editor-workspace.css">
+    <link rel="stylesheet" href="css/editor-account.css">
     <style>html.auth-loading body { visibility: hidden; }</style>
     <script>document.documentElement.classList.add('auth-loading');</script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -964,8 +965,14 @@
         <p id="perspectiveSummary" class="field-note" role="status"></p>
     </dialog>
 
-    <!-- メインJS読み込み -->
+    <!-- 共有状態と保存形式 -->
     <script src="js/editor/core.js" defer></script>
+    <script src="js/editor/exhibition-storage.js" defer></script>
+    <script src="js/editor/canvas-state.js" defer></script>
+    <script src="js/editor/canvas-objects.js" defer></script>
+    <script src="js/editor/crowd-display.js" defer></script>
+
+    <!-- 図面機能とUI。初期化の順序に合わせて読み込む -->
     <script src="js/editor/artwork-outline.js" defer></script>
     <script src="js/editor/artwork-outline-ui.js" defer></script>
     <script src="js/editor/shared-scale.js" defer></script>
