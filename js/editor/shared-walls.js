@@ -99,6 +99,7 @@
             if (definition.movableWallSlot || !isVenueFloor(definition.floorId)) return;
             const layout = previous[id];
             next[id] = { ...definition, json: layout?.json || null };
+            if (layout?.wallExhibition) next[id].wallExhibition = layout.wallExhibition;
             if (layout?.legacyHeightCm) next[id].legacyHeightCm = layout.legacyHeightCm;
             else if (Number(layout?.heightCm) > 0 && Number(layout.heightCm) !== definition.heightCm) next[id].legacyHeightCm = Number(layout.heightCm);
         });

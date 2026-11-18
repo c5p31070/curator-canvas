@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Text&amp;display=swap&amp;text=Curator-Canvas">
 
     <!-- Fabric.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
@@ -29,7 +30,7 @@
 <body>
 
     <header>
-        <h1>Curator-Canvas <span class="brand-subtitle">東京都美術館配置図アプリ</span></h1>
+        <h1><span class="brand-wordmark">Curator-Canvas</span> <span class="brand-subtitle">東京都美術館配置図アプリ</span></h1>
         <span id="currentExhibitionName" class="current-exhibition-name" aria-label="作業中の展覧会">名称未設定</span>
 
         <div class="account-controls">
@@ -497,87 +498,111 @@
                         <option value="floor">
                             床置展示（展示ケース・立体物など）
                         </option>
+                        <option value="wall-exhibition">壁面全体（人物紹介・年表など）</option>
                     </select>
                 </div>
 
-                <div class="form-row artwork-outline-controls" id="artworkOutlineControls">
-                    <button id="btnEditArtworkOutline" class="btn btn-secondary" type="button">形を編集</button>
-                    <button id="btnResetArtworkOutline" class="btn btn-secondary" type="button" hidden>長方形に戻す</button>
-                </div>
-
-                <div class="form-group">
-                    <label for="artworkName">
-                        作品名 / 展示物名
-                    </label>
-
-                    <input
-                        type="text"
-                        id="artworkName"
-                        class="form-control"
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="artworkDescription">説明・注意事項</label>
-                    <textarea id="artworkDescription" class="form-control" rows="2"></textarea>
-                </div>
-
-                <div class="form-row">
+                <div id="artworkObjectFields">
+                    <div class="form-row artwork-outline-controls" id="artworkOutlineControls">
+                        <button id="btnEditArtworkOutline" class="btn btn-secondary" type="button">形を編集</button>
+                        <button id="btnResetArtworkOutline" class="btn btn-secondary" type="button" hidden>長方形に戻す</button>
+                    </div>
 
                     <div class="form-group">
-                        <label for="artworkWidth">
-                            幅 (mm)
+                        <label for="artworkName">
+                            作品名 / 展示物名
                         </label>
 
                         <input
-                            type="number"
-                            id="artworkWidth"
+                            type="text"
+                            id="artworkName"
                             class="form-control"
-                            value="1500"
                         >
                     </div>
 
                     <div class="form-group">
-                        <label for="artworkHeight">
-                            高さ (mm)
+                        <label for="artworkDescription">説明・注意事項</label>
+                        <textarea id="artworkDescription" class="form-control" rows="2"></textarea>
+                    </div>
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+                            <label for="artworkWidth">
+                                幅 (mm)
+                            </label>
+
+                            <input
+                                type="number"
+                                id="artworkWidth"
+                                class="form-control"
+                                value="1500"
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label for="artworkHeight">
+                                高さ (mm)
+                            </label>
+
+                            <input
+                                type="number"
+                                id="artworkHeight"
+                                class="form-control"
+                                value="1000"
+                            >
+                        </div>
+
+                    </div>
+
+                    <div class="form-group" id="depthGroup">
+
+                        <label for="artworkDepth">
+                            <span id="artworkDepthLabel">厚み</span> (mm)
                         </label>
 
                         <input
                             type="number"
-                            id="artworkHeight"
+                            id="artworkDepth"
                             class="form-control"
-                            value="1000"
+                            value="50"
+                            data-tooltip="壁面展示では厚み、床置展示では奥行きとして使います。"
                         >
+
+                        <p
+                            id="typeHelpText"
+                            class="field-note"
+                        >
+                            平面図は幅×厚み、壁面図は幅×高さで表示します。
+                        </p>
+
                     </div>
 
+                    <div class="form-group">
+                        <label for="artworkCenterHeight">床から作品中央まで (mm)</label>
+                        <input id="artworkCenterHeight" class="form-control" type="number" min="0" step="1" data-tooltip="任意。壁面図ではこの高さに配置します。未入力なら配置位置から高さを取得します。">
+                    </div>
                 </div>
 
-                <div class="form-group" id="depthGroup">
-
-                    <label for="artworkDepth">
-                        <span id="artworkDepthLabel">厚み</span> (mm)
-                    </label>
-
-                    <input
-                        type="number"
-                        id="artworkDepth"
-                        class="form-control"
-                        value="50"
-                        data-tooltip="壁面展示では厚み、床置展示では奥行きとして使います。"
-                    >
-
-                    <p
-                        id="typeHelpText"
-                        class="field-note"
-                    >
-                        平面図は幅×厚み、壁面図は幅×高さで表示します。
-                    </p>
-
-                </div>
-
-                <div class="form-group">
-                    <label for="artworkCenterHeight">床から作品中央まで (mm)</label>
-                    <input id="artworkCenterHeight" class="form-control" type="number" min="0" step="1" data-tooltip="任意。壁面図ではこの高さに配置します。未入力なら配置位置から高さを取得します。">
+                <div id="wallExhibitionFields" hidden>
+                    <p id="wallExhibitionTarget" class="field-note" aria-live="polite"></p>
+                    <div class="form-group">
+                        <label for="wallExhibitionKind">内容の種類</label>
+                        <select id="wallExhibitionKind" class="form-control">
+                            <option value="profile">人物紹介</option>
+                            <option value="timeline">年表</option>
+                            <option value="other">その他</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="wallExhibitionTitle">見出し</label>
+                        <input id="wallExhibitionTitle" type="text" class="form-control" maxlength="120">
+                    </div>
+                    <div class="form-group">
+                        <label for="wallExhibitionDescription">掲載内容</label>
+                        <textarea id="wallExhibitionDescription" class="form-control" rows="5" maxlength="6000"></textarea>
+                    </div>
+                    <button id="btnRemoveWallExhibition" class="btn btn-secondary" type="button" hidden>壁面全体の展示を解除</button>
                 </div>
                 <button id="addArtwork" class="btn btn-primary">
                     展示物を追加
@@ -975,6 +1000,7 @@
     <!-- 図面機能とUI。初期化の順序に合わせて読み込む -->
     <script src="js/editor/artwork-outline.js" defer></script>
     <script src="js/editor/artwork-outline-ui.js" defer></script>
+    <script src="js/editor/wall-exhibition.js" defer></script>
     <script src="js/editor/shared-scale.js" defer></script>
     <script src="js/editor/exhibition-save-ui.js" defer></script>
     <script src="js/editor/layout-variants.js" defer></script>

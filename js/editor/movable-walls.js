@@ -283,7 +283,8 @@
             const elevation = wallPlanJsonData[id];
             try {
                 const plan = typeof elevation?.json === 'string' ? JSON.parse(elevation.json) : elevation?.json;
-                const hasContents = (plan?.objects || []).some(object => !object.isWallOutline && !object.excludeFromExport);
+                const hasContents = elevation?.wallExhibition ||
+                    (plan?.objects || []).some(object => !object.isWallOutline && !object.excludeFromExport);
                 if (hasContents && !confirm(`${wall.movableWallName}・${face === 'front' ? '前面' : '裏面'}の壁面図と配置内容を削除しますか？`)) {
                     refreshPanel(wall);
                     return;

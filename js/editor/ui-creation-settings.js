@@ -105,7 +105,8 @@ function initializeCreationSettingsUi() {
 
     if (btnResetCurrentLayout) {
         btnResetCurrentLayout.addEventListener("click", function() {
-            if (!confirm("現在表示中の配置図にある展示物・ピン・描画・図形・寸法線・移動壁をすべて消去しますか？移動壁の前面・裏面の配置も削除されます。")) return;
+            const wallExhibitionNotice = currentExhibitionWall()?.wallExhibition ? '壁面全体の展示も解除されます。' : '';
+            if (!confirm("現在表示中の配置図にある展示物・ピン・描画・図形・寸法線・移動壁をすべて消去しますか？移動壁の前面・裏面の配置も削除されます。" + wallExhibitionNotice)) return;
             window.cancelDimensionDrawing?.();
             window.cancelLightingPlacement?.();
 
@@ -121,6 +122,7 @@ function initializeCreationSettingsUi() {
                 removable.forEach(object => window.removeFixedWallArtwork?.(object));
                 canvas.discardActiveObject();
                 canvas.remove(...removable);
+                clearWallExhibition();
             } finally { isUndoRedoOperation = wasRestoring; }
             window.refreshLighting?.();
             canvas.requestRenderAll();

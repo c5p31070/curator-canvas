@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ログイン - Curator-Canvas</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Text&amp;display=swap&amp;text=Curator-Canvas">
     <link rel="stylesheet" href="css/visual-tokens.css">
     <link rel="stylesheet" href="css/entry.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -12,10 +13,9 @@
 </head>
 <body class="entry-page">
     <header class="entry-header">
-        <a class="entry-brand" href="index.html">Curator-Canvas <span>東京都美術館配置図アプリ</span></a>
+        <a class="entry-brand" href="index.html"><span class="brand-wordmark">Curator-Canvas</span> <span class="brand-subtitle">東京都美術館配置図アプリ</span></a>
     </header>
     <main class="entry-main entry-login">
-        <p class="entry-kicker">チームアカウント</p>
         <h1>サインイン</h1>
         <p class="entry-intro">招待されたアカウントでログインしてください。</p>
 
@@ -24,8 +24,10 @@
             <input id="loginEmail" type="email" autocomplete="username" required>
             <label for="loginPassword">パスワード</label>
             <input id="loginPassword" type="password" autocomplete="current-password" required>
-            <button class="btn-start" type="submit">ログイン</button>
-            <button id="btnDemoLogin" class="btn-start" type="button" disabled>デモでログイン</button>
+            <div class="auth-actions">
+                <button class="btn-start" type="submit">ログイン</button>
+                <button id="btnDemoLogin" class="auth-text-button" type="button" disabled>デモでログイン</button>
+            </div>
         </form>
 
         <form id="invitePasswordForm" class="auth-form" hidden>

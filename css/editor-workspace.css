@@ -492,7 +492,8 @@ header h1 .brand-subtitle {
 }
 
 /* Workbench finish. These colors leave diagram graphics and zoom geometry intact. */
-body > header h1 { color: var(--cc-brand-text) !important; font-weight: 600 !important; }
+body > header h1 { color: var(--cc-brand-text) !important; }
+body > header .brand-wordmark { font-family: var(--cc-wordmark-font) !important; }
 .current-exhibition-name {
     padding-left: 12px;
     border-left: 1px solid var(--cc-brand-line);

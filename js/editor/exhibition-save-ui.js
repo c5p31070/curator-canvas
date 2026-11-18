@@ -145,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const draft = JSON.parse(previous);
         const hasLayout = Object.values(draft.floorPlanData).some(floor =>
             floor.json && (typeof floor.json === 'string' ? JSON.parse(floor.json) : floor.json).objects?.some(object => !object.isFixture)) ||
-            Object.values(draft.wallPlanJsonData).some(wall => wall.movableWallId || (wall.json &&
+            Object.values(draft.wallPlanJsonData).some(wall => wall.movableWallId || wall.wallExhibition || (wall.json &&
                 (typeof wall.json === 'string' ? JSON.parse(wall.json) : wall.json).objects?.some(object => !object.isFixture && !object.isWallOutline)));
         if ((hasLayout || draft.exhibitionTitle.trim()) &&
             !confirm('新規展覧会を作成します。現在の下書きを置き換えますが、保存済みの展覧会は残ります。続けますか？')) return;

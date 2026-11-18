@@ -85,6 +85,7 @@ window.migrateArtworkCatalogFromPlans = () => {
 
 function initializeObjectControlsUi() {
     const outlineEditor = initializeArtworkOutlineEditor();
+    const saveWallExhibition = initializeWallExhibitionUi();
     const pinKindInput = document.getElementById('pinIcon');
     const refreshPinNumberField = () => {
         const field = document.getElementById('pinNumberField');
@@ -140,6 +141,10 @@ function initializeObjectControlsUi() {
         addButton.addEventListener("click", function() {
 
             if (window.CURATOR_ROLE === 'viewer' || isTransitioning) return;
+            if (displayTypeSelect.value === 'wall-exhibition') {
+                saveWallExhibition();
+                return;
+            }
             if (!requireVenueScale()) return;
             const centerHeightText = document.getElementById('artworkCenterHeight').value.trim();
             let centerHeight = centerHeightText === '' ? null : mmToCm(centerHeightText);

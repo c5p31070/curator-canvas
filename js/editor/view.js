@@ -556,6 +556,7 @@ async function switchViewMode(
         requestAnimationFrame(() => window.refreshCanvasZoomForView(false));
     }
     window.applyCuratorRoleRestrictions?.();
+    window.refreshWallExhibitionUi?.();
     return true;
 }
 
@@ -797,6 +798,7 @@ async function renderWallCanvas(callback = null) {
         canvas.requestRenderAll();
     }
 
+    renderWallExhibition();
     renderWallRulers();
 
     if (callback) {

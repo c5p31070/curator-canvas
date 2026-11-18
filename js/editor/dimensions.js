@@ -133,6 +133,16 @@ function startDimensionDrawing() {
     canvas.requestRenderAll();
 }
 
+function dimensionEndPoint(event) {
+    const point = canvas.getPointer(event.e);
+    if (!event.e.shiftKey || !dimensionStartPoint) return point;
+    const dx = point.x - dimensionStartPoint.x;
+    const dy = point.y - dimensionStartPoint.y;
+    return Math.abs(dx) >= Math.abs(dy)
+        ? { x: point.x, y: dimensionStartPoint.y }
+        : { x: dimensionStartPoint.x, y: point.y };
+}
+
 canvas.on('mouse:down', event => {
     if (!isDimensionDrawingMode || (event.e.button !== undefined && event.e.button !== 0)) return;
     dimensionStartPoint = canvas.getPointer(event.e);
@@ -140,13 +150,13 @@ canvas.on('mouse:down', event => {
 canvas.on('mouse:move', event => {
     if (!isDimensionDrawingMode || !dimensionStartPoint) return;
     if (dimensionPreview) canvas.remove(dimensionPreview);
-    dimensionPreview = createDimensionObject(dimensionStartPoint, canvas.getPointer(event.e), true);
+    dimensionPreview = createDimensionObject(dimensionStartPoint, dimensionEndPoint(event), true);
     if (dimensionPreview) canvas.add(dimensionPreview);
     canvas.requestRenderAll();
 });
 canvas.on('mouse:up', event => {
     if (!isDimensionDrawingMode || !dimensionStartPoint) return;
-    const end = canvas.getPointer(event.e);
+    const end = dimensionEndPoint(event);
     if (Math.hypot(end.x - dimensionStartPoint.x, end.y - dimensionStartPoint.y) < 8) {
         if (dimensionPreview) canvas.remove(dimensionPreview);
         dimensionPreview = null;

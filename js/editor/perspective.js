@@ -442,7 +442,8 @@
     const pointAt = (p, height) => [p.x, height, p.z];
     const colors = {
         floor: [.18, .12, .10], ceiling: [.32, .33, .35], rail: [.035, .036, .038], wall: [.49, .47, .44],
-        artwork: [.19, .34, .40], plinth: [.37, .39, .41], ink: [.69, .70, .70]
+        artwork: [.19, .34, .40], plinth: [.37, .39, .41], ink: [.69, .70, .70],
+        wallExhibition: [.59, .54, .45]
     };
     const digits = ['012345', '12', '01643', '01236', '5612', '05623', '056234', '012', '0123456', '012356'];
     const segments = [[1,0,5,1],[5,1,6,4],[5,5,6,8],[1,8,5,9],[0,5,1,8],[0,1,1,4],[1,4,5,5]];
@@ -833,11 +834,12 @@
                     return inCm({ x: p.x, z: p.y });
                 });
             };
-            const box = (points, height, color) => {
+            const box = (points, height, color, faceIds = []) => {
                 for (let i = 0; i < 4; i++) {
                     const a = points[i], b = points[(i + 1) % 4];
+                    const faceColor = wallPlanJsonData[faceIds[i]]?.wallExhibition ? colors.wallExhibition : color;
                     quad(vertices, pointAt(a, height), pointAt(b, height), pointAt(b, 0), pointAt(a, 0),
-                        i % 2 ? color.map(value => value * .86) : color);
+                        i % 2 ? faceColor.map(value => value * .86) : faceColor);
                 }
                 quad(vertices, ...points.map(p => pointAt(p, height)), color);
             };
@@ -846,13 +848,15 @@
                 const points = corners(object);
                 const height = Number(object.cmHeight);
                 if (!points || !(height > 0)) continue;
-                box(points, height, object.isMovableWall ? colors.wall : colors.plinth);
+                const faceIds = object.isMovableWall
+                    ? [object.movableFrontId, object.movableRightId, object.movableBackId, object.movableLeftId] : [];
+                box(points, height, object.isMovableWall ? colors.wall : colors.plinth, faceIds);
                 contactShadow(shadows, points);
                 if (object.isMovableWall) {
-                    ['movableFrontId','movableRightId','movableBackId','movableLeftId'].forEach((key, i) => {
+                    faceIds.forEach((id, i) => {
                         // Elevation coordinates run left to right as seen
                         // from outside the corresponding face.
-                        if (object[key]) faces.set(object[key], [points[(i + 1) % 4], points[i]]);
+                        if (id) faces.set(id, [points[(i + 1) % 4], points[i]]);
                     });
                 } else {
                     const [left, right] = [points[3], points[2]];
@@ -877,7 +881,8 @@
                     if (!position) { missingWalls++; continue; }
                     const a = inCm(position.start), b = inCm(position.end);
                     ends = anchors[id].faceSide === -1 ? [b, a] : [a, b];
-                    quad(vertices, pointAt(a, height), pointAt(b, height), pointAt(b, 0), pointAt(a, 0), colors.wall);
+                    quad(vertices, pointAt(a, height), pointAt(b, height), pointAt(b, 0), pointAt(a, 0),
+                        wall.wallExhibition ? colors.wallExhibition : colors.wall);
                     const direction = unit(a, b);
                     const edge = (point, side) => ({ x: point.x - direction.z * side, z: point.z + direction.x * side });
                     contactShadow(shadows, [edge(a, -1), edge(b, -1), edge(b, 1), edge(a, 1)], 12);

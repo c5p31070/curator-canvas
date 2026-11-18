@@ -368,6 +368,7 @@ async function renderCombinedPdf() {
             floorId: getWallFloorId(wallData),
 
             title: wallData.title || '壁面図',
+            wallExhibition: wallData.wallExhibition,
 
             widthCm:
                 wallData.widthCm,
@@ -454,7 +455,7 @@ async function renderCombinedPdf() {
         const rows = [];
         for (let i = 0; i < walls.length; i += 2) {
             rows.push(`<div class="drawing-row">${walls.slice(i, i + 2).map(wall => drawing(wall,
-                `${escape(wall.title)} <span class="drawing-size">${cmToMm(wall.widthCm)} × ${cmToMm(wall.heightCm)} mm</span>`,
+                `${escape(wall.title)}${wall.wallExhibition ? ` · ${escape(wall.wallExhibition.title)}` : ''} <span class="drawing-size">${cmToMm(wall.widthCm)} × ${cmToMm(wall.heightCm)} mm</span>`,
                 78, 64)).join('')}</div>`);
         }
         return `
@@ -486,6 +487,16 @@ async function renderCombinedPdf() {
             pinRows.push(`<tr>${pinCell(pinList[i])}${pinCell(pinList[i + 1])}</tr>`);
         }
     }
+    const wallExhibitions = wallCaptureList.filter(wall => wall.wallExhibition);
+    const wallExhibitionNotes = wallExhibitions.map(wall => {
+        const exhibition = wall.wallExhibition;
+        const floor = floorCaptureList.find(item => item.floorId === wall.floorId);
+        return `<div class="wall-exhibition-entry">
+            <h4>${escape(exhibition.title)}</h4>
+            <div class="artwork-entry-details">${escape(floor?.title)} · ${escape(wall.title)} · ${escape(wallExhibitionKinds[exhibition.kind] || '壁面全体')}</div>
+            ${exhibition.description ? `<p class="memo-box">${escape(exhibition.description)}</p>` : ''}
+        </div>`;
+    }).join('');
     const pagesHtml = `
         <main>
         <section class="page" aria-label="配置図">
@@ -496,12 +507,13 @@ async function renderCombinedPdf() {
             ${memoText.trim() ? `<h2 class="section-title">特記事項・注意事項</h2><div class="memo-box">${escape(memoText)}</div>` : ''}
             ${drawings}
         </section>
-        ${artworkRows.length || pinList.length ? `<section class="page reference-page" aria-label="照合用一覧">
+        ${artworkRows.length || pinList.length || wallExhibitionNotes ? `<section class="page reference-page" aria-label="照合用一覧">
             <div class="header">
                 <h2 class="title">${escape(currentTitle)} — 照合用一覧</h2>
             </div>
             ${artworkRows.length ? `<h3 class="section-title">展示作品・設置物一覧</h3>
                 <table class="artwork-list"><tbody>${artworkRows.join('')}</tbody></table>` : ''}
+            ${wallExhibitionNotes ? `<h3 class="section-title">壁面全体の展示</h3>${wallExhibitionNotes}` : ''}
             ${pinList.length ? `<h3 class="section-title">設置済みピン・警備員</h3>
                 ${pinRows.length ? `<table class="artwork-list"><tbody>${pinRows.join('')}</tbody></table>`
                     : table(['No.', '階', '種類', '名称・内容'], pinList.map(pin => [pin.id, pin.floorTitle, pin.type, pin.label]))}` : ''}
@@ -659,6 +671,9 @@ async function renderCombinedPdf() {
                 .artwork-entry-index, .artwork-entry-details { color: #50565b; font-weight: normal; }
                 .artwork-entry-details { font-size: 9px; }
                 .memo-box { white-space: pre-wrap; padding: 1mm 0; orphans: 2; widows: 2; }
+                .wall-exhibition-entry { margin: 0 0 2mm; overflow-wrap: anywhere; }
+                .wall-exhibition-entry h4, .wall-exhibition-entry p { margin: 0; }
+                .wall-exhibition-entry h4 { break-after: avoid; }
 
                 @media print {
                     body { background: none; }

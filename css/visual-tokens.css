@@ -13,4 +13,11 @@
     --cc-brand-line: #644047;
     --cc-brand-text: #f0e4e3;
     --cc-font: "Arial Narrow", "Yu Gothic UI", "Meiryo", sans-serif;
+    --cc-wordmark-font: "DM Serif Text", Georgia, serif;
+}
+
+.brand-wordmark {
+    font-family: var(--cc-wordmark-font);
+    font-weight: 400;
+    white-space: nowrap;
 }
