@@ -1,8 +1,40 @@
 // Artwork appearance and shared object editing rules.
 
+function normalizeSculptureBaseShape(value) {
+    return ['circle', 'ellipse'].includes(value) ? value : 'rectangle';
+}
+
+function sculptureBaseShapeLabel(value) {
+    return { rectangle: '四角形', circle: '円形', ellipse: '楕円形' }[normalizeSculptureBaseShape(value)];
+}
+
+function normalizeSculpturePedestal(value) {
+    const keys = ['baseHeightCm', 'columnHeightCm', 'workWidthCm', 'workDepthCm', 'workHeightCm'];
+    if (!value || !keys.every(key => Number.isFinite(Number(value[key])) && Number(value[key]) > 0)) return null;
+    return Object.fromEntries(keys.map(key => [key, Number(value[key])]));
+}
+
+function sculpturePedestalTotalHeight(value) {
+    return value.baseHeightCm + value.columnHeightCm + value.workHeightCm;
+}
+
+function sculpturePedestalDescription(value) {
+    const data = normalizeSculpturePedestal(value);
+    return data ? `下部台座高 ${cmToMm(data.baseHeightCm)} / 台座立方体高 ${cmToMm(data.columnHeightCm)} / 作品 ${cmToMm(data.workWidthCm)}×${cmToMm(data.workDepthCm)}×${cmToMm(data.workHeightCm)} mm` : '';
+}
+
+function configureSculptureBase(artwork) {
+    if (artwork?.displayType !== 'sculpture') return;
+    const body = artwork.item?.(0);
+    if (!body) return;
+    const rounded = currentViewMode === 'floor' && normalizeSculptureBaseShape(artwork.sculptureBaseShape) !== 'rectangle';
+    body.set({ rx: rounded ? body.width / 2 : 0, ry: rounded ? body.height / 2 : 0 });
+}
+
 function getArtworkAppearance(artwork) {
     if (artwork.isFixture) return { fill: '#d4d9de', stroke: '#66727d', text: '#26323b', dash: [4, 3] };
-    return artwork.displayType === 'floor'
+    if (artwork.displayType === 'sculpture') return { fill: '#e8c79f', stroke: '#946e4d', text: '#172127', dash: null };
+    return ['floor', 'sculpture'].includes(artwork.displayType)
         ? { fill: '#f3d58b', stroke: '#94702f', text: '#172127', dash: null }
         : { fill: '#a9dce9', stroke: '#427c91', text: '#172127', dash: null };
 }
@@ -14,6 +46,7 @@ function configureArtworkTransform(artwork) {
         strokeWidth: 1.5, strokeDashArray: appearance.dash });
     artwork.item?.(1)?.set({ fill: appearance.text });
     configureArtworkOutline(artwork);
+    configureSculptureBase(artwork);
     window.refreshArtworkNumberLabel?.(artwork);
     artwork.set({
         dirty: true,

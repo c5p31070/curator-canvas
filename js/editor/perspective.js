@@ -428,13 +428,13 @@
     // A soft contact shadow around a floor footprint, without a full scene light simulation.
     function contactShadow(out, points, spread = 18) {
         const outer = points.map((point, i) => {
-            const fromPrevious = unit(points[(i + 3) % 4], point);
-            const fromNext = unit(points[(i + 1) % 4], point);
+            const fromPrevious = unit(points[(i + points.length - 1) % points.length], point);
+            const fromNext = unit(points[(i + 1) % points.length], point);
             return { x: point.x + spread * (fromPrevious.x + fromNext.x),
                 z: point.z + spread * (fromPrevious.z + fromNext.z) };
         });
-        for (let i = 0; i < 4; i++) {
-            const j = (i + 1) % 4;
+        for (let i = 0; i < points.length; i++) {
+            const j = (i + 1) % points.length;
             quad(out, pointAt(points[i], .25), pointAt(points[j], .25),
                 pointAt(outer[j], .25), pointAt(outer[i], .25), [.07, .09, .1], [.36, .36, 0, 0]);
         }
@@ -442,12 +442,13 @@
     const pointAt = (p, height) => [p.x, height, p.z];
     const colors = {
         floor: [.18, .12, .10], ceiling: [.32, .33, .35], rail: [.035, .036, .038], wall: [.49, .47, .44],
-        artwork: [.19, .34, .40], plinth: [.37, .39, .41], ink: [.69, .70, .70],
+        artwork: [.78, .77, .73], frame: [.21, .18, .15], plinth: [.43, .44, .43],
+        caseMetal: [.48, .51, .52], glass: [.64, .78, .82], ink: [.055, .06, .065],
         wallExhibition: [.59, .54, .45]
     };
     const digits = ['012345', '12', '01643', '01236', '5612', '05623', '056234', '012', '0123456', '012356'];
     const segments = [[1,0,5,1],[5,1,6,4],[5,5,6,8],[1,8,5,9],[0,5,1,8],[0,1,1,4],[1,4,5,5]];
-    function numberOnFace(out, number, a, b, d) {
+    function numberOnFace(out, number, a, b, d, markBottom = false) {
         const value = String(number ?? '');
         if (!/^\d{1,6}$/.test(value)) return;
         const p = (u, v) => a.map((coordinate, i) => coordinate + (b[i] - coordinate) * u + (d[i] - coordinate) * v);
@@ -461,9 +462,135 @@
                 quad(out, p(u(x1), v(y1)), p(u(x2), v(y1)), p(u(x2), v(y2)), p(u(x1), v(y2)), colors.ink);
             }
         });
+        if (markBottom) {
+            const right = left + (value.length * 7 - 1) * unit;
+            quad(out, p(left,.81), p(right,.81), p(right,.84), p(left,.84), colors.ink);
+        }
     }
 
-    function renderPerspective(vertices, shadows, spots, start, direction, eyeHeight) {
+    function addDisplayCase(vertices, glass, points, height, number) {
+        const base = height * .6;
+        const lift = Math.min(.05, height * .002);
+        const p = (u, v, y) => [
+            points[0].x + (points[1].x - points[0].x) * u + (points[3].x - points[0].x) * v,
+            y,
+            points[0].z + (points[1].z - points[0].z) * u + (points[3].z - points[0].z) * v
+        ];
+        // The case, tray and manuscript all fit inside the entered dimensions.
+        quad(vertices, p(.03,.03,base+lift), p(.97,.03,base+lift),
+            p(.97,.97,base+lift), p(.03,.97,base+lift), [.64,.62,.57]);
+        const pageHeight = base + Math.min(2, height * .015);
+        quad(vertices, p(.16,.2,base+lift*2), p(.5,.2,pageHeight),
+            p(.5,.8,pageHeight), p(.16,.8,base+lift*2), colors.artwork);
+        quad(vertices, p(.5,.2,pageHeight), p(.84,.2,base+lift*2),
+            p(.84,.8,base+lift*2), p(.5,.8,pageHeight), [.73,.72,.68]);
+        numberOnFace(vertices, number, p(.78,.78,pageHeight+lift),
+            p(.22,.78,pageHeight+lift), p(.78,.22,pageHeight+lift), true);
+        const edges = [[0,0,1,0], [1,0,1,1], [1,1,0,1], [0,1,0,0]];
+        const band = Math.min(height * .012, 1.2);
+        for (const [u,v,U,V] of edges) {
+            quad(glass, p(u,v,base), p(U,V,base), p(U,V,height), p(u,v,height), colors.glass, [.12,.12,.12,.12]);
+            for (const y of [base, height - band]) {
+                quad(vertices, p(u,v,y), p(U,V,y), p(U,V,y+band), p(u,v,y+band), colors.caseMetal);
+            }
+            const inset = .012;
+            quad(vertices, p(u,v,base), p(u+(U-u)*inset,v+(V-v)*inset,base),
+                p(u+(U-u)*inset,v+(V-v)*inset,height), p(u,v,height), colors.caseMetal);
+        }
+        quad(glass, p(0,0,height), p(1,0,height), p(1,1,height), p(0,1,height),
+            colors.glass, [.1,.1,.1,.1]);
+        const left = points[3], right = points[2];
+        const facing = unit(left, right);
+        const label = (u, y) => [left.x + (right.x-left.x)*u - facing.z*.08,
+            y, left.z + (right.z-left.z)*u + facing.x*.08];
+        quad(vertices, label(.37,base*.83), label(.63,base*.83),
+            label(.63,base*.53), label(.37,base*.53), colors.artwork);
+        const front = (u, y) => {
+            const point = label(u,y);
+            point[0] -= facing.z*.02;
+            point[2] += facing.x*.02;
+            return point;
+        };
+        numberOnFace(vertices, number, front(.37,base*.83), front(.63,base*.83), front(.37,base*.53), true);
+    }
+
+    function sculptureBasePoints(points, shape) {
+        if (!['circle', 'ellipse'].includes(shape)) return points;
+        return Array.from({ length: 32 }, (_, index) => {
+            const angle = index * Math.PI * 2 / 32;
+            const u = .5 + .5 * Math.cos(angle), v = .5 + .5 * Math.sin(angle);
+            return { x: points[0].x + (points[1].x-points[0].x)*u + (points[3].x-points[0].x)*v,
+                z: points[0].z + (points[1].z-points[0].z)*u + (points[3].z-points[0].z)*v };
+        });
+    }
+
+    function addSculpture(vertices, points, height, number, shape = 'rectangle', pedestal = null) {
+        const assembly = normalizeSculpturePedestal(pedestal);
+        const baseHeight = assembly?.baseHeightCm ?? height * .16;
+        const width = Math.hypot(points[1].x-points[0].x, points[1].z-points[0].z);
+        const depth = Math.hypot(points[3].x-points[0].x, points[3].z-points[0].z);
+        const basePoint = (u, v, y) => [
+            points[0].x + (points[1].x - points[0].x) * u + (points[3].x - points[0].x) * v,
+            y * height,
+            points[0].z + (points[1].z - points[0].z) * u + (points[3].z - points[0].z) * v
+        ];
+        const p = assembly ? (u,v,y) => basePoint(
+            .5 + (u-.5)*assembly.workWidthCm/(.92*width),
+            .5 + (v-.51)*assembly.workDepthCm/(.56*depth),
+            (baseHeight + assembly.columnHeightCm + (y-.16)/.84*assembly.workHeightCm)/height
+        ) : basePoint;
+        const basePoints = sculptureBasePoints(points, shape);
+        const center = basePoint(.5,.5,baseHeight/height);
+        for (let i = 0; i < basePoints.length; i++) {
+            const a = basePoints[i], b = basePoints[(i+1) % basePoints.length];
+            const shade = .82 + .18 * Math.max(0, Math.cos(i * Math.PI * 2 / basePoints.length));
+            quad(vertices, pointAt(a,0), pointAt(b,0), pointAt(b,baseHeight), pointAt(a,baseHeight),
+                colors.plinth.map(value => value * shade));
+            meshFace(vertices, [center, pointAt(a,baseHeight), pointAt(b,baseHeight)], colors.plinth);
+        }
+        if (assembly) {
+            const columnWidth = Math.min(width*.6, Math.max(width*.2,assembly.workWidthCm*1.1))/width;
+            const columnDepth = Math.min(depth*.6, Math.max(depth*.2,assembly.workDepthCm*1.1))/depth;
+            const corners = [[-1,-1],[1,-1],[1,1],[-1,1]];
+            const bottom = corners.map(([u,v]) => basePoint(.5+u*columnWidth/2,.5+v*columnDepth/2,baseHeight/height));
+            const top = corners.map(([u,v]) => basePoint(.5+u*columnWidth/2,.5+v*columnDepth/2,(baseHeight+assembly.columnHeightCm)/height));
+            for (let i = 0; i < 4; i++) {
+                const j = (i+1)%4;
+                quad(vertices,bottom[i],bottom[j],top[j],top[i],i%2 ? [.47,.48,.47] : [.56,.57,.55]);
+            }
+            quad(vertices,...top,[.62,.63,.60]);
+        }
+        // The plinth and stylized bust share the artwork's overall dimensions.
+        const rings = [
+            [.16,.24,.22], [.32,.34,.27], [.48,.46,.25], [.59,.16,.14], [.64,.11,.12],
+            [.68,.18,.18], [.80,.23,.23], [.91,.19,.20], [1,0,0]
+        ];
+        const ringPoint = ([y, width, depth], angle) => p(.5 + width * Math.cos(angle), .5 + depth * Math.sin(angle), y);
+        const sides = 16;
+        for (let row = 0; row < rings.length - 1; row++) {
+            for (let side = 0; side < sides; side++) {
+                const angle = side * Math.PI * 2 / sides;
+                const nextAngle = (side + 1) * Math.PI * 2 / sides;
+                const shade = .78 + .22 * Math.max(0, Math.cos(angle - Math.PI / 3));
+                const color = [.64,.62,.57].map(value => value * shade);
+                const a = ringPoint(rings[row], angle), b = ringPoint(rings[row], nextAngle);
+                const c = ringPoint(rings[row+1], nextAngle), d = ringPoint(rings[row+1], angle);
+                if (row === rings.length - 2) meshFace(vertices, [a,b,c], color);
+                else quad(vertices, a,b,c,d, color);
+            }
+        }
+        const noseTop = p(.5,.70,.84), noseTip = p(.5,.79,.78);
+        const noseLeft = p(.465,.715,.75), noseRight = p(.535,.715,.75);
+        meshFace(vertices, [noseTop,noseLeft,noseTip], [.55,.53,.49]);
+        meshFace(vertices, [noseTop,noseTip,noseRight], [.62,.60,.55]);
+        meshFace(vertices, [noseLeft,noseRight,noseTip], [.49,.47,.43]);
+        return { number, x: (points[0].x + points[2].x) / 2,
+            z: (points[0].z + points[2].z) / 2, height: baseHeight,
+            radius: assembly ? Math.hypot(Math.max(width,assembly.workWidthCm),Math.max(depth,assembly.workDepthCm))/2
+                : Math.hypot(points[2].x-points[0].x, points[2].z-points[0].z)/2 };
+    }
+
+    function renderPerspective(vertices, shadows, spots, start, direction, eyeHeight, pitch = 0, glass = [], sculptureLabels = []) {
         const surface = $('perspectiveCanvas');
         if (!renderer) {
             const gl = surface.getContext('webgl', { antialias: true, preserveDrawingBuffer: true });
@@ -565,25 +692,32 @@
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
             gl.bindRenderbuffer(gl.RENDERBUFFER, null);
             gl.bindTexture(gl.TEXTURE_2D, null);
-            renderer = { gl, program, buffer: gl.createBuffer(), shadowBuffer: gl.createBuffer(),
+            renderer = { gl, program, buffer: gl.createBuffer(), shadowBuffer: gl.createBuffer(), glassBuffer: gl.createBuffer(), labelBuffer: gl.createBuffer(),
                 depthMap: canMapDepth ? { program: depthProgram, texture: depthTexture, frame: depthFrame, resolution } : null };
         }
-        const { gl, program, buffer, shadowBuffer, depthMap } = renderer;
+        const { gl, program, buffer, shadowBuffer, glassBuffer, labelBuffer, depthMap } = renderer;
         // Plan coordinates increase down the page; the camera transform also applies to light rays.
-        const toViewVector = ([x, y, z]) => [z * direction.x - x * direction.z, y, x * direction.x + z * direction.z];
+        const cosPitch = Math.cos(pitch), sinPitch = Math.sin(pitch);
+        const toViewVector = ([x, y, z]) => {
+            const forward = x * direction.x + z * direction.z;
+            return [z * direction.x - x * direction.z,
+                y * cosPitch - forward * sinPitch, y * sinPitch + forward * cosPitch];
+        };
         const toViewPoint = ([x, y, z]) => toViewVector([x - start.x, y - eyeHeight, z - start.z]);
         const stride = 10;
         const upload = (data, destination) => {
+            // Keep world coordinates intact when the camera renders the scene again.
+            const transformed = new Float32Array(data);
             for (let i = 0; i < data.length; i += stride) {
                 const point = toViewPoint(data.slice(i, i + 3));
                 const normal = toViewVector(data.slice(i + 3, i + 6));
                 for (let j = 0; j < 3; j++) {
-                    data[i + j] = point[j];
-                    data[i + 3 + j] = normal[j];
+                    transformed[i + j] = point[j];
+                    transformed[i + 3 + j] = normal[j];
                 }
             }
             gl.bindBuffer(gl.ARRAY_BUFFER, destination);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+            gl.bufferData(gl.ARRAY_BUFFER, transformed, gl.DYNAMIC_DRAW);
         };
         const bind = destination => {
             gl.bindBuffer(gl.ARRAY_BUFFER, destination);
@@ -681,6 +815,64 @@
                 }
                 gl.drawArrays(gl.TRIANGLES, 0, vertices.length / stride);
             }
+        }
+        if (glass.length) {
+            // Blend transparent panes back-to-front after opaque geometry and lights.
+            const triangles = [];
+            for (let i = 0; i < glass.length; i += stride * 3) {
+                const triangle = glass.slice(i, i + stride * 3);
+                const depth = [0, stride, stride * 2].reduce((sum, j) =>
+                    sum + toViewPoint(triangle.slice(j, j + 3))[2], 0);
+                triangles.push({ triangle, depth });
+            }
+            triangles.sort((a, b) => b.depth - a.depth);
+            const panes = triangles.flatMap(entry => entry.triangle);
+            gl.uniform1i(pass, 0);
+            gl.depthFunc(gl.LESS);
+            gl.depthMask(false);
+            gl.enable(gl.BLEND);
+            gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
+            upload(panes, glassBuffer);
+            bind(glassBuffer);
+            gl.drawArrays(gl.TRIANGLES, 0, panes.length / stride);
+        }
+        if (sculptureLabels.length) {
+            const labels = [];
+            const bounds = surface.getBoundingClientRect();
+            const displayScale = Math.max(.01, Math.min(bounds.width/surface.width, bounds.height/surface.height));
+            const right = [-direction.z,0,direction.x];
+            const up = [-direction.x*sinPitch,cosPitch,-direction.z*sinPitch];
+            const forward = [direction.x*cosPitch,sinPitch,direction.z*cosPitch];
+            const ordered = sculptureLabels.slice().sort((a,b) =>
+                toViewPoint([b.x,b.height,b.z])[2] - toViewPoint([a.x,a.height,a.z])[2]);
+            for (const label of ordered) {
+                if (!/^\d{1,6}$/.test(String(label.number ?? ''))) continue;
+                const dx = start.x-label.x, dz = start.z-label.z;
+                const distance = Math.hypot(dx,dz);
+                const offset = Math.min(label.radius+1, distance*.5);
+                const center = [label.x + dx/(distance || 1)*offset, label.height+1,
+                    label.z + dz/(distance || 1)*offset];
+                const depth = toViewPoint(center)[2];
+                if (depth <= 2) continue;
+                // Keep the annotation upright and readable at the displayed CSS size.
+                const worldPerPixel = 2*depth/(1.55*surface.height*displayScale);
+                const width = Math.max(36,String(label.number).length*12+12)*worldPerPixel;
+                const height = 32*worldPerPixel;
+                for (let i = 0; i < 3; i++) center[i] += up[i]*height/2;
+                const corner = (x,y) => center.map((value,i) => value + right[i]*x + up[i]*y);
+                const a = corner(-width/2,height/2), b = corner(width/2,height/2),
+                    c = corner(width/2,-height/2), d = corner(-width/2,-height/2);
+                quad(labels,a,b,c,d,[.90,.89,.85]);
+                const front = point => point.map((value,i) => value-forward[i]*.05);
+                numberOnFace(labels,label.number,front(a),front(b),front(d),true);
+            }
+            gl.uniform1i(pass,0);
+            gl.depthFunc(gl.LESS);
+            gl.depthMask(false);
+            gl.disable(gl.BLEND);
+            upload(labels,labelBuffer);
+            bind(labelBuffer);
+            gl.drawArrays(gl.TRIANGLES,0,labels.length/stride);
         }
         gl.depthMask(true);
         gl.disable(gl.BLEND);
@@ -801,6 +993,8 @@
             const inCm = p => ({ x: p.x / scale, z: p.z / scale });
             const vertices = [];
             const shadows = [];
+            const glass = [];
+            const sculptureLabels = [];
             const w = canvas.getWidth() / scale, h = canvas.getHeight() / scale;
             quad(vertices, [0,0,0], [w,0,0], [w,0,h], [0,0,h], colors.floor);
             const ceiling = venueCeilingHeightCm(floorId);
@@ -844,14 +1038,19 @@
                 quad(vertices, ...points.map(p => pointAt(p, height)), color);
             };
             for (const object of objects) {
-                if (!object.isMovableWall && !(object.isArtwork && !object.isFixture && object.displayType === 'floor')) continue;
+                if (!object.isMovableWall && !(object.isArtwork && !object.isFixture &&
+                    ['floor', 'sculpture'].includes(object.displayType))) continue;
                 const points = corners(object);
                 const height = Number(object.cmHeight);
                 if (!points || !(height > 0)) continue;
                 const faceIds = object.isMovableWall
                     ? [object.movableFrontId, object.movableRightId, object.movableBackId, object.movableLeftId] : [];
-                box(points, height, object.isMovableWall ? colors.wall : colors.plinth, faceIds);
-                contactShadow(shadows, points);
+                if (object.displayType !== 'sculpture') {
+                    box(points, object.isMovableWall ? height : height * .6,
+                        object.isMovableWall ? colors.wall : colors.plinth, faceIds);
+                }
+                contactShadow(shadows, object.displayType === 'sculpture'
+                    ? sculptureBasePoints(points, object.sculptureBaseShape) : points);
                 if (object.isMovableWall) {
                     faceIds.forEach((id, i) => {
                         // Elevation coordinates run left to right as seen
@@ -861,11 +1060,15 @@
                 } else {
                     const [left, right] = [points[3], points[2]];
                     const front = unit(left, right);
-                    artworkSurfaces.push({ object, normal: [-front.z, 0, front.x], depth: 0, point: (x, y) => [
-                        left.x + (right.x - left.x) * x, height * y, left.z + (right.z - left.z) * x
-                    ] });
-                    numberOnFace(vertices, object.artworkNumber, pointAt(points[2], height + .2),
-                        pointAt(points[3], height + .2), pointAt(points[1], height + .2));
+                    const pedestal = object.displayType === 'sculpture' ? normalizeSculpturePedestal(object.sculpturePedestal) : null;
+                    const center = { x: (points[0].x+points[2].x)/2, z: (points[0].z+points[2].z)/2 };
+                    artworkSurfaces.push({ object, normal: [-front.z, 0, front.x], depth: 0, point: (x, y) => pedestal ? [
+                        center.x + front.x*(x-.5)*pedestal.workWidthCm - front.z*pedestal.workDepthCm/2,
+                        pedestal.baseHeightCm + pedestal.columnHeightCm + pedestal.workHeightCm*y,
+                        center.z + front.z*(x-.5)*pedestal.workWidthCm + front.x*pedestal.workDepthCm/2
+                    ] : [left.x + (right.x - left.x) * x, height * y, left.z + (right.z - left.z) * x] });
+                    if (object.displayType === 'sculpture') sculptureLabels.push(addSculpture(vertices, points, height, object.artworkNumber, object.sculptureBaseShape, pedestal));
+                    else addDisplayCase(vertices, glass, points, height, object.artworkNumber);
                 }
             }
             const anchors = loadAnchors();
@@ -917,6 +1120,18 @@
                                 a.z + t.z * distance + t.x * offset];
                         };
                         const offset = 1 + Math.max(0, Number(object.cmDepth) || 0);
+                        if (object.displayType === 'sculpture') {
+                            const alreadyOnFloor = object.artworkCatalogId && canvas.getObjects().some(item =>
+                                item.isArtwork && item.displayType === 'sculpture' && item.artworkCatalogId === object.artworkCatalogId);
+                            if (alreadyOnFloor) continue;
+                            const depth = Number(object.cmDepth);
+                            if (!(depth > 0)) continue;
+                            const footprint = [p(-halfW,0,1), p(halfW,0,1),
+                                p(halfW,0,depth+1), p(-halfW,0,depth+1)].map(point => ({ x: point[0], z: point[2] }));
+                            sculptureLabels.push(addSculpture(vertices, footprint, halfH * 2, object.artworkNumber, object.sculptureBaseShape, object.sculpturePedestal));
+                            contactShadow(shadows, sculptureBasePoints(footprint, object.sculptureBaseShape));
+                            continue;
+                        }
                         artworkSurfaces.push({ object, normal: [-t.z, 0, t.x], depth: offset,
                             point: (x, y) => p((2 * x - 1) * halfW, (1 - 2 * y) * halfH, offset) });
                         const triangles = object.displayType === 'wall' ? triangulateArtworkOutline(object.artworkOutline) : [];
@@ -925,6 +1140,13 @@
                                 const vertices3d = triangle.map(([x, y]) => p((2 * x - 1) * halfW, (2 * y - 1) * halfH, offset));
                                 meshFace(vertices, vertices3d, colors.artwork);
                             }
+                            object.artworkOutline.forEach(([x,y], index, outline) => {
+                                const [X,Y] = outline[(index+1) % outline.length];
+                                quad(vertices, p((2*x-1)*halfW,(2*y-1)*halfH,1),
+                                    p((2*X-1)*halfW,(2*Y-1)*halfH,1),
+                                    p((2*X-1)*halfW,(2*Y-1)*halfH,offset),
+                                    p((2*x-1)*halfW,(2*y-1)*halfH,offset), colors.frame);
+                            });
                             const area = artworkOutlineLabelArea(object.artworkOutline, triangles, halfW * 2, halfH * 2);
                             if (area) {
                                 const size = area.size / 2;
@@ -935,20 +1157,36 @@
                         }
                         quad(vertices, p(-halfW,-halfH,offset), p(halfW,-halfH,offset),
                             p(halfW,halfH,offset), p(-halfW,halfH,offset), colors.artwork);
-                        numberOnFace(vertices, object.artworkNumber, p(-halfW,-halfH,offset + .15),
-                            p(halfW,-halfH,offset + .15), p(-halfW,halfH,offset + .15));
+                        const border = Math.min(4, Math.min(halfW,halfH)*.09);
+                        const outer = [[-halfW,-halfH], [halfW,-halfH], [halfW,halfH], [-halfW,halfH]];
+                        const inner = [[-halfW+border,-halfH+border], [halfW-border,-halfH+border],
+                            [halfW-border,halfH-border], [-halfW+border,halfH-border]];
+                        for (let i = 0; i < 4; i++) {
+                            const j = (i+1) % 4;
+                            quad(vertices, p(...outer[i],offset+.08), p(...outer[j],offset+.08),
+                                p(...inner[j],offset+.08), p(...inner[i],offset+.08), colors.frame);
+                            quad(vertices, p(...outer[i],1), p(...outer[j],1),
+                                p(...outer[j],offset), p(...outer[i],offset), colors.frame);
+                        }
+                        numberOnFace(vertices, object.artworkNumber, p(...inner[0],offset + .15),
+                            p(...inner[1],offset + .15), p(...inner[3],offset + .15));
                     }
                 }));
             }
             await Promise.all(jobs);
             if (floorId !== selectedFloorId || currentViewMode !== 'floor') return;
             const { spots, omitted } = perspectiveSpotlights(objects, artworkSurfaces, scale, ceiling);
-            renderPerspective(vertices, shadows, spots, inCm(from), unit(from, toward), eyeHeight);
+            renderPerspective(vertices, shadows, spots, inCm(from), unit(from, toward), eyeHeight, 0, glass, sculptureLabels);
             $('perspectiveDialogTitle').textContent = FLOOR_PLANS[floorId].title + ' — パース試作';
             $('perspectiveSummary').textContent = '影と照射範囲は簡易表示です。'
                 + (missingWalls ? ' 位置未登録の固定壁 ' + missingWalls + ' 面は省略しています。' : '')
                 + (omitted ? ' 照射先や高さを確定できないライト ' + omitted + ' 灯は省略しています。' : '');
             $('perspectiveDialog').showModal();
+            window.startPerspectiveNavigation({
+                start: inCm(from), direction: unit(from, toward),
+                bounds: { width: w, depth: h },
+                render: (position, direction, pitch) => renderPerspective(vertices, shadows, spots, position, direction, eyeHeight, pitch, glass, sculptureLabels)
+            });
             say('視点を指定し直すと、別の位置から確認できます。');
         } catch (error) {
             console.error('パースの表示に失敗しました。', error);

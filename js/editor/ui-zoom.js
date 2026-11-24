@@ -113,7 +113,10 @@ function initializeCanvasZoom() {
 
     const applyZoom = (zoom, anchor = null) => {
         const nextZoom = clampZoom(zoom);
-        const oldOffsets = getOffsets(currentCanvasZoom);
+        const oldOffsets = {
+            left: parseFloat(canvasWrapper.style.left) || 0,
+            top: parseFloat(canvasWrapper.style.top) || 0
+        };
         let worldX;
         let worldY;
         if (anchor) {
@@ -221,11 +224,12 @@ function initializeCanvasZoom() {
     viewport.addEventListener('pointerup', finishPan);
     viewport.addEventListener('pointercancel', finishPan);
 
-    // On phones in landscape, reserve one-finger gestures for Fabric object
+    // On touch screens, reserve one-finger gestures for Fabric object
     // editing and use two fingers to pan/zoom the drawing viewport.
     const touchPoints = new Map();
     let touchGestureConsumed = false;
     let previousTouchDistance = 0;
+    let previousTouchCenter = null;
 
     const getTouchGeometry = () => {
         const points = [...touchPoints.values()];
@@ -248,8 +252,13 @@ function initializeCanvasZoom() {
         if (touchPoints.size >= 2) {
             touchGestureConsumed = true;
             previousTouchDistance = getTouchGeometry()?.distance || 0;
+            previousTouchCenter = getTouchGeometry()?.center || null;
             event.preventDefault();
             event.stopPropagation();
+            window.cancelDimensionDrawing?.();
+            window.cancelLightingPlacement?.();
+            window.cancelPerspectivePick?.();
+            window.cancelMovableWallSlotPick?.();
             canvas.discardActiveObject();
             canvas.requestRenderAll();
         }
@@ -262,33 +271,53 @@ function initializeCanvasZoom() {
         event.preventDefault();
         event.stopPropagation();
         const geometry = getTouchGeometry();
-        if (!geometry || !previousTouchDistance) return;
+        if (!geometry || geometry.distance < 1 || !previousTouchDistance || !previousTouchCenter) return;
         const factor = geometry.distance / previousTouchDistance;
-        setManualZoom(currentCanvasZoom * factor, geometry.center);
+        setManualZoom(currentCanvasZoom * factor, previousTouchCenter);
+        viewport.scrollLeft -= geometry.center.x - previousTouchCenter.x;
+        viewport.scrollTop -= geometry.center.y - previousTouchCenter.y;
+        canvas.calcOffset();
         previousTouchDistance = geometry.distance;
+        previousTouchCenter = geometry.center;
     }, true);
 
+    // Fabric 5 also listens to native touchmove, independently of pointermove.
+    viewport.addEventListener('touchmove', event => {
+        if (!touchGestureConsumed) return;
+        event.preventDefault();
+        event.stopPropagation();
+    }, { capture: true, passive: false });
+
     const finishTouchGesture = event => {
-        if (event.pointerType !== 'touch') return;
+        if (event.pointerType !== 'touch' || !touchPoints.has(event.pointerId)) return;
         if (touchGestureConsumed) {
             event.preventDefault();
             event.stopPropagation();
         }
         touchPoints.delete(event.pointerId);
-        if (touchPoints.size < 2) previousTouchDistance = 0;
+        const geometry = getTouchGeometry();
+        previousTouchDistance = geometry?.distance || 0;
+        previousTouchCenter = geometry?.center || null;
         if (touchPoints.size === 0) touchGestureConsumed = false;
     };
-    viewport.addEventListener('pointerup', finishTouchGesture, true);
-    viewport.addEventListener('pointercancel', finishTouchGesture, true);
-
-    const resizeObserver = window.ResizeObserver ? new ResizeObserver(() => {
-        if (canvasZoomApiReady && !canvasZoomByView.has(getCanvasZoomKey())) fitCanvas();
-    }) : null;
-    resizeObserver?.observe(viewport);
-    window.addEventListener('resize', () => {
-        if (!canvasZoomByView.has(getCanvasZoomKey())) fitCanvas();
-        else refreshCanvasRenderDensity(currentCanvasZoom);
+    window.addEventListener('pointerup', finishTouchGesture, true);
+    window.addEventListener('pointercancel', finishTouchGesture, true);
+    window.addEventListener('blur', () => {
+        touchPoints.clear();
+        touchGestureConsumed = false;
+        previousTouchDistance = 0;
+        previousTouchCenter = null;
+        finishPan();
     });
+
+    const refreshViewport = () => {
+        if (!canvasZoomApiReady || !viewport.clientWidth || !viewport.clientHeight) return;
+        if (!canvasZoomByView.has(getCanvasZoomKey())) fitCanvas();
+        else applyZoom(currentCanvasZoom, { x: viewport.clientWidth / 2, y: viewport.clientHeight / 2 });
+    };
+    const resizeObserver = window.ResizeObserver ? new ResizeObserver(refreshViewport) : null;
+    resizeObserver?.observe(viewport);
+    window.addEventListener('resize', refreshViewport);
     const watchScreenDensity = () => {
         const query = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
         query.addEventListener('change', () => {

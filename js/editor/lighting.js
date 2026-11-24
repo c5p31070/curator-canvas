@@ -172,15 +172,19 @@ const isArtworkLightAim = light => ['artwork', 'artwork-point'].includes(light?.
 const lightTargetPercent = value => Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 50;
 
 function artworkLightDestination(light, target) {
-    const height = window.getArtworkCenterHeightCm?.(target) ?? null;
+    let height = window.getArtworkCenterHeightCm?.(target) ?? null;
+    const pedestal = target.displayType === 'sculpture' ? normalizeSculpturePedestal(target.sculpturePedestal) : null;
+    if (pedestal && height !== null) height += pedestal.baseHeightCm + pedestal.columnHeightCm + pedestal.workHeightCm/2 - Number(target.cmHeight)/2;
     if (light.lightAimMode !== 'artwork-point') return { point: target.getCenterPoint(), height };
     const x = lightTargetPercent(light.lightTargetXPercent) / 100;
     const y = lightTargetPercent(light.lightTargetYPercent) / 100;
     const body = target.item(0);
     // A front elevation: horizontal position follows the artwork's local X
     // axis; vertical position changes physical height, never plan depth.
-    const point = fabric.util.transformPoint(new fabric.Point((x - .5) * body.width, body.height / 2), body.calcTransformMatrix());
-    return { point, height: height === null ? null : height + (y - .5) * Number(target.cmHeight || 0) };
+    const width = pedestal ? body.width * pedestal.workWidthCm / Number(target.cmWidth) : body.width;
+    const depth = pedestal ? body.height * pedestal.workDepthCm / Number(target.cmDepth) : body.height;
+    const point = fabric.util.transformPoint(new fabric.Point((x - .5) * width, depth / 2), body.calcTransformMatrix());
+    return { point, height: height === null ? null : height + (y - .5) * (pedestal?.workHeightCm ?? Number(target.cmHeight || 0)) };
 }
 
 function refreshLightTargetPoint(light, updateInputs = true) {
@@ -195,7 +199,8 @@ function refreshLightTargetPoint(light, updateInputs = true) {
     const marker = document.getElementById('lightTargetPointMarker');
     marker.setAttribute('transform', `translate(${x} ${100 - y})`);
     const preview = document.getElementById('lightTargetPointPreview');
-    const ratio = (Number(target?.cmWidth) || 100) / (Number(target?.cmHeight) || 100);
+    const pedestal = target?.displayType === 'sculpture' ? normalizeSculpturePedestal(target.sculpturePedestal) : null;
+    const ratio = (pedestal?.workWidthCm ?? (Number(target?.cmWidth) || 100)) / (pedestal?.workHeightCm ?? (Number(target?.cmHeight) || 100));
     const width = Math.min(150, 150 * ratio);
     preview.style.width = `${width}px`;
     preview.style.height = `${width / ratio}px`;

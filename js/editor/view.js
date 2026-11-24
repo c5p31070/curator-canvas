@@ -35,7 +35,10 @@ function findArtworkCatalogReference(artwork) {
         Number(item.cmWidth) === (Number(artwork.cmWidth) || 150) &&
         Number(item.cmHeight) === (Number(artwork.cmHeight) || 100) &&
         Number(item.cmDepth) === (Number(artwork.cmDepth) || 5) &&
-        JSON.stringify(item.artworkOutline || null) === JSON.stringify(artwork.artworkOutline || null));
+        JSON.stringify(item.artworkOutline || null) === JSON.stringify(artwork.artworkOutline || null) &&
+        (artwork.displayType !== 'sculpture' || (item.displayType === 'sculpture' &&
+            normalizeSculptureBaseShape(item.sculptureBaseShape) === normalizeSculptureBaseShape(artwork.sculptureBaseShape) &&
+            JSON.stringify(normalizeSculpturePedestal(item.sculpturePedestal)) === JSON.stringify(normalizeSculpturePedestal(artwork.sculpturePedestal)))));
     if (matches.length !== 1) return null;
     artwork.artworkCatalogId = matches[0].id;
     return matches[0];
@@ -817,18 +820,22 @@ async function renderWallCanvas(callback = null) {
 
 function applyArtworkDimensions(obj, scale) {
     if (!obj?.isArtwork) return;
+    const pedestal = obj.displayType === 'sculpture' ? normalizeSculpturePedestal(obj.sculpturePedestal) : null;
+    if (pedestal) obj.cmHeight = sculpturePedestalTotalHeight(pedestal);
+    if (obj.displayType === 'sculpture' && normalizeSculptureBaseShape(obj.sculptureBaseShape) === 'circle') obj.cmDepth = obj.cmWidth;
 
     const newPxW = (Number(obj.cmWidth) || 150) * scale;
     const isFloorPlan = currentViewMode === 'floor';
     const newPxH = Math.max(
         (isFloorPlan ? (Number(obj.cmDepth) || 5) : (Number(obj.cmHeight) || 100)) * scale,
-        isFloorPlan ? 8 : obj.artworkOutline ? 0 : 6
+        isFloorPlan ? (obj.displayType === 'sculpture' ? 0 : 8) : obj.artworkOutline ? 0 : 6
     );
 
     obj.pxWidth = newPxW;
     obj.pxHeight = newPxH;
     const rect = obj.item?.(0);
     if (rect) rect.set({ width: newPxW, height: newPxH });
+    configureSculptureBase(obj);
 
     const textObj = obj.item?.(1);
     if (textObj) textObj.set({ fontSize: obj.displayType === 'wall' ? 10 : 14 });

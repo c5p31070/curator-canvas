@@ -15,11 +15,12 @@ function refreshArtworkCatalog() {
     savedArtworkCatalog.forEach(item => {
         const option = document.createElement('option');
         option.value = item.id;
-        const typeLabel = item.displayType === 'wall' ? '壁面' : '床置';
+        const typeLabel = item.displayType === 'sculpture' ? `彫刻・台座${sculptureBaseShapeLabel(item.sculptureBaseShape)}` : item.displayType === 'wall' ? '壁面' : '床置';
         const dimensions = item.displayType === 'wall'
             ? `幅 ${cmToMm(item.cmWidth)} × 高さ ${cmToMm(item.cmHeight)} × 厚み ${cmToMm(item.cmDepth)} mm`
             : `幅 ${cmToMm(item.cmWidth)} × 奥行 ${cmToMm(item.cmDepth)} × 高さ ${cmToMm(item.cmHeight)} mm`;
-        option.textContent = `No.${item.artworkNumber} ${item.name} · ${typeLabel} · ${dimensions}${item.artworkCenterHeightCm != null ? ` · 中央高 ${cmToMm(item.artworkCenterHeightCm)} mm` : ''}`;
+        const pedestal = sculpturePedestalDescription(item.sculpturePedestal);
+        option.textContent = `No.${item.artworkNumber} ${item.name} · ${typeLabel} · ${dimensions}${pedestal ? ` · ${pedestal}` : ''}${item.artworkCenterHeightCm != null ? ` · 中央高 ${cmToMm(item.artworkCenterHeightCm)} mm` : ''}`;
         select.appendChild(option);
     });
     select.value = savedArtworkCatalog.some(item => item.id === selected) ? selected : '';
@@ -32,7 +33,10 @@ function upsertArtworkCatalogEntry(data, preferredId = '') {
         savedArtworkCatalog.find(item => item.displayType === data.displayType &&
             item.name === data.name && Number(item.cmWidth) === Number(data.cmWidth) &&
             Number(item.cmHeight) === Number(data.cmHeight) && Number(item.cmDepth) === Number(data.cmDepth) &&
-            JSON.stringify(item.artworkOutline || null) === JSON.stringify(data.artworkOutline || null));
+            JSON.stringify(item.artworkOutline || null) === JSON.stringify(data.artworkOutline || null) &&
+            (data.displayType !== 'sculpture' || (
+                normalizeSculptureBaseShape(item.sculptureBaseShape) === normalizeSculptureBaseShape(data.sculptureBaseShape) &&
+                JSON.stringify(normalizeSculpturePedestal(item.sculpturePedestal)) === JSON.stringify(normalizeSculpturePedestal(data.sculpturePedestal)))));
     const id = existing?.id || (window.crypto?.randomUUID?.() || `artwork_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     const entry = { ...data, id, artworkNumber: existing?.artworkNumber || window.nextArtworkNumber() };
     if (existing) savedArtworkCatalog = savedArtworkCatalog.map(item => item.id === id ? entry : item);
@@ -49,6 +53,8 @@ window.updateArtworkCatalogEntry = obj => {
         name: obj.artworkName || '名称未設定',
         description: obj.description || '',
         displayType: obj.displayType || 'wall',
+        sculptureBaseShape: obj.sculptureBaseShape,
+        sculpturePedestal: normalizeSculpturePedestal(obj.sculpturePedestal),
         cmWidth: Number(obj.cmWidth) || 150,
         cmHeight: Number(obj.cmHeight) || 100,
         cmDepth: Number(obj.cmDepth) || 5,
@@ -67,6 +73,8 @@ window.migrateArtworkCatalogFromPlans = () => {
                     name: obj.artworkName || '名称未設定',
                     description: obj.description || '',
                     displayType: obj.displayType || 'wall',
+                    sculptureBaseShape: obj.sculptureBaseShape,
+                    sculpturePedestal: normalizeSculpturePedestal(obj.sculpturePedestal),
                     cmWidth: Number(obj.cmWidth) || 150,
                     cmHeight: Number(obj.cmHeight) || 100,
                     cmDepth: Number(obj.cmDepth) || 5,
@@ -122,8 +130,10 @@ function initializeObjectControlsUi() {
         document.getElementById('artworkName').value = item.name;
         document.getElementById('artworkDescription').value = item.description || '';
         document.getElementById('displayType').value = item.displayType || 'wall';
+        document.getElementById('sculptureBaseShape').value = normalizeSculptureBaseShape(item.sculptureBaseShape);
         document.getElementById('artworkWidth').value = cmToMm(item.cmWidth);
         document.getElementById('artworkHeight').value = cmToMm(item.cmHeight);
+        window.sculpturePedestalCreation.load(item);
         document.getElementById('artworkDepth').value = cmToMm(item.cmDepth);
         document.getElementById('artworkCenterHeight').value = item.artworkCenterHeightCm == null ? '' : cmToMm(item.artworkCenterHeightCm);
         document.getElementById('displayType').dispatchEvent(new Event('change', { bubbles: true }));
@@ -187,12 +197,21 @@ function initializeObjectControlsUi() {
                     ? mmToCm(widthEl.value)
                     : 150;
 
-            const cmH =
+            let cmH =
                 (heightEl && heightEl.value)
                     ? mmToCm(heightEl.value)
                     : 100;
 
-            const cmD =
+            const sculptureBaseShape = displayType === 'sculpture'
+                ? normalizeSculptureBaseShape(document.getElementById('sculptureBaseShape').value) : undefined;
+            const pedestalInput = displayType === 'sculpture' ? window.sculpturePedestalCreation.read() : null;
+            const sculpturePedestal = normalizeSculpturePedestal(pedestalInput);
+            if (pedestalInput && !sculpturePedestal) {
+                alert('台座と作品の寸法は0より大きい数値で入力してください。');
+                return;
+            }
+            if (sculpturePedestal) cmH = sculpturePedestalTotalHeight(sculpturePedestal);
+            const cmD = sculptureBaseShape === 'circle' ? cmW :
                 (depthEl && depthEl.value)
                     ? mmToCm(depthEl.value)
                     : 5;
@@ -205,12 +224,14 @@ function initializeObjectControlsUi() {
             const addAsFixture =
                 isAdminMode &&
                 document.getElementById('addAsFixture')?.checked;
-            if (centerHeight === null && displayType === 'floor') centerHeight = cmH / 2;
+            if (centerHeight === null && ['floor', 'sculpture'].includes(displayType)) centerHeight = cmH / 2;
 
             const catalogId = addAsFixture ? '' : upsertArtworkCatalogEntry({
                 name: nameText,
                 description: descriptionEl ? descriptionEl.value.trim() : '',
                 displayType,
+                sculptureBaseShape,
+                sculpturePedestal,
                 cmWidth: cmW,
                 cmHeight: cmH,
                 cmDepth: cmD,
@@ -224,7 +245,7 @@ function initializeObjectControlsUi() {
             // 平面図は幅×奥行き（壁面展示では厚み）、壁面図は幅×高さで描画。
             const pxH = Math.max(
                 (isFloorPlan ? cmD : cmH) * currentScale,
-                isFloorPlan ? 8 : artworkOutline ? 0 : 6
+                isFloorPlan ? (displayType === 'sculpture' ? 0 : 8) : artworkOutline ? 0 : 6
             );
 
             const appearance = getArtworkAppearance({ displayType, isFixture: Boolean(addAsFixture) });
@@ -283,6 +304,8 @@ function initializeObjectControlsUi() {
                         description: descriptionEl ? descriptionEl.value.trim() : '',
 
                         displayType: displayType,
+                        sculptureBaseShape,
+                        sculpturePedestal,
                         isFixture: Boolean(addAsFixture),
 
                         cmWidth: cmW,

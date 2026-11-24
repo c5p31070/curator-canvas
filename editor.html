@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="css/dark-mode.css">
     <link rel="stylesheet" href="css/editor-workspace.css">
     <link rel="stylesheet" href="css/editor-account.css">
+    <link rel="stylesheet" href="css/editor-mobile.css">
     <style>html.auth-loading body { visibility: hidden; }</style>
     <script>document.documentElement.classList.add('auth-loading');</script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -32,6 +33,7 @@
     <header>
         <h1><span class="brand-wordmark">Curator-Canvas</span> <span class="brand-subtitle">東京都美術館配置図アプリ</span></h1>
         <span id="currentExhibitionName" class="current-exhibition-name" aria-label="作業中の展覧会">名称未設定</span>
+        <button id="btnToggleOperationPanel" class="mobile-panel-toggle" type="button" aria-controls="operationPanel" aria-expanded="true">操作欄</button>
 
         <div class="account-controls">
             <span id="accountLabel"></span>
@@ -51,7 +53,8 @@
     <div class="main-layout">
 
         <!-- サイドパネル -->
-        <aside class="sidebar">
+        <aside id="operationPanel" class="sidebar" aria-label="機能の操作欄">
+            <button id="btnCloseOperationPanel" class="mobile-panel-close" type="button">図面に戻る</button>
 
             <div class="panel-section mode-switch-section workflow-section tool-panel" data-tool-panel="setup">
                 <h2>管理者モード</h2>
@@ -312,8 +315,8 @@
                 <h2>描画</h2>
                 <div class="drawing-subsection workspace-grid-settings">
                     <h3>表示・グリッド</h3>
-                    <label class="lighting-visibility"><input id="workspaceScaleVisibility" type="checkbox" checked>縮尺バーを表示</label>
-                    <label class="lighting-visibility"><input id="workspaceGridVisible" type="checkbox" checked>グリッドを表示</label>
+                    <label class="lighting-visibility"><input id="workspaceScaleVisibility" type="checkbox" checked>縮尺バー</label>
+                    <label class="lighting-visibility"><input id="workspaceGridVisible" type="checkbox" checked>グリッド表示</label>
                     <label class="lighting-visibility" data-tooltip="配置位置をグリッドの交点に合わせます。"><input id="workspaceGridSnap" type="checkbox">スナップ</label>
                     <div class="form-group">
                         <label for="workspaceGridSpacing">間隔 (mm)</label>
@@ -471,6 +474,7 @@
                 <div class="artwork-color-legend" aria-label="展示物の色分け">
                     <span><i class="artwork-swatch-wall" aria-hidden="true"></i>壁面展示</span>
                     <span><i class="artwork-swatch-floor" aria-hidden="true"></i>床置き</span>
+                    <span><i class="artwork-swatch-sculpture" aria-hidden="true"></i>彫刻</span>
                     <span><i class="artwork-swatch-fixture" aria-hidden="true"></i>固定設備</span>
                 </div>
 
@@ -498,11 +502,30 @@
                         <option value="floor">
                             床置展示（展示ケース・立体物など）
                         </option>
+                        <option value="sculpture">彫刻</option>
                         <option value="wall-exhibition">壁面全体（人物紹介・年表など）</option>
                     </select>
                 </div>
 
                 <div id="artworkObjectFields">
+                    <div id="sculptureBaseFields" class="form-group" hidden>
+                        <label for="sculptureBaseShape">台座の形</label>
+                        <select id="sculptureBaseShape" class="form-control">
+                            <option value="rectangle">四角形</option>
+                            <option value="circle">円形</option>
+                            <option value="ellipse">楕円形</option>
+                        </select>
+                        <label class="lighting-visibility"><input id="sculptureOnPedestal" type="checkbox">彫刻を台座に乗せる</label>
+                        <div id="sculpturePedestalFields" hidden>
+                            <div class="form-group"><label for="sculptureColumnHeight">台座立方体の高さ (mm)</label><input id="sculptureColumnHeight" class="form-control" type="number" min="1" step="1"></div>
+                            <div class="form-row">
+                                <div class="form-group"><label for="sculptureWorkWidth">作品の幅 (mm)</label><input id="sculptureWorkWidth" class="form-control" type="number" min="1" step="1"></div>
+                                <div class="form-group"><label for="sculptureWorkDepth">作品の奥行き (mm)</label><input id="sculptureWorkDepth" class="form-control" type="number" min="1" step="1"></div>
+                            </div>
+                            <div class="form-group"><label for="sculptureWorkHeight">作品の高さ (mm)</label><input id="sculptureWorkHeight" class="form-control" type="number" min="1" step="1"></div>
+                            <output id="sculptureTotalHeight" class="field-note"></output>
+                        </div>
+                    </div>
                     <div class="form-row artwork-outline-controls" id="artworkOutlineControls">
                         <button id="btnEditArtworkOutline" class="btn btn-secondary" type="button">形を編集</button>
                         <button id="btnResetArtworkOutline" class="btn btn-secondary" type="button" hidden>長方形に戻す</button>
@@ -529,7 +552,7 @@
 
                         <div class="form-group">
                             <label for="artworkWidth">
-                                幅 (mm)
+                                <span id="artworkWidthLabel">幅</span> (mm)
                             </label>
 
                             <input
@@ -542,7 +565,7 @@
 
                         <div class="form-group">
                             <label for="artworkHeight">
-                                高さ (mm)
+                                <span id="artworkHeightLabel">高さ</span> (mm)
                             </label>
 
                             <input
@@ -719,13 +742,31 @@
                         <input id="editItemName" class="form-control" type="text">
                     </div>
                     <div id="itemArtworkDimensions" hidden>
+                        <div id="editSculptureBaseFields" class="form-group" hidden>
+                            <label for="editSculptureBaseShape">台座の形</label>
+                            <select id="editSculptureBaseShape" class="form-control">
+                                <option value="rectangle">四角形</option>
+                                <option value="circle">円形</option>
+                                <option value="ellipse">楕円形</option>
+                            </select>
+                            <label class="lighting-visibility"><input id="editSculptureOnPedestal" type="checkbox">彫刻を台座に乗せる</label>
+                            <div id="editSculpturePedestalFields" hidden>
+                                <div class="form-group"><label for="editSculptureColumnHeight">台座立方体の高さ (mm)</label><input id="editSculptureColumnHeight" class="form-control" type="number" min="1" step="1"></div>
+                                <div class="form-row">
+                                    <div class="form-group"><label for="editSculptureWorkWidth">作品の幅 (mm)</label><input id="editSculptureWorkWidth" class="form-control" type="number" min="1" step="1"></div>
+                                    <div class="form-group"><label for="editSculptureWorkDepth">作品の奥行き (mm)</label><input id="editSculptureWorkDepth" class="form-control" type="number" min="1" step="1"></div>
+                                </div>
+                                <div class="form-group"><label for="editSculptureWorkHeight">作品の高さ (mm)</label><input id="editSculptureWorkHeight" class="form-control" type="number" min="1" step="1"></div>
+                                <output id="editSculptureTotalHeight" class="field-note"></output>
+                            </div>
+                        </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="editItemWidth">幅 (mm)</label>
+                                <label for="editItemWidth"><span id="editItemWidthLabel">幅</span> (mm)</label>
                                 <input id="editItemWidth" class="form-control" type="number" min="1" step="1">
                             </div>
                             <div class="form-group">
-                                <label for="editItemHeight">高さ (mm)</label>
+                                <label for="editItemHeight"><span id="editItemHeightLabel">高さ</span> (mm)</label>
                                 <input id="editItemHeight" class="form-control" type="number" min="1" step="1">
                             </div>
                         </div>
@@ -916,6 +957,7 @@
 
     </div>
 
+    <button id="operationPanelBackdrop" class="mobile-panel-backdrop" type="button" aria-label="操作欄を閉じる" tabindex="-1" hidden></button>
     <dialog id="newExhibitionDialog" aria-labelledby="newExhibitionHeading">
         <form id="newExhibitionForm">
             <h2 id="newExhibitionHeading">新規展覧会</h2>
@@ -986,7 +1028,17 @@
             <h2 id="perspectiveDialogTitle">パース試作</h2>
             <form method="dialog"><button class="btn btn-secondary" type="submit">閉じる</button></form>
         </div>
-        <canvas id="perspectiveCanvas" width="1100" height="680" aria-label="指定視点からの展示完成イメージ"></canvas>
+        <canvas id="perspectiveCanvas" width="1100" height="680" tabindex="0" aria-label="展示完成イメージ。WASDまたは矢印キーで移動、ドラッグで視線を変更"></canvas>
+        <div class="perspective-navigation">
+            <div class="perspective-move-buttons" role="group" aria-label="視点の移動">
+                <button type="button" data-perspective-move="forward" aria-label="前へ移動">↑</button>
+                <button type="button" data-perspective-move="left" aria-label="左へ移動">←</button>
+                <button type="button" data-perspective-move="backward" aria-label="後ろへ移動">↓</button>
+                <button type="button" data-perspective-move="right" aria-label="右へ移動">→</button>
+            </div>
+            <span class="perspective-navigation-help">WASD・矢印キーで移動／ドラッグで視線</span>
+            <button id="btnResetPerspectiveView" type="button">視点を戻す</button>
+        </div>
         <p id="perspectiveSummary" class="field-note" role="status"></p>
     </dialog>
 
@@ -1010,6 +1062,8 @@
     <script src="js/editor/dimensions.js" defer></script>
     <script src="js/editor/artwork-wall-distances.js" defer></script>
     <script src="js/editor/perspective.js" defer></script>
+    <script src="js/editor/perspective-navigation.js" defer></script>
+    <script src="js/editor/mobile-layout.js" defer></script>
     <script src="js/editor/fixed-wall-artwork.js" defer></script>
     <script src="js/editor/workspace-grid.js" defer></script>
     <script src="js/editor/lighting.js" defer></script>
@@ -1024,6 +1078,7 @@
     <script src="js/editor/ui-shapes.js" defer></script>
     <script src="js/editor/shape-free-transform.js" defer></script>
     <script src="js/editor/ui-item-details.js" defer></script>
+    <script src="js/editor/sculpture-pedestal-ui.js" defer></script>
     <script src="js/editor/ui-creation-settings.js" defer></script>
     <script src="js/editor/artwork-numbers.js" defer></script>
     <script src="js/editor/ui-objects.js" defer></script>

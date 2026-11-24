@@ -70,33 +70,49 @@ function createPdfScaleMarkup(scalePxPerCm, imageWidthMm, sourceWidthPx) {
     `;
 }
 
+let pdfPreparing = false;
 async function generateCombinedPdf() {
-    if (window.isCombinedPdfBusy) return;
-    // Confirm the common scale before taking any drawing captures.
-    if (window.refreshTeamFloorScale && !await window.refreshTeamFloorScale()) return;
-    if (!(Number(configuredScale) > 0)) {
-        alert('正確な縮尺で出力するため、管理者モードで平面図の縮尺を設定してください。');
+    if (pdfPreparing || window.isCombinedPdfBusy || isTransitioning || !window.isDiagramReady?.()) return;
+    // Open within the button gesture so mobile browsers can allow the new tab.
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        alert('印刷画面を開けませんでした。このサイトのポップアップを許可してください。');
         return;
     }
-    if (isTransitioning || !window.isDiagramReady?.()) return;
-    const initial = { floor: selectedFloorId, mode: currentViewMode, wall: { ...selectedWallInfo } };
-    window.isCombinedPdfBusy = true;
-    try { return await renderCombinedPdf(); }
+    pdfPreparing = true;
+    let initial = null;
+    let completed = false;
+    try {
+        printWindow.document.write('<!doctype html><meta charset="utf-8"><title>指示書を作成中</title><p>指示書を作成しています…</p>');
+        printWindow.document.close();
+        // Confirm the common scale before taking any drawing captures.
+        if (window.refreshTeamFloorScale && !await window.refreshTeamFloorScale()) return;
+        if (!(Number(configuredScale) > 0)) {
+            alert('正確な縮尺で出力するため、管理者モードで平面図の縮尺を設定してください。');
+            return;
+        }
+        if (isTransitioning || !window.isDiagramReady?.()) return;
+        initial = { floor: selectedFloorId, mode: currentViewMode, wall: { ...selectedWallInfo } };
+        window.isCombinedPdfBusy = true;
+        await renderCombinedPdf(printWindow);
+        completed = true;
+    }
     catch (error) {
         console.error('PDF出力に失敗しました。', error);
         alert(`PDF出力を中止しました。${error.message}`);
     } finally {
+        if (!completed && !printWindow.closed) printWindow.close();
         try {
-            if (selectedFloorId !== initial.floor || currentViewMode !== initial.mode || (initial.mode === 'wall' && selectedWallInfo.id !== initial.wall.id)) {
+            if (initial && (selectedFloorId !== initial.floor || currentViewMode !== initial.mode || (initial.mode === 'wall' && selectedWallInfo.id !== initial.wall.id))) {
                 await handleFloorSelectChange(initial.floor, true);
                 selectedWallInfo = initial.wall;
                 await switchViewMode(initial.mode, true, null, true);
             }
-        } finally { window.isCombinedPdfBusy = false; }
+        } finally { window.isCombinedPdfBusy = false; pdfPreparing = false; }
     }
 }
 
-async function renderCombinedPdf() {
+async function renderCombinedPdf(printWindow) {
 
     const titleInput =
         document.getElementById("exhibitionTitle");
@@ -206,15 +222,19 @@ async function renderCombinedPdf() {
                         obj.displayType === 'wall'
                     )
                         ? '壁面展示'
-                        : '床置展示';
+                        : obj.displayType === 'sculpture' ? `彫刻（台座${sculptureBaseShapeLabel(obj.sculptureBaseShape)}）` : '床置展示';
 
 
-                const dimText =
+                let dimText =
                     (
                         obj.displayType === 'wall'
                     )
                         ? `幅:${cmToMm(cmW)}×高:${cmToMm(cmH)} (厚:${cmToMm(cmD)}) mm`
-                        : `幅:${cmToMm(cmW)}×奥:${cmToMm(cmD)} mm`;
+                        : obj.displayType === 'sculpture'
+                            ? `台座 幅:${cmToMm(cmW)}×奥:${cmToMm(cmD)} / 全高:${cmToMm(cmH)} mm`
+                            : `幅:${cmToMm(cmW)}×奥:${cmToMm(cmD)} mm`;
+                const pedestal = sculpturePedestalDescription(obj.sculpturePedestal);
+                if (obj.displayType === 'sculpture' && pedestal) dimText += ` / ${pedestal}`;
 
 
                 let crowdStatus =
@@ -404,22 +424,8 @@ async function renderCombinedPdf() {
     // 印刷ウィンドウ
     // ====================================================
 
-    const printWindow =
-        window.open(
-            '',
-            '_blank'
-        );
-
-
-    if (!printWindow) {
-
-        alert(
-            "ポップアップがブロックされました。ブラウザのポップアップブロックを解除してください。"
-        );
-
-        return;
-
-    }
+    if (printWindow.closed) throw new Error('印刷画面が閉じられました。もう一度出力してください。');
+    printWindow.document.open();
 
 
     const today =

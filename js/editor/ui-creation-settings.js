@@ -7,15 +7,35 @@ function initializeCreationSettingsUi() {
     const typeHelpText = document.getElementById("typeHelpText");
     const depthInput = document.getElementById("artworkDepth");
     const depthLabel = document.getElementById('artworkDepthLabel');
+    const sculptureBaseShape = document.getElementById('sculptureBaseShape');
+    const pedestalControls = initializeSculpturePedestalControls('sculpture', {
+        widthInput: document.getElementById('artworkWidth'), depthInput,
+        heightInput: document.getElementById('artworkHeight'),
+        centerHeightInput: document.getElementById('artworkCenterHeight'), onChange: () => updateDepthTooltip()
+    });
+    window.sculpturePedestalCreation = pedestalControls;
 
     const updateDepthTooltip = () => {
         if (!depthInput || !displayTypeSelect) return;
-        if (depthLabel) depthLabel.textContent = displayTypeSelect.value === 'wall' ? '厚み' : '奥行き';
+        const sculpture = displayTypeSelect.value === 'sculpture';
+        if (!sculpture) pedestalControls.deactivate();
+        const circle = sculpture && sculptureBaseShape.value === 'circle';
+        document.getElementById('sculptureBaseFields').hidden = !sculpture;
+        document.getElementById('artworkWidthLabel').textContent = sculpture ? (circle ? '台座の直径' : '台座の幅') : '幅';
+        document.getElementById('artworkHeightLabel').textContent = sculpture
+            ? (pedestalControls.enabled.checked ? '下部台座の高さ' : '全高（台座込み）') : '高さ';
+        document.getElementById('depthGroup').hidden = circle;
+        if (circle) depthInput.value = document.getElementById('artworkWidth').value;
+        if (depthLabel) depthLabel.textContent = sculpture ? '台座の奥行き' : displayTypeSelect.value === 'wall' ? '厚み' : '奥行き';
         depthInput.dataset.tooltip = displayTypeSelect.value === 'wall'
             ? '壁面展示では厚みとして扱い、平面図では幅と厚みで表示します。'
             : '床置展示では奥行きとして扱い、平面図では幅と奥行きで表示します。';
+        pedestalControls.refresh();
     };
     updateDepthTooltip();
+    sculptureBaseShape.addEventListener('change', updateDepthTooltip);
+    document.getElementById('artworkWidth').addEventListener('input', updateDepthTooltip);
+    document.getElementById('artworkHeight').addEventListener('input', () => pedestalControls.refresh());
 
     if (displayTypeSelect && typeHelpText) {
 

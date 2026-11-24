@@ -1,0 +1,145 @@
+/* Responsive controls change screen layout without changing drawing coordinates. */
+.mobile-panel-toggle, .mobile-panel-close, .mobile-panel-backdrop { display: none; }
+
+@media (max-width: 760px), (max-width: 1400px) and (any-pointer: coarse) {
+    html { height: 100%; }
+    body { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+    body > header {
+        flex: 0 0 auto;
+        min-height: 40px;
+        padding: 4px max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left));
+        gap: 6px;
+    }
+    header h1 { min-width: 0; white-space: nowrap; }
+    header h1 .brand-wordmark { font-size: 16px; }
+    header h1 .brand-subtitle { display: none; }
+    .current-exhibition-name { margin: 0 4px; padding-left: 6px; }
+    .mobile-panel-toggle, .mobile-panel-close {
+        display: block;
+        flex: 0 0 auto;
+        min-height: 34px;
+        padding: 5px 9px;
+        border: 1px solid var(--cc-divider-strong);
+        border-radius: 0;
+        background: var(--cc-sidebar);
+        color: var(--cc-text);
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+        touch-action: manipulation;
+    }
+    .mobile-panel-close { display: none; }
+    .main-layout {
+        flex: 1 1 0;
+        flex-direction: row !important;
+        align-items: stretch;
+        height: auto !important;
+        min-height: 0;
+        max-width: none;
+        overflow: hidden;
+    }
+    .sidebar {
+        flex: 0 0 220px;
+        width: 220px !important;
+        min-width: 0 !important;
+        max-width: 38vw;
+        height: 100%;
+        max-height: none !important;
+        padding: 6px 8px;
+        overflow: hidden auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+    body.operation-panel-collapsed .sidebar { display: none; }
+    .canvas-container-wrapper {
+        flex: 1 1 0;
+        width: 0;
+        height: 100%;
+        min-width: 0;
+        min-height: 0;
+        max-height: none;
+        padding: 0 !important;
+    }
+    .canvas-viewport { min-height: 0; touch-action: none; overscroll-behavior: contain; }
+    .tool-palette { flex: 0 0 auto; min-height: 46px; padding: 2px; gap: 0; touch-action: pan-x; }
+    .tool-palette .tool-group { padding: 0 2px; gap: 0; }
+    .tool-palette .tool-group .tool-icon { flex: 0 0 52px; min-width: 52px; min-height: 40px; padding: 3px; }
+    .tool-palette .tool-icon svg { width: 18px; height: 18px; flex-basis: 18px; }
+    .tool-palette .tool-label { max-width: 64px; font-size: 9px; }
+    .tool-palette .tool-group [data-tool="setup"] { min-width: 76px; }
+    .tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"]) { min-width: 44px; flex-basis: 44px; }
+    #floorTabs, #wallTabs { min-height: 32px !important; height: 32px; flex-basis: 32px; }
+    #floorTabs.floor-tabs-compact { min-height: 28px !important; height: 28px; flex-basis: 28px; }
+    #floorTabs .wall-tab, #wallTabs .wall-tab { min-width: 48px !important; min-height: 28px; padding: 4px 8px !important; font-size: 11px !important; }
+    #publicRoomSelect, #wallFaceSelect { max-width: 116px; font-size: 12px; }
+    .sidebar .form-row { flex-wrap: wrap; }
+    .sidebar .form-row .form-group { flex: 1 1 84px; min-width: 0; }
+    .sidebar .form-control, .sidebar input[type="email"], .sidebar textarea, .sidebar select {
+        width: 100%; min-width: 0; min-height: 36px; padding: 6px;
+    }
+    .sidebar .btn { min-height: 36px; padding: 6px 8px; font-size: 12px !important; touch-action: manipulation; }
+    .sidebar .lighting-visibility { display: flex; align-items: center; gap: 6px; min-height: 32px; }
+    .sidebar input[type="checkbox"] { flex: 0 0 auto; width: 16px; height: 16px; }
+    .wall-info-banner { margin: 0 !important; font-size: 10px !important; }
+    .zoom-controls { right: max(6px, env(safe-area-inset-right)); bottom: max(4px, env(safe-area-inset-bottom)); height: 32px; }
+    #canvasZoom { height: 30px; width: 82px; touch-action: none; }
+    #btnZoomFit { width: 32px; height: 32px; }
+    .workspace-scale-bar { left: 6px; bottom: max(6px, env(safe-area-inset-bottom)); max-width: 38%; }
+    .team-scale-notice { flex: 0 0 auto; max-height: 24vh; overflow: auto; }
+    #newExhibitionDialog, #artworkOutlineDialog, #perspectiveDialog {
+        margin: auto;
+        max-width: calc(100vw - 16px);
+        max-height: calc(100vh - 16px);
+        max-height: calc(100dvh - 16px);
+        overflow: auto;
+        overscroll-behavior: contain;
+        padding: 10px;
+    }
+    #perspectiveCanvas { max-height: 54vh; max-height: 54dvh; }
+    .perspective-header { position: sticky; top: -10px; z-index: 1; padding: 5px 0; background: #20262a; }
+    .perspective-header h2 { overflow-wrap: anywhere; }
+    .perspective-header .btn { min-height: 36px; }
+    .perspective-move-buttons button { min-width: 42px; min-height: 40px; }
+    .perspective-navigation-help { flex-basis: 100%; order: 2; }
+    #btnResetPerspectiveView { min-height: 40px; margin-left: auto; }
+    #artworkOutlinePreview { max-height: 35vh; max-height: 35dvh; }
+    #newExhibitionDialog .btn, #artworkOutlineDialog .btn { min-height: 36px; }
+}
+
+@media (max-width: 900px) and (any-pointer: coarse), (max-width: 700px) {
+    #accountLabel { display: none; }
+    .account-controls { flex: 0 0 auto; gap: 4px; }
+    .account-controls button { min-height: 34px; padding: 4px 6px; }
+}
+
+@media (max-width: 950px) and (orientation: landscape) and (max-height: 600px) {
+    .sidebar { flex-basis: 190px; width: 190px !important; }
+    #perspectiveCanvas { max-height: 48vh; max-height: 48dvh; }
+}
+
+@media (max-width: 600px) and (orientation: portrait) {
+    body > header { display: grid; grid-template-columns: minmax(0,1fr) auto auto; }
+    header h1 { grid-column: 1; grid-row: 1; }
+    .mobile-panel-toggle { grid-column: 2; grid-row: 1; }
+    .account-controls { grid-column: 3; grid-row: 1; }
+    .current-exhibition-name { grid-column: 1 / -1; grid-row: 2; margin: 0; padding: 0; border: 0; font-size: 11px; }
+    .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 80;
+        width: min(320px, 86vw) !important;
+        max-width: none;
+        height: 100vh;
+        height: 100dvh;
+        padding: max(8px, env(safe-area-inset-top)) 10px max(12px, env(safe-area-inset-bottom));
+    }
+    .mobile-panel-close { display: block; position: sticky; top: 0; z-index: 1; width: 100%; margin-bottom: 8px; }
+    .mobile-panel-backdrop:not([hidden]) { display: block; position: fixed; inset: 0; z-index: 70; width: 100%; height: 100%; border: 0; background: rgba(0,0,0,.45); }
+    .canvas-container-wrapper { width: 100%; }
+}
+
+/* Prevent automatic input magnification on touch browsers. */
+@media (any-pointer: coarse) {
+    .sidebar :is(input[type="text"], input[type="number"], input[type="email"], textarea, select),
+    #newExhibitionDialog :is(input, select), #artworkOutlineDialog :is(input, select) { font-size: 16px !important; }
+}

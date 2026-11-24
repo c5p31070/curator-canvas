@@ -9,7 +9,11 @@
         if (!canLink(artwork)) return false;
         const previousWallId = pendingSnaps.has(artwork) ? pendingSnaps.get(artwork)?.id : artwork.fixedWallId;
         pendingSnaps.set(artwork, null);
-        if (snappedToMovableWall) return false;
+        if (snappedToMovableWall) {
+            const snap = window.getMovableWallArtworkSnap?.(artwork);
+            pendingSnaps.set(artwork, snap || null);
+            return Boolean(snap);
+        }
         const body = artwork.item(0);
         if (!body) return false;
         const center = artwork.getCenterPoint();
@@ -158,7 +162,9 @@
         const frame = canvas.getObjects().find(object => object.isWallOutline);
         const width = frame?.width * (frame?.scaleX || 1);
         const floor = floorPlanData[selectedFloorId];
-        const segment = window.getFixedWallSegments(selectedFloorId, configuredScale).find(wall => wall.id === selectedWallInfo.id);
+        const segment = wallPlanJsonData[selectedWallInfo.id]?.movableWallId
+            ? window.getMovableWallSegment?.(selectedWallInfo.id, selectedFloorId)
+            : window.getFixedWallSegments(selectedFloorId, configuredScale).find(wall => wall.id === selectedWallInfo.id);
         if (!floor || !(width > 0) || !segment) return;
         // The wall's left edge is defined as seen from its exhibition side.
         const [start, end] = segment.faceSide === -1 ? [segment.end, segment.start] : [segment.start, segment.end];

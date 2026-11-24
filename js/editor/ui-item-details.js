@@ -10,6 +10,22 @@ function initializeItemDetailsUi() {
     const itemDepthInput = document.getElementById('editItemDepth');
     const itemCenterHeightInput = document.getElementById('editArtworkCenterHeight');
     const itemDepthLabel = document.getElementById('editItemDepthLabel');
+    const sculptureShapeInput = document.getElementById('editSculptureBaseShape');
+    const pedestalControls = initializeSculpturePedestalControls('editSculpture', {
+        widthInput: itemWidthInput, depthInput: itemDepthInput, heightInput: itemHeightInput,
+        onChange: () => { refreshSculptureFields(selectedItemForEditing); applyItemEdit(); }
+    });
+    const refreshSculptureFields = obj => {
+        const sculpture = obj?.displayType === 'sculpture';
+        const circle = sculpture && sculptureShapeInput.value === 'circle';
+        document.getElementById('editSculptureBaseFields').hidden = !sculpture;
+        document.getElementById('editItemWidthLabel').textContent = sculpture ? (circle ? '台座の直径' : '台座の幅') : '幅';
+        document.getElementById('editItemHeightLabel').textContent = sculpture
+            ? (pedestalControls.enabled.checked ? '下部台座の高さ' : '全高（台座込み）') : '高さ';
+        itemDepthInput.closest('.form-group').hidden = circle;
+        if (itemDepthLabel) itemDepthLabel.textContent = sculpture ? '台座の奥行き' : obj?.displayType === 'floor' ? '奥行き' : '厚み';
+        pedestalControls.refresh();
+    };
     const itemAngleInput = document.getElementById('editItemAngle');
     const itemPinNumberInput = document.getElementById('editItemPinNumber');
     const itemPinNumberField = document.getElementById('itemPinNumberField');
@@ -67,9 +83,11 @@ function initializeItemDetailsUi() {
         if (itemPinNumberInput && selectedItemForEditing.isNumberPin) itemPinNumberInput.value = selectedItemForEditing.pinNumber;
         if (itemArtworkDimensions) itemArtworkDimensions.hidden = !isArtwork;
         if (isArtwork) {
-            if (itemDepthLabel) itemDepthLabel.textContent = selectedItemForEditing.displayType === 'floor' ? '奥行き' : '厚み';
+            sculptureShapeInput.value = normalizeSculptureBaseShape(selectedItemForEditing.sculptureBaseShape);
+            pedestalControls.load(selectedItemForEditing);
+            refreshSculptureFields(selectedItemForEditing);
             if (itemWidthInput) itemWidthInput.value = cmToMm(selectedItemForEditing.cmWidth ?? 150);
-            if (itemHeightInput) itemHeightInput.value = cmToMm(selectedItemForEditing.cmHeight ?? 100);
+            if (itemHeightInput) itemHeightInput.value = cmToMm(normalizeSculpturePedestal(selectedItemForEditing.sculpturePedestal)?.baseHeightCm ?? selectedItemForEditing.cmHeight ?? 100);
             if (itemDepthInput) itemDepthInput.value = cmToMm(selectedItemForEditing.cmDepth ?? 5);
             if (itemAngleInput) itemAngleInput.value = Math.round(selectedItemForEditing.angle || 0);
             window.refreshArtworkHeightEditor(selectedItemForEditing);
@@ -99,15 +117,18 @@ function initializeItemDetailsUi() {
         if (!isInspectableCanvasItem(obj) || !itemTooltip) return hideItemTooltip();
         hoveredItem = obj;
         const name = getItemName(obj) || (obj.isArtwork ? '展示物' : 'ピン');
-        const meta = obj.isMovableWall
+        const meta = obj.displayType === 'sculpture'
+            ? `彫刻 / 台座 ${sculptureBaseShapeLabel(obj.sculptureBaseShape)} / 幅 ${cmToMm(obj.cmWidth)} × 奥行 ${cmToMm(obj.cmDepth)} × 全高 ${cmToMm(obj.cmHeight)} mm`
+            : obj.isMovableWall
             ? `幅 ${cmToMm(obj.cmWidth)} × 厚さ ${cmToMm(obj.cmDepth)} × 高さ ${cmToMm(obj.cmHeight || 440)} mm`
             : obj.isArtwork && obj.cmWidth && obj.cmHeight
-            ? (obj.displayType === 'floor'
+            ? (['floor', 'sculpture'].includes(obj.displayType)
                 ? `幅 ${cmToMm(obj.cmWidth)} × 奥行 ${cmToMm(obj.cmDepth)} × 高さ ${cmToMm(obj.cmHeight)} mm`
                 : `幅 ${cmToMm(obj.cmWidth)} × 高さ ${cmToMm(obj.cmHeight)} × 厚み ${cmToMm(obj.cmDepth)} mm`)
             : (obj.isGuard ? '警備員' : 'ピン');
         tooltipTitle.textContent = obj.isArtwork && !obj.isFixture ? `No.${window.getArtworkNumber(obj)} ${name}` : name;
-        tooltipMeta.textContent = meta;
+        const pedestal = sculpturePedestalDescription(obj.sculpturePedestal);
+        tooltipMeta.textContent = pedestal ? `${meta} / ${pedestal}` : meta;
         const description = obj.isMovableWall
             ? `${FLOOR_PLANS[obj.movableFloorId]?.title || 'ロビー階'} / 回転 ${Number((obj.angle || 0).toFixed(1))}°`
             : obj.description || '';
@@ -198,7 +219,7 @@ function initializeItemDetailsUi() {
 
             if (obj.isArtwork) {
                 const heightText = itemCenterHeightInput?.value.trim() || '';
-                const centerHeight = heightText === '' ? null : mmToCm(heightText);
+                let centerHeight = heightText === '' ? null : mmToCm(heightText);
                 if (centerHeight !== null && (!Number.isFinite(centerHeight) || centerHeight < 0)) {
                     if (itemEditorStatus) itemEditorStatus.textContent = '作品中央の高さは0以上の数値で入力してください。';
                     return false;
@@ -231,13 +252,33 @@ function initializeItemDetailsUi() {
                     height: mmToCm(itemHeightInput?.value),
                     depth: mmToCm(itemDepthInput?.value)
                 };
+                const pedestalInput = obj.displayType === 'sculpture' ? pedestalControls.read() : null;
+                const sculpturePedestal = normalizeSculpturePedestal(pedestalInput);
+                if (pedestalInput && !sculpturePedestal) {
+                    if (itemEditorStatus) itemEditorStatus.textContent = '台座と作品の寸法は0より大きい数値で入力してください。';
+                    return false;
+                }
+                if (sculpturePedestal) dimensions.height = sculpturePedestalTotalHeight(sculpturePedestal);
+                const sculptureShape = normalizeSculptureBaseShape(sculptureShapeInput.value);
+                if (obj.displayType === 'sculpture' && sculptureShape === 'circle') dimensions.depth = dimensions.width;
                 if (Object.values(dimensions).some(value => !Number.isFinite(value) || value <= 0)) {
                     if (itemEditorStatus) itemEditorStatus.textContent = '寸法は0より大きい数値で入力してください。';
                     return false;
                 }
+                if ((sculpturePedestal || obj.sculpturePedestal) && centerHeight !== null &&
+                    Math.abs(centerHeight - Number(obj.cmHeight) / 2) < .001) {
+                    centerHeight = dimensions.height / 2;
+                    itemCenterHeightInput.value = cmToMm(centerHeight);
+                }
                 obj.cmWidth = dimensions.width;
                 obj.cmHeight = dimensions.height;
                 obj.cmDepth = dimensions.depth;
+                if (obj.displayType === 'sculpture') {
+                    obj.sculpturePedestal = sculpturePedestal;
+                    obj.sculptureBaseShape = sculptureShape;
+                    itemDepthInput.value = cmToMm(dimensions.depth);
+                    refreshSculptureFields(obj);
+                }
                 obj.artworkCenterHeightCm = centerHeight;
                 const scale = configuredScale ?? 0.5;
                 applyArtworkDimensions(obj, scale);
@@ -302,6 +343,7 @@ function initializeItemDetailsUi() {
     [itemNameInput, itemDescriptionInput, itemWidthInput, itemHeightInput, itemDepthInput, itemPinNumberInput, itemCenterHeightInput]
         .filter(Boolean)
         .forEach(input => input.addEventListener('input', () => applyItemEdit()));
+    sculptureShapeInput.addEventListener('change', () => applyItemEdit());
 
     itemAngleInput?.addEventListener('input', () => {
         if (rotationInputTimer) clearTimeout(rotationInputTimer);

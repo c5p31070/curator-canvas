@@ -8,6 +8,7 @@
     let faceLabelOverlay = null;
     let faceLabelFrame = null;
     const canEdit = () => window.CURATOR_ROLE !== 'viewer';
+    const artworkSnaps = new WeakMap();
     window.refreshMovableWallVenueDefaults = () => {
         if (defaultsVenue === activeVenueId) return;
         defaultsVenue = activeVenueId;
@@ -344,7 +345,53 @@
         if (wall) await deleteSelectedWall(wall);
     };
 
+    function artworkSurfaces(wall) {
+        const body = wall.item?.(0) || wall.objects?.[0];
+        if (!body) return [];
+        const wallWidth = body.width * Math.abs(wall.scaleX || 1) / 2;
+        const wallDepth = body.height * Math.abs(wall.scaleY || 1) / 2;
+        const center = wall.getCenterPoint?.() || { x: wall.left, y: wall.top };
+        const angle = (wall.angle || 0) * Math.PI / 180;
+        const ux = Math.cos(angle), uy = Math.sin(angle), nx = -uy, ny = ux;
+        return [
+            { id: wall.movableFrontId, tx: ux, ty: uy, nx: -nx, ny: -ny,
+                halfLength: wallWidth, offset: wallDepth, rotation: 180, reverse: true },
+            { id: wall.movableBackId, tx: ux, ty: uy, nx, ny,
+                halfLength: wallWidth, offset: wallDepth, rotation: 0, reverse: false },
+            { id: wall.movableLeftId, tx: nx, ty: ny, nx: -ux, ny: -uy,
+                halfLength: wallDepth, offset: wallWidth, rotation: 90, reverse: false },
+            { id: wall.movableRightId, tx: nx, ty: ny, nx: ux, ny: uy,
+                halfLength: wallDepth, offset: wallWidth, rotation: 270, reverse: true }
+        ].filter(surface => wallPlanJsonData[surface.id]).map(surface => ({ ...surface, center }));
+    }
+
+    window.getMovableWallArtworkSnap = object => artworkSnaps.get(object) || null;
+    window.getMovableWallSegment = (faceId, floorId) => {
+        const face = wallPlanJsonData[faceId];
+        if (!face?.movableWallId) return null;
+        let objects;
+        if (currentViewMode === 'floor' && selectedFloorId === floorId) objects = canvas.getObjects();
+        else {
+            try {
+                const raw = floorPlanData[floorId]?.json;
+                objects = (typeof raw === 'string' ? JSON.parse(raw) : raw)?.objects || [];
+            } catch { return null; }
+        }
+        const wall = objects.find(object => object.isMovableWall && object.movableWallId === face.movableWallId);
+        if (!wall) return null;
+        const surface = artworkSurfaces(wall).find(surface => surface.id === faceId);
+        if (!surface) return null;
+        const endpoint = direction => ({
+            x: surface.center.x + surface.nx * surface.offset + surface.tx * surface.halfLength * direction,
+            z: surface.center.y + surface.ny * surface.offset + surface.ty * surface.halfLength * direction
+        });
+        // Match the left-to-right face orientation used by the perspective renderer.
+        return { id: faceId, start: endpoint(surface.reverse ? 1 : -1),
+            end: endpoint(surface.reverse ? -1 : 1), faceSide: 1 };
+    };
+
     window.snapArtworkToMovableWall = object => {
+        if (object) artworkSnaps.delete(object);
         if (!object?.isArtwork || object.isFixture || object.group || currentViewMode !== 'floor' || !canEdit()) return false;
         const point = object.getCenterPoint();
         const zoom = canvas.lowerCanvasEl.getBoundingClientRect().width / canvas.getWidth() || 1;
@@ -354,24 +401,9 @@
         const halfDepth = body.height * Math.abs(object.scaleY || 1) / 2;
         let best = null;
         canvas.getObjects().filter(wall => wall.isMovableWall).forEach(wall => {
-            const wallBody = wall.item(0);
-            const wallWidth = wallBody.width * Math.abs(wall.scaleX || 1) / 2;
-            const wallDepth = wallBody.height * Math.abs(wall.scaleY || 1) / 2;
             const center = wall.getCenterPoint();
-            const angle = (wall.angle || 0) * Math.PI / 180;
-            const ux = Math.cos(angle), uy = Math.sin(angle), nx = -uy, ny = ux;
             const dx = point.x - center.x, dy = point.y - center.y;
-            const surfaces = [
-                { tx: ux, ty: uy, nx: -nx, ny: -ny, halfLength: wallWidth, offset: wallDepth, rotation: 180 },
-                { tx: ux, ty: uy, nx, ny, halfLength: wallWidth, offset: wallDepth, rotation: 0 }
-            ];
-            if (wallPlanJsonData[wall.movableLeftId]) surfaces.push({
-                tx: nx, ty: ny, nx: -ux, ny: -uy, halfLength: wallDepth, offset: wallWidth, rotation: 90
-            });
-            if (wallPlanJsonData[wall.movableRightId]) surfaces.push({
-                tx: nx, ty: ny, nx: ux, ny: uy, halfLength: wallDepth, offset: wallWidth, rotation: 270
-            });
-            surfaces.forEach(surface => {
+            artworkSurfaces(wall).forEach(surface => {
                 if (halfWidth > surface.halfLength || dx * surface.nx + dy * surface.ny < 0) return;
                 const along = Math.max(-surface.halfLength + halfWidth,
                     Math.min(surface.halfLength - halfWidth, dx * surface.tx + dy * surface.ty));
@@ -382,7 +414,8 @@
                 };
                 const delta = Math.hypot(target.x - point.x, target.y - point.y);
                 if (delta <= threshold && (!best || delta < best.delta)) {
-                    best = { target, delta, angle: (wall.angle || 0) + surface.rotation };
+                    const fraction = (surface.halfLength + (surface.reverse ? -along : along)) / (2 * surface.halfLength);
+                    best = { id: surface.id, fraction, target, delta, angle: (wall.angle || 0) + surface.rotation };
                 }
             });
         });
@@ -392,6 +425,7 @@
         object.set('angle', nextAngle);
         object.setPositionByOrigin(new fabric.Point(best.target.x, best.target.y), 'center', 'center');
         object.setCoords();
+        artworkSnaps.set(object, best);
         if (changedAngle && object.crowdCircle) updateCrowdSemicircle(object);
         return true;
     };

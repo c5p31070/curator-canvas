@@ -117,3 +117,8 @@ body.entry-page {
 @media (max-height: 500px) and (orientation: landscape) {
     .entry-main { margin-top: 24px; margin-bottom: 24px; }
 }
+@media (any-pointer: coarse) {
+    .auth-form input { font-size: 16px; min-height: 44px; }
+    .btn-start, .auth-text-button, .auth-back { min-height: 44px; }
+    .auth-back { display: inline-flex; align-items: center; }
+}

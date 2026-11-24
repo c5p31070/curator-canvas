@@ -136,11 +136,7 @@ header h1 {
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s, opacity 0.2s;
-}
-
-.btn:active:not(:disabled) {
-    transform: scale(0.98);
+    transition: background-color 0.2s, opacity 0.2s;
 }
 
 .btn:disabled {

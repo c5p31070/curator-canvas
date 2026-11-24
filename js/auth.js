@@ -128,7 +128,7 @@
             if (window.CURATOR_ROLE !== 'viewer') return;
             document.body.classList.add('viewer-mode');
             document.querySelectorAll('.sidebar input, .sidebar textarea, .sidebar button, .sidebar select').forEach(control => {
-                if (['floorWallListSelect', 'wallListSelect', 'savedExhibitions', 'layoutVariants', 'lightingVisibility', 'workspaceScaleVisibility', 'workspaceGridVisible', 'workspaceGridSpacing', 'lightObjectSelect', 'movableWallFaceVisibility', 'perspectiveEyeHeight', 'btnPickPerspective'].includes(control.id) || control.id === 'btnLoadExhibition') return;
+                if (['floorWallListSelect', 'wallListSelect', 'savedExhibitions', 'layoutVariants', 'lightingVisibility', 'workspaceScaleVisibility', 'workspaceGridVisible', 'workspaceGridSpacing', 'lightObjectSelect', 'movableWallFaceVisibility', 'perspectiveEyeHeight', 'btnPickPerspective', 'btnCloseOperationPanel'].includes(control.id) || control.id === 'btnLoadExhibition') return;
                 control.disabled = true;
             });
             document.querySelectorAll('.tool-icon').forEach(control => {
