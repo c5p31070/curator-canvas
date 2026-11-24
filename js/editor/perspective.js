@@ -837,10 +837,10 @@
             bind(glassBuffer);
             gl.drawArrays(gl.TRIANGLES, 0, panes.length / stride);
         }
-        if (sculptureLabels.length) {
+        const labelBounds = surface.getBoundingClientRect();
+        const displayScale = Math.min(labelBounds.width/surface.width, labelBounds.height/surface.height);
+        if (sculptureLabels.length && Number.isFinite(displayScale) && displayScale > 0) {
             const labels = [];
-            const bounds = surface.getBoundingClientRect();
-            const displayScale = Math.max(.01, Math.min(bounds.width/surface.width, bounds.height/surface.height));
             const right = [-direction.z,0,direction.x];
             const up = [-direction.x*sinPitch,cosPitch,-direction.z*sinPitch];
             const forward = [direction.x*cosPitch,sinPitch,direction.z*cosPitch];
@@ -987,6 +987,7 @@
 
     async function showPerspective(from, toward, eyeHeight) {
         busy = true;
+        let openedDialog = false;
         say('パースを作成中…');
         try {
             const scale = configuredScale;
@@ -1177,12 +1178,14 @@
             await Promise.all(jobs);
             if (floorId !== selectedFloorId || currentViewMode !== 'floor') return;
             const { spots, omitted } = perspectiveSpotlights(objects, artworkSurfaces, scale, ceiling);
-            renderPerspective(vertices, shadows, spots, inCm(from), unit(from, toward), eyeHeight, 0, glass, sculptureLabels);
             $('perspectiveDialogTitle').textContent = FLOOR_PLANS[floorId].title + ' — パース試作';
             $('perspectiveSummary').textContent = '影と照射範囲は簡易表示です。'
                 + (missingWalls ? ' 位置未登録の固定壁 ' + missingWalls + ' 面は省略しています。' : '')
                 + (omitted ? ' 照射先や高さを確定できないライト ' + omitted + ' 灯は省略しています。' : '');
             $('perspectiveDialog').showModal();
+            openedDialog = true;
+            // Measure the visible canvas before sizing the screen-readable number labels.
+            renderPerspective(vertices, shadows, spots, inCm(from), unit(from, toward), eyeHeight, 0, glass, sculptureLabels);
             window.startPerspectiveNavigation({
                 start: inCm(from), direction: unit(from, toward),
                 bounds: { width: w, depth: h },
@@ -1190,6 +1193,7 @@
             });
             say('視点を指定し直すと、別の位置から確認できます。');
         } catch (error) {
+            if (openedDialog) $('perspectiveDialog').close();
             console.error('パースの表示に失敗しました。', error);
             say(error.message || 'パースの表示に失敗しました。');
         } finally { busy = false; }
