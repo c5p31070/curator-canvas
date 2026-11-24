@@ -1,3 +1,4 @@
+// 機能アイコンに応じた操作欄の切り替えと、操作説明のツールチップを管理します。
 function initializeToolPalette() {
     initializeUiTooltips();
     const palette = document.querySelector('.tool-palette');

@@ -1,3 +1,4 @@
+// 展覧会の保存・読み込み・削除と、ローカル保存・チーム共有保存を管理します。
 // Exhibition records, team permissions, and local and cloud storage.
 
 let selectedExhibitionId = '';

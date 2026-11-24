@@ -1,3 +1,4 @@
+// 一つの展覧会に複数の配置案を保存し、切り替え・名前変更・削除を行います。
 // All layout alternatives belong to the same exhibition JSON record.
 let layoutVariants = [{ id: 'plan_a', name: '配置案A', layout: null }];
 let selectedLayoutVariantId = 'plan_a';

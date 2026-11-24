@@ -1,3 +1,4 @@
+// 縮尺に合わせたグリッドの表示・間隔と、グリッドへのスナップを管理します。
 // Grid settings belong to the current browser; geometry uses the common drawing scale.
 (() => {
     const storageKey = 'curator_canvas_workspace_grid';

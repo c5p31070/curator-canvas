@@ -1,3 +1,4 @@
+// 移動壁を置く固定位置の登録・選択・配置と、表示の切り替えを管理します。
 // Venue presets mark the center and angle of a wall on a single floor plan.
 (() => {
     const $ = id => document.getElementById(id);

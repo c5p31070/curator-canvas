@@ -1,3 +1,4 @@
+// 図面の表示倍率・全体表示・スクロールと、2本指での移動・拡大縮小を管理します。
 let canvasZoomByView = new Map();
 let activeCanvasZoomKey = null;
 let currentCanvasZoom = 1;

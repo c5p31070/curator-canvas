@@ -1,3 +1,4 @@
+// 選択した展示物やピンの編集欄、情報ポップアップ、入力内容の即時反映を管理します。
 function initializeItemDetailsUi() {
     let selectedItemForEditing = null;
     const itemEditorFields = document.getElementById('itemEditorFields');

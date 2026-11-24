@@ -1,3 +1,4 @@
+// 階を選んで、登録済みライトレールを別の階へまとめて複製します。
 // Copy venue rail geometry between floors without sharing equipment IDs.
 (() => {
     let busy = false;

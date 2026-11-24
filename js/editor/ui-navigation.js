@@ -1,3 +1,4 @@
+// 管理者モードの切り替え、壁面の登録・編集・削除、保存済み展覧会の呼び出しを処理します。
 window.deleteFixedVenueWall = async wallId => {
     if (!isAdminMode || window.CURATOR_ROLE === 'viewer' || isTransitioning || isUndoRedoOperation) return false;
     const wall = wallPlanJsonData[wallId];

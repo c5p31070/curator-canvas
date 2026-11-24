@@ -1,3 +1,4 @@
+// ブラウザーからSupabaseへ接続するための公開設定と、接続クライアントを用意します。
 // Browser-safe Supabase project settings. The publishable key is intended for client use.
 (() => {
 window.CURATOR_SUPABASE_CONFIG = {

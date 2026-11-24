@@ -1,3 +1,4 @@
+// 壁面展示物の輪郭形状、頂点データ、描画と番号配置に使う形状計算をまとめています。
 // Vertices describe the front face in fractions of the artwork's overall width and height.
 const artworkOutlinePresets = {
     rectangle: [[0, 0], [1, 0], [1, 1], [0, 1]],

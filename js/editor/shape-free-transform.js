@@ -1,3 +1,4 @@
+// 図形や矢印の編集ハンドルを表示し、頂点や制御点を動かす処理をまとめています。
 // Transient controls edit the saved Polygon/Path geometry directly.
 (() => {
     let enabled = false;

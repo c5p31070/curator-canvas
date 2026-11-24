@@ -1,3 +1,4 @@
+// 展示物の色・操作設定と、彫刻の台座形状・寸法の共通処理をまとめています。
 // Artwork appearance and shared object editing rules.
 
 function normalizeSculptureBaseShape(value) {

@@ -1,3 +1,4 @@
+// 壁面全体を人物紹介や年表などの展示として登録・編集・解除する処理をまとめています。
 const wallExhibitionKinds = { profile: '人物紹介', timeline: '年表', other: 'その他' };
 
 function currentExhibitionWall() {

@@ -1,3 +1,4 @@
+-- 平面図の縮尺をチーム共通設定へ移し、保存権限と更新通知の設定を追加します。
 -- Run once in Supabase SQL Editor. Existing exhibition data is preserved.
 begin;
 

@@ -1,3 +1,4 @@
+/* スマホ・タブレット向けに、操作欄・ボタン・入力欄・ダイアログの表示を調整します。 */
 /* Responsive controls change screen layout without changing drawing coordinates. */
 .mobile-panel-toggle, .mobile-panel-close, .mobile-panel-backdrop { display: none; }
 

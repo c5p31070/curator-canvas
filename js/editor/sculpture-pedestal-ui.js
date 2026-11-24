@@ -1,3 +1,4 @@
+// 彫刻の下部台座・立方体台座・作品寸法の入力と、全高の自動計算を共通化します。
 // Creation and editing use the same component dimensions and total-height calculation.
 function initializeSculpturePedestalControls(prefix, { widthInput, depthInput, heightInput, centerHeightInput, onChange }) {
     const element = suffix => document.getElementById(prefix + suffix);

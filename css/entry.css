@@ -1,3 +1,4 @@
+/* トップ画面とログイン画面の配色・文字・フォーム・画面サイズ別の見た目を定義します。 */
 /* Entry pages share the editor's flat charcoal surfaces and restrained red header. */
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }

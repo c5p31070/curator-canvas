@@ -1,3 +1,4 @@
+// 展示物に追従する混雑予想半円の形・大きさ・向きと、表示の切り替えを管理します。
 // Crowd indicator geometry, placement, and visibility.
 
 function createCrowdSemicircle(artwork, radius, fill, stroke = '#333', strokeWidth = 2) {

@@ -1,3 +1,4 @@
+-- 固定壁と固定設備をチーム共通設定として扱うための保存先・権限・移行処理を追加します。
 -- Run in the Supabase SQL Editor before deploying the shared-walls client.
 -- Fixed walls and their fixtures are team-owned. Artwork layouts remain in exhibitions.
 begin;

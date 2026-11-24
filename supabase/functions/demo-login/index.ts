@@ -1,3 +1,4 @@
+// サーバー側に設定したゲストアカウントでログインし、確認した認証セッションをブラウザーへ返します。
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const headers = {

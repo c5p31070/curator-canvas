@@ -1,3 +1,4 @@
+// 図面の位置と実寸から会場の3Dモデルを組み立て、展示物・照明を含むパースを描画します。
 // The floor guide and perspective scene use the same venue wall positions.
 (() => {
     const $ = id => document.getElementById(id);

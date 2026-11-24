@@ -1,3 +1,4 @@
+// 固定ライト・ライトレール・スポットライトの配置、照射方向、角度、点灯状態を管理します。
 // Ceiling geometry belongs to the venue; spotlights and power belong to each layout.
 let lightingVisible = true;
 try { lightingVisible = editorStorage.getItem('curator_canvas_lighting_visible') !== 'false'; } catch {}

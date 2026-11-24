@@ -1,3 +1,4 @@
+/* ダーク配色と、ツールバー・タブ・画面サイズ別の表示を調整します。 */
 /* Dark interface palette. The drawing canvas stays paper-colored for legibility. */
 body {
     background: #090b0c !important;

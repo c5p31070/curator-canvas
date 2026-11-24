@@ -1,3 +1,4 @@
+// 作品番号を割り当て、平面図・壁面図・保存済み展示品で番号を揃えて表示します。
 // Numbers belong to catalogued works, so plan and elevation share a label.
 (() => {
     const valid = value => Number.isSafeInteger(value) && value > 0;

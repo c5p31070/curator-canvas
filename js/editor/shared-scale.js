@@ -1,3 +1,4 @@
+// 企画展・公募展の縮尺をチーム共通設定として保存・読み込み・同期します。
 // The team's server value is authoritative; exhibition snapshots are backups only.
 const sharedVenueScales = new Map();
 let sharedScaleWriteBusy = false;

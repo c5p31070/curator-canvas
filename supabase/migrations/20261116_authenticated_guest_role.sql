@@ -1,3 +1,4 @@
+-- ログインするゲストの権限と、既存アカウントを招待するためのユーザー検索処理を追加します。
 -- Add authenticated guests while keeping team configuration writes for owners/editors.
 begin;
 

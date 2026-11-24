@@ -1,3 +1,4 @@
+// 図形の種類・線・塗りなどの入力欄と、図形追加ボタンの操作を処理します。
 // Shape panel UI. Geometry lives in shape-engine.js.
 function initializeShapeTools() {
     const kindInput = document.getElementById('shapeKind');

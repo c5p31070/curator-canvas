@@ -1,3 +1,4 @@
+// 四角形・三角形・矢印などの図形を生成するための形状計算をまとめています。
 // Basic shape geometry. Objects use Fabric's standard transform handles.
 window.CuratorShapeEngine = (() => {
     function create(kind, { left, top, length, head, stroke, fill }) {

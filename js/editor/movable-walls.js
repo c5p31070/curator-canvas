@@ -1,3 +1,4 @@
+// 移動壁の追加・編集・削除、対応する壁面図の管理、作品のスナップを処理します。
 // A movable wall and its elevations belong to the current exhibition/layout.
 (() => {
     let defaultsVenue = null;

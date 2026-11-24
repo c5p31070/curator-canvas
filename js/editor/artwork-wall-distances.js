@@ -1,3 +1,4 @@
+// 壁面図で選択した作品から、壁の上下左右までの距離を計算して表示します。
 // Selection guides stay outside Fabric: no hit testing, saved data or PDF marks.
 (() => {
     const namespace = 'http://www.w3.org/2000/svg';

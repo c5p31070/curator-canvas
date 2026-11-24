@@ -1,3 +1,4 @@
+// 展示物・ピンの追加、保存済み展示品の再利用、混雑設定やPDFボタンの操作を処理します。
 let pendingArtworkCatalogId = '';
 
 function refreshArtworkCatalog() {

@@ -1,3 +1,4 @@
+// チーム管理者の権限を確認し、招待メールの送信とチームへの所属・役割の登録を行います。
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {

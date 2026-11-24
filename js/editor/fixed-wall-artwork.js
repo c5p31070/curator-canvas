@@ -1,3 +1,4 @@
+// 壁にスナップした作品を壁面図へ登録し、平面図と壁面図の位置・高さを連携します。
 (() => {
     const pendingSnaps = new WeakMap();
     const canLink = artwork => currentViewMode === 'floor' && artwork?.isArtwork &&

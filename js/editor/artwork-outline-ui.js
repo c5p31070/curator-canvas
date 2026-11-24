@@ -1,3 +1,4 @@
+// 展示物の形を編集する画面で、頂点の移動や辺の実寸入力を処理します。
 function artworkOutlineDragPosition(origin, displacement, frame, free) {
     const [x, y] = origin;
     const [dx, dy] = displacement;

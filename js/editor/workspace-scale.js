@@ -1,3 +1,4 @@
+// 作業領域に縮尺バーを表示し、表示倍率に合わせた更新と表示の切り替えを行います。
 // A screen scale bar is a view preference, independent of exhibition data.
 (() => {
     const key = 'curator_canvas_workspace_scale_visible';

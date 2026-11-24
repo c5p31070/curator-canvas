@@ -1,3 +1,4 @@
+// エディターの共通状態、描画キャンバス、会場・階・縮尺などの基本設定を用意します。
 // Shared editor state, canvas initialization, and venue scale settings.
 
 const editorStorage = {

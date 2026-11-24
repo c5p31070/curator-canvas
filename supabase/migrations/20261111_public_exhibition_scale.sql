@@ -1,3 +1,4 @@
+-- 公募展会場の縮尺を、企画展会場とは別のチーム共通設定として保存できるようにします。
 -- Requires the existing team scale permissions and RLS policy.
 -- NULL means the public exhibition venue has not been calibrated.
 begin;

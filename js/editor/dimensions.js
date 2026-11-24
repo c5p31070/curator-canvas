@@ -1,3 +1,4 @@
+// 寸法線の作成、長さの表示、単位切り替えと、Shiftキーでの水平・垂直固定を処理します。
 // Dimension annotations are ordinary Fabric groups; previews never enter saved data.
 let dimensionStartPoint = null;
 let dimensionPreview = null;

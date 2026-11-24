@@ -1,3 +1,4 @@
+// チーム共通の固定壁や固定位置を保存・読み込みし、会場設定を同期します。
 // Permanent venue walls are independent of exhibition layouts and Undo history.
 (() => {
     let walls = {};

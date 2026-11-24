@@ -1,3 +1,4 @@
+/* ログイン中のアカウント表示と、閲覧者向けの操作部品の見た目を定義します。 */
 /* Editor account controls and viewer permissions. */
 .account-controls { display: flex; align-items: center; gap: 10px; margin-left: auto; color: #a5b0ad; font-size: 11px; }
 .account-controls button { padding: 6px 9px; border: 1px solid #374142; background: transparent; color: #c2cbc8; font: inherit; cursor: pointer; }

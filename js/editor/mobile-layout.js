@@ -1,3 +1,4 @@
+// スマホ・タブレットで操作欄を開閉し、縦横の画面レイアウトに合わせて表示を切り替えます。
 // Panel visibility is a screen preference, independent of saved exhibition data.
 document.addEventListener('DOMContentLoaded', () => {
     const responsive = matchMedia('(max-width: 760px), (max-width: 1400px) and (any-pointer: coarse)');

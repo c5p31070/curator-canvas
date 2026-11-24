@@ -1,3 +1,4 @@
+// パース表示中のキーボード移動、ドラッグでの視線変更、タッチ用ボタンと視点のリセットを処理します。
 // Camera navigation changes only the preview, leaving exhibition data untouched.
 (() => {
     const actions = {

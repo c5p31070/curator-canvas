@@ -1,3 +1,4 @@
+// ログイン、パスワード設定、ログアウト、チーム招待と、利用者の権限に応じた操作制限を管理します。
 (function () {
     const client = window.curatorSupabase;
     const isLoginPage = /(^|\/)login\.html$/.test(location.pathname);

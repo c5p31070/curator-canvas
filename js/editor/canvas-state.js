@@ -1,3 +1,4 @@
+// 配置図の保存形式、保存データの復元、元に戻す・やり直す処理を管理します。
 // Layout serialization, restoration, and Undo / Redo.
 
 // Fabric properties that must survive saving and restoring a layout.

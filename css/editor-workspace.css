@@ -1,3 +1,4 @@
+/* 図面の作業領域、機能欄、壁タブ、パース画面などの見た目を整えます。 */
 /* Keep the operation panel on one charcoal surface, with quiet separators. */
 .sidebar {
     background: #292e31 !important;

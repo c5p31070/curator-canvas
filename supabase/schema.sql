@@ -1,3 +1,4 @@
+-- チーム・利用権限・展覧会データを管理するテーブルとアクセス制御、初期管理者の設定を作成します。
 -- Run this in Supabase SQL Editor after creating the initial administrator user.
 -- Replace the email and team name in the final block before running it.
 

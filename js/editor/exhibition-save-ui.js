@@ -1,3 +1,4 @@
+// 新規展覧会の作成、保存欄の表示、名前を付けて保存、展覧会名の変更を処理します。
 // Saving under a different title creates a copy; renaming changes only record metadata.
 function refreshExhibitionSaveUi() {
     const record = getActiveExhibitionRecord();

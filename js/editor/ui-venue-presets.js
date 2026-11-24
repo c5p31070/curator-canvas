@@ -1,3 +1,4 @@
+// 管理者モードで、階ごとの固定壁・照明・固定位置を一覧から選択・削除します。
 // Select persistent venue objects without hunting through the drawing.
 (() => {
     let deleting = false;
