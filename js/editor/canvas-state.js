@@ -35,6 +35,7 @@ function getCustomProperties() {
         'lightGroundX', 'lightGroundY',
         'isWallOutline',
         'displayType',
+        'hangingDropCm',
         'sculptureBaseShape',
         'sculpturePedestal',
         'cmWidth',

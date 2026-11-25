@@ -1,6 +1,8 @@
 // 図面の位置と実寸から会場の3Dモデルを組み立て、展示物・照明を含むパースを描画します。
 // The floor guide and perspective scene use the same venue wall positions.
 (() => {
+    // 縦方向の視野角50度から、透視投影と番号表示に共通の倍率を求めます。
+    const perspectiveProjectionScale = 1 / Math.tan(50 * Math.PI / 360);
     const $ = id => document.getElementById(id);
     const loadAnchors = () => Object.fromEntries(Object.entries(wallPlanJsonData)
         .filter(([, wall]) => !wall.movableWallId && wall.planPosition)
@@ -515,6 +517,49 @@
         numberOnFace(vertices, number, front(.37,base*.83), front(.63,base*.83), front(.37,base*.53), true);
     }
 
+    function addHangingArtwork(vertices, points, artwork, ceiling) {
+        const height = Number(artwork.cmHeight), drop = hangingArtworkDropCm(artwork);
+        const top = ceiling-drop, bottom = top-height;
+        if (!Number.isFinite(drop) || drop < 0 || !(height > 0) || bottom < 0) return null;
+        const panel = artwork.displayType === 'hanging-panel';
+        const material = panel ? colors.frame : [.61,.62,.58];
+        for (let i = 0; i < 4; i++) {
+            const a = points[i], b = points[(i+1)%4];
+            quad(vertices,pointAt(a,top),pointAt(b,top),pointAt(b,bottom),pointAt(a,bottom),
+                i%2 ? material.map(value => value*.86) : material);
+        }
+        quad(vertices,...points.map(point => pointAt(point,top)),material);
+        quad(vertices,...points.slice().reverse().map(point => pointAt(point,bottom)),material);
+        for (const [a,b] of [[points[3],points[2]],[points[1],points[0]]]) {
+            const direction = unit(a,b);
+            const width = Math.hypot(b.x-a.x,b.z-a.z);
+            const p = (u,v,offset) => [a.x+(b.x-a.x)*u-direction.z*offset,
+                top-height*v,a.z+(b.z-a.z)*u+direction.x*offset];
+            const border = Math.min(4,width*.04,height*.04);
+            const insetX = panel ? border/width : .22;
+            const insetY = panel ? border/height : .25;
+            quad(vertices,p(insetX,insetY,.03),p(1-insetX,insetY,.03),
+                p(1-insetX,1-insetY,.03),p(insetX,1-insetY,.03),colors.artwork);
+            numberOnFace(vertices,artwork.artworkNumber,p(insetX,insetY,.08),
+                p(1-insetX,insetY,.08),p(insetX,1-insetY,.08),true);
+        }
+        for (const along of panel ? [.15,.85] : [.5]) {
+            const anchor = {
+                x: points[0].x+(points[1].x-points[0].x)*along+(points[3].x-points[0].x)*.5,
+                z: points[0].z+(points[1].z-points[0].z)*along+(points[3].z-points[0].z)*.5
+            };
+            for (let side = 0; side < 8; side++) {
+                const a = side*Math.PI/4, b = (side+1)*Math.PI/4;
+                const p = (angle,y) => [anchor.x+Math.cos(angle)*.23,y,anchor.z+Math.sin(angle)*.23];
+                quad(vertices,p(a,ceiling),p(b,ceiling),p(b,top),p(a,top),[.19,.20,.20]);
+            }
+        }
+        const [left,right] = [points[3],points[2]];
+        const front = unit(left,right);
+        return { object: artwork, normal: [-front.z,0,front.x], depth: 0,
+            point: (x,y) => [left.x+(right.x-left.x)*x,bottom+height*y,left.z+(right.z-left.z)*x] };
+    }
+
     function sculptureBasePoints(points, shape) {
         if (!['circle', 'ellipse'].includes(shape)) return points;
         return Array.from({ length: 32 }, (_, index) => {
@@ -609,10 +654,10 @@
                 'precision ' + precision + ' float;',
                 'attribute vec3 p; attribute vec3 n; attribute vec4 c;',
                 'varying vec3 position; varying vec3 normal; varying vec4 color;',
-                'uniform float aspect;',
+                'uniform float aspect; uniform float projectionScale;',
                 'void main(){',
                 'position=p; normal=n; color=c;',
-                'gl_Position=vec4(p.x*1.55/aspect,p.y*1.55,p.z*1.000004-4.000008,p.z);',
+                'gl_Position=vec4(p.x*projectionScale/aspect,p.y*projectionScale,p.z*1.000004-4.000008,p.z);',
                 '}'
             ].join('\n')));
             gl.attachShader(program, compile(gl.FRAGMENT_SHADER, [
@@ -737,6 +782,7 @@
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.useProgram(program);
         gl.uniform1f(gl.getUniformLocation(program, 'aspect'), surface.width / surface.height);
+        gl.uniform1f(gl.getUniformLocation(program, 'projectionScale'), perspectiveProjectionScale);
         const pass = gl.getUniformLocation(program, 'lightPass');
         gl.uniform1i(pass, 0);
         upload(vertices, buffer);
@@ -856,7 +902,7 @@
                 const depth = toViewPoint(center)[2];
                 if (depth <= 2) continue;
                 // Keep the annotation upright and readable at the displayed CSS size.
-                const worldPerPixel = 2*depth/(1.55*surface.height*displayScale);
+                const worldPerPixel = 2*depth/(perspectiveProjectionScale*surface.height*displayScale);
                 const width = Math.max(36,String(label.number).length*12+12)*worldPerPixel;
                 const height = 32*worldPerPixel;
                 for (let i = 0; i < 3; i++) center[i] += up[i]*height/2;
@@ -1033,7 +1079,7 @@
             const box = (points, height, color, faceIds = []) => {
                 for (let i = 0; i < 4; i++) {
                     const a = points[i], b = points[(i + 1) % 4];
-                    const faceColor = wallPlanJsonData[faceIds[i]]?.wallExhibition ? colors.wallExhibition : color;
+                    const faceColor = wallPlanJsonData[faceIds[i]]?.wallExhibition && isArtworkTypeVisible('wall-exhibition') ? colors.wallExhibition : color;
                     quad(vertices, pointAt(a, height), pointAt(b, height), pointAt(b, 0), pointAt(a, 0),
                         i % 2 ? faceColor.map(value => value * .86) : faceColor);
                 }
@@ -1041,10 +1087,16 @@
             };
             for (const object of objects) {
                 if (!object.isMovableWall && !(object.isArtwork && !object.isFixture &&
-                    ['floor', 'sculpture'].includes(object.displayType))) continue;
+                    (['floor', 'sculpture'].includes(object.displayType) || isHangingArtwork(object)))) continue;
+                if (object.isArtwork && !isArtworkTypeVisible(object)) continue;
                 const points = corners(object);
                 const height = Number(object.cmHeight);
                 if (!points || !(height > 0)) continue;
+                if (isHangingArtwork(object)) {
+                    const surface = addHangingArtwork(vertices,points,object,ceiling);
+                    if (surface) artworkSurfaces.push(surface);
+                    continue;
+                }
                 const faceIds = object.isMovableWall
                     ? [object.movableFrontId, object.movableRightId, object.movableBackId, object.movableLeftId] : [];
                 if (object.displayType !== 'sculpture') {
@@ -1087,7 +1139,7 @@
                     const a = inCm(position.start), b = inCm(position.end);
                     ends = anchors[id].faceSide === -1 ? [b, a] : [a, b];
                     quad(vertices, pointAt(a, height), pointAt(b, height), pointAt(b, 0), pointAt(a, 0),
-                        wall.wallExhibition ? colors.wallExhibition : colors.wall);
+                        wall.wallExhibition && isArtworkTypeVisible('wall-exhibition') ? colors.wallExhibition : colors.wall);
                     const direction = unit(a, b);
                     const edge = (point, side) => ({ x: point.x - direction.z * side, z: point.z + direction.x * side });
                     contactShadow(shadows, [edge(a, -1), edge(b, -1), edge(b, 1), edge(a, 1)], 12);
@@ -1102,7 +1154,7 @@
                 const scaleX = savedWidth > 0 ? savedWidth / width : scale;
                 const scaleY = savedHeight > 0 ? savedHeight / (wall.legacyHeightCm || height) : scale;
                 const left = Number(outline?.left) || 0, bottom = (Number(outline?.top) || 0) + (savedHeight || height * scaleY);
-                const works = objects.filter(item => item.isArtwork && !item.isFixture);
+                const works = objects.filter(item => item.isArtwork && !item.isFixture && isArtworkTypeVisible(item));
                 if (!works.length) continue;
                 jobs.push(new Promise(resolve => fabric.util.enlivenObjects(works, resolve)).then(items => {
                     for (const object of items) {

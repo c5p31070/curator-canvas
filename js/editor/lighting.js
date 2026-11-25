@@ -183,7 +183,8 @@ function artworkLightDestination(light, target) {
     // A front elevation: horizontal position follows the artwork's local X
     // axis; vertical position changes physical height, never plan depth.
     const width = pedestal ? body.width * pedestal.workWidthCm / Number(target.cmWidth) : body.width;
-    const depth = pedestal ? body.height * pedestal.workDepthCm / Number(target.cmDepth) : body.height;
+    const depth = isHangingArtwork(target) ? Number(target.cmDepth)*body.width/Number(target.cmWidth)
+        : pedestal ? body.height * pedestal.workDepthCm / Number(target.cmDepth) : body.height;
     const point = fabric.util.transformPoint(new fabric.Point((x - .5) * width, depth / 2), body.calcTransformMatrix());
     return { point, height: height === null ? null : height + (y - .5) * (pedestal?.workHeightCm ?? Number(target.cmHeight || 0)) };
 }

@@ -393,7 +393,7 @@
 
     window.snapArtworkToMovableWall = object => {
         if (object) artworkSnaps.delete(object);
-        if (!object?.isArtwork || object.isFixture || object.group || currentViewMode !== 'floor' || !canEdit()) return false;
+        if (!object?.isArtwork || isHangingArtwork(object) || object.isFixture || object.group || currentViewMode !== 'floor' || !canEdit()) return false;
         const point = object.getCenterPoint();
         const zoom = canvas.lowerCanvasEl.getBoundingClientRect().width / canvas.getWidth() || 1;
         const threshold = 22 / zoom;
@@ -452,7 +452,7 @@
         return true;
     }
     window.getMovableWallCollisionScore = object => {
-        if (currentViewMode !== 'floor' || (!object?.isArtwork && !object?.isMovableWall)) return 0;
+        if (currentViewMode !== 'floor' || isHangingArtwork(object) || (!object?.isArtwork && !object?.isMovableWall)) return 0;
         const corners = bodyCorners(object);
         if (!corners) return 0;
         return canvas.getObjects().filter(wall => wall !== object && wall.isMovableWall)

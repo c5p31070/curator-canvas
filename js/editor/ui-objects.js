@@ -16,11 +16,13 @@ function refreshArtworkCatalog() {
     savedArtworkCatalog.forEach(item => {
         const option = document.createElement('option');
         option.value = item.id;
-        const typeLabel = item.displayType === 'sculpture' ? `彫刻・台座${sculptureBaseShapeLabel(item.sculptureBaseShape)}` : item.displayType === 'wall' ? '壁面' : '床置';
-        const dimensions = item.displayType === 'wall'
+        const typeLabel = isHangingArtwork(item) ? (item.displayType === 'hanging-panel' ? '吊り下げパネル' : '吊り下げ立体物')
+            : item.displayType === 'sculpture' ? `彫刻・台座${sculptureBaseShapeLabel(item.sculptureBaseShape)}` : item.displayType === 'wall' ? '壁面' : '床置';
+        const dimensions = ['wall', 'hanging-panel'].includes(item.displayType)
             ? `幅 ${cmToMm(item.cmWidth)} × 高さ ${cmToMm(item.cmHeight)} × 厚み ${cmToMm(item.cmDepth)} mm`
             : `幅 ${cmToMm(item.cmWidth)} × 奥行 ${cmToMm(item.cmDepth)} × 高さ ${cmToMm(item.cmHeight)} mm`;
-        const pedestal = sculpturePedestalDescription(item.sculpturePedestal);
+        const pedestal = isHangingArtwork(item) ? `天井から上端 ${cmToMm(hangingArtworkDropCm(item))} mm`
+            : sculpturePedestalDescription(item.sculpturePedestal);
         option.textContent = `No.${item.artworkNumber} ${item.name} · ${typeLabel} · ${dimensions}${pedestal ? ` · ${pedestal}` : ''}${item.artworkCenterHeightCm != null ? ` · 中央高 ${cmToMm(item.artworkCenterHeightCm)} mm` : ''}`;
         select.appendChild(option);
     });
@@ -35,6 +37,7 @@ function upsertArtworkCatalogEntry(data, preferredId = '') {
             item.name === data.name && Number(item.cmWidth) === Number(data.cmWidth) &&
             Number(item.cmHeight) === Number(data.cmHeight) && Number(item.cmDepth) === Number(data.cmDepth) &&
             JSON.stringify(item.artworkOutline || null) === JSON.stringify(data.artworkOutline || null) &&
+            (!isHangingArtwork(data) || hangingArtworkDropCm(item) === hangingArtworkDropCm(data)) &&
             (data.displayType !== 'sculpture' || (
                 normalizeSculptureBaseShape(item.sculptureBaseShape) === normalizeSculptureBaseShape(data.sculptureBaseShape) &&
                 JSON.stringify(normalizeSculpturePedestal(item.sculpturePedestal)) === JSON.stringify(normalizeSculpturePedestal(data.sculpturePedestal)))));
@@ -54,6 +57,7 @@ window.updateArtworkCatalogEntry = obj => {
         name: obj.artworkName || '名称未設定',
         description: obj.description || '',
         displayType: obj.displayType || 'wall',
+        hangingDropCm: isHangingArtwork(obj) ? hangingArtworkDropCm(obj) : undefined,
         sculptureBaseShape: obj.sculptureBaseShape,
         sculpturePedestal: normalizeSculpturePedestal(obj.sculpturePedestal),
         cmWidth: Number(obj.cmWidth) || 150,
@@ -74,6 +78,7 @@ window.migrateArtworkCatalogFromPlans = () => {
                     name: obj.artworkName || '名称未設定',
                     description: obj.description || '',
                     displayType: obj.displayType || 'wall',
+                    hangingDropCm: isHangingArtwork(obj) ? hangingArtworkDropCm(obj) : undefined,
                     sculptureBaseShape: obj.sculptureBaseShape,
                     sculpturePedestal: normalizeSculpturePedestal(obj.sculpturePedestal),
                     cmWidth: Number(obj.cmWidth) || 150,
@@ -131,6 +136,7 @@ function initializeObjectControlsUi() {
         document.getElementById('artworkName').value = item.name;
         document.getElementById('artworkDescription').value = item.description || '';
         document.getElementById('displayType').value = item.displayType || 'wall';
+        document.getElementById('hangingArtworkDrop').value = cmToMm(hangingArtworkDropCm(item));
         document.getElementById('sculptureBaseShape').value = normalizeSculptureBaseShape(item.sculptureBaseShape);
         document.getElementById('artworkWidth').value = cmToMm(item.cmWidth);
         document.getElementById('artworkHeight').value = cmToMm(item.cmHeight);
@@ -149,15 +155,17 @@ function initializeObjectControlsUi() {
 
     if (addButton) {
 
-        addButton.addEventListener("click", function() {
+        addButton.addEventListener("click", async function() {
 
             if (window.CURATOR_ROLE === 'viewer' || isTransitioning) return;
+            const preferredCatalogId = pendingArtworkCatalogId;
+            pendingArtworkCatalogId = '';
             if (displayTypeSelect.value === 'wall-exhibition') {
                 saveWallExhibition();
                 return;
             }
             if (!requireVenueScale()) return;
-            const centerHeightText = document.getElementById('artworkCenterHeight').value.trim();
+            const centerHeightText = isHangingArtwork(displayTypeSelect.value) ? '' : document.getElementById('artworkCenterHeight').value.trim();
             let centerHeight = centerHeightText === '' ? null : mmToCm(centerHeightText);
             if (centerHeight !== null && (!Number.isFinite(centerHeight) || centerHeight < 0)) {
                 alert('作品中央の高さは0以上の数値で入力してください。');
@@ -221,6 +229,15 @@ function initializeObjectControlsUi() {
                 alert('作品の寸法は0より大きい数値を入力してください。');
                 return;
             }
+            let hangingDropCm;
+            if (isHangingArtwork(displayType)) {
+                const text = document.getElementById('hangingArtworkDrop').value.trim();
+                hangingDropCm = text === '' ? NaN : mmToCm(text);
+                const error = hangingArtworkValidation(hangingDropCm, cmH);
+                if (error) { alert(error); return; }
+                if (currentViewMode !== 'floor' && !await switchViewMode('floor')) return;
+                centerHeight = hangingArtworkCenterHeightCm({ hangingDropCm, cmHeight: cmH });
+            }
 
             const addAsFixture =
                 isAdminMode &&
@@ -231,6 +248,7 @@ function initializeObjectControlsUi() {
                 name: nameText,
                 description: descriptionEl ? descriptionEl.value.trim() : '',
                 displayType,
+                hangingDropCm,
                 sculptureBaseShape,
                 sculpturePedestal,
                 cmWidth: cmW,
@@ -238,8 +256,7 @@ function initializeObjectControlsUi() {
                 cmDepth: cmD,
                 artworkOutline,
                 artworkCenterHeightCm: centerHeight
-            }, pendingArtworkCatalogId);
-            pendingArtworkCatalogId = '';
+            }, preferredCatalogId);
 
             let pxW = cmW * currentScale;
             const isFloorPlan = currentViewMode === 'floor';
@@ -305,6 +322,7 @@ function initializeObjectControlsUi() {
                         description: descriptionEl ? descriptionEl.value.trim() : '',
 
                         displayType: displayType,
+                        hangingDropCm,
                         sculptureBaseShape,
                         sculpturePedestal,
                         isFixture: Boolean(addAsFixture),
@@ -331,9 +349,7 @@ function initializeObjectControlsUi() {
             if (artworkGroup.artworkCenterHeightCm != null) window.shareArtworkCenterHeight(artworkGroup);
             canvas.add(artworkGroup);
 
-            canvas.setActiveObject(
-                artworkGroup
-            );
+            if (artworkGroup.visible !== false) canvas.setActiveObject(artworkGroup);
 
             canvas.renderAll();
 

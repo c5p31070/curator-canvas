@@ -37,6 +37,7 @@ function findArtworkCatalogReference(artwork) {
         Number(item.cmHeight) === (Number(artwork.cmHeight) || 100) &&
         Number(item.cmDepth) === (Number(artwork.cmDepth) || 5) &&
         JSON.stringify(item.artworkOutline || null) === JSON.stringify(artwork.artworkOutline || null) &&
+        (!isHangingArtwork(artwork) || (item.displayType === artwork.displayType && hangingArtworkDropCm(item) === hangingArtworkDropCm(artwork))) &&
         (artwork.displayType !== 'sculpture' || (item.displayType === 'sculpture' &&
             normalizeSculptureBaseShape(item.sculptureBaseShape) === normalizeSculptureBaseShape(artwork.sculptureBaseShape) &&
             JSON.stringify(normalizeSculpturePedestal(item.sculpturePedestal)) === JSON.stringify(normalizeSculpturePedestal(artwork.sculpturePedestal)))));
@@ -88,6 +89,10 @@ window.applyArtworkCatalogHeightsToFloor = () => {
     if (currentViewMode !== 'floor') return;
     const visit = objects => objects.forEach(object => {
         if (object.isArtwork) {
+            if (isHangingArtwork(object)) {
+                object.artworkCenterHeightCm = hangingArtworkCenterHeightCm(object);
+                return;
+            }
             const catalog = findArtworkCatalogReference(object);
             const height = object.fixedWallArtworkId ? object.artworkCenterHeightCm
                 : artworkWallHeights.get(catalog?.id) ?? object.artworkCenterHeightCm ?? catalog?.artworkCenterHeightCm;
@@ -101,6 +106,7 @@ window.applyArtworkCatalogHeightsToFloor = () => {
 };
 
 window.getArtworkCenterHeightCm = artwork => {
+    if (isHangingArtwork(artwork)) return hangingArtworkCenterHeightCm(artwork);
     if (artwork?.fixedWallArtworkId) return Number.isFinite(artwork.artworkCenterHeightCm) ? artwork.artworkCenterHeightCm : null;
     const catalog = findArtworkCatalogReference(artwork);
     const sharedHeight = currentViewMode === 'floor' ? artworkWallHeights.get(catalog?.id) : null;
@@ -131,6 +137,10 @@ window.placeArtworkAtSavedHeight = artwork => {
 };
 
 window.shareArtworkCenterHeight = artwork => {
+    if (isHangingArtwork(artwork)) {
+        artwork.artworkCenterHeightCm = hangingArtworkCenterHeightCm(artwork);
+        return;
+    }
     if (window.shareFixedWallArtworkHeight?.(artwork)) return;
     const catalog = findArtworkCatalogReference(artwork);
     if (!artwork?.artworkCatalogId) return;
@@ -166,7 +176,7 @@ window.updateArtworkHeightFromWall = (object, share = false, scaleOverride = nul
         object.getObjects().forEach(child => window.updateArtworkHeightFromWall(child, share));
         return;
     }
-    if (!object.isArtwork) return;
+    if (!object.isArtwork || isHangingArtwork(object)) return;
     const outline = canvas.getObjects().find(item => item.isWallOutline);
     if (!outline) return;
     const center = object.item?.(0)
@@ -821,6 +831,7 @@ async function renderWallCanvas(callback = null) {
 
 function applyArtworkDimensions(obj, scale) {
     if (!obj?.isArtwork) return;
+    if (isHangingArtwork(obj)) obj.artworkCenterHeightCm = hangingArtworkCenterHeightCm(obj);
     const pedestal = obj.displayType === 'sculpture' ? normalizeSculpturePedestal(obj.sculpturePedestal) : null;
     if (pedestal) obj.cmHeight = sculpturePedestalTotalHeight(pedestal);
     if (obj.displayType === 'sculpture' && normalizeSculptureBaseShape(obj.sculptureBaseShape) === 'circle') obj.cmDepth = obj.cmWidth;

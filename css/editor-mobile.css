@@ -68,7 +68,7 @@
     .tool-palette .tool-icon svg { width: 18px; height: 18px; flex-basis: 18px; }
     .tool-palette .tool-label { max-width: 64px; font-size: 9px; }
     .tool-palette .tool-group [data-tool="setup"] { min-width: 76px; }
-    .tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"]) { min-width: 44px; flex-basis: 44px; }
+    .tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"], [data-action="artwork-visibility"]) { min-width: 44px; flex-basis: 44px; }
     #floorTabs, #wallTabs { min-height: 32px !important; height: 32px; flex-basis: 32px; }
     #floorTabs.floor-tabs-compact { min-height: 28px !important; height: 28px; flex-basis: 28px; }
     #floorTabs .wall-tab, #wallTabs .wall-tab { min-width: 48px !important; min-height: 28px; padding: 4px 8px !important; font-size: 11px !important; }
@@ -96,7 +96,7 @@
         overscroll-behavior: contain;
         padding: 10px;
     }
-    #perspectiveCanvas { max-height: 54vh; max-height: 54dvh; }
+    #perspectiveCanvas { max-height: 60vh; max-height: 60dvh; }
     .perspective-header { position: sticky; top: -10px; z-index: 1; padding: 5px 0; background: #20262a; }
     .perspective-header h2 { overflow-wrap: anywhere; }
     .perspective-header .btn { min-height: 36px; }
@@ -115,7 +115,7 @@
 
 @media (max-width: 950px) and (orientation: landscape) and (max-height: 600px) {
     .sidebar { flex-basis: 190px; width: 190px !important; }
-    #perspectiveCanvas { max-height: 48vh; max-height: 48dvh; }
+    #perspectiveCanvas { max-height: 54vh; max-height: 54dvh; }
 }
 
 @media (max-width: 600px) and (orientation: portrait) {

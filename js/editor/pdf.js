@@ -223,17 +223,21 @@ async function renderCombinedPdf(printWindow) {
                         obj.displayType === 'wall'
                     )
                         ? '壁面展示'
-                        : obj.displayType === 'sculpture' ? `彫刻（台座${sculptureBaseShapeLabel(obj.sculptureBaseShape)}）` : '床置展示';
+                        : isHangingArtwork(obj) ? (obj.displayType === 'hanging-panel' ? '吊り下げパネル' : '吊り下げ立体物')
+                            : obj.displayType === 'sculpture' ? `彫刻（台座${sculptureBaseShapeLabel(obj.sculptureBaseShape)}）` : '床置展示';
 
 
                 let dimText =
                     (
-                        obj.displayType === 'wall'
+                        ['wall','hanging-panel'].includes(obj.displayType)
                     )
                         ? `幅:${cmToMm(cmW)}×高:${cmToMm(cmH)} (厚:${cmToMm(cmD)}) mm`
                         : obj.displayType === 'sculpture'
                             ? `台座 幅:${cmToMm(cmW)}×奥:${cmToMm(cmD)} / 全高:${cmToMm(cmH)} mm`
-                            : `幅:${cmToMm(cmW)}×奥:${cmToMm(cmD)} mm`;
+                            : isHangingArtwork(obj)
+                                ? `幅:${cmToMm(cmW)}×奥:${cmToMm(cmD)}×高:${cmToMm(cmH)} mm`
+                                : `幅:${cmToMm(cmW)}×奥:${cmToMm(cmD)} mm`;
+                if (isHangingArtwork(obj)) dimText += ` / 天井から上端:${cmToMm(hangingArtworkDropCm(obj))} mm`;
                 const pedestal = sculpturePedestalDescription(obj.sculpturePedestal);
                 if (obj.displayType === 'sculpture' && pedestal) dimText += ` / ${pedestal}`;
 

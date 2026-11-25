@@ -19,6 +19,10 @@ function initializeCreationSettingsUi() {
     const updateDepthTooltip = () => {
         if (!depthInput || !displayTypeSelect) return;
         const sculpture = displayTypeSelect.value === 'sculpture';
+        const hanging = isHangingArtwork(displayTypeSelect.value);
+        const panel = displayTypeSelect.value === 'wall' || displayTypeSelect.value === 'hanging-panel';
+        document.getElementById('hangingArtworkFields').hidden = !hanging;
+        document.getElementById('artworkCenterHeightGroup').hidden = hanging;
         if (!sculpture) pedestalControls.deactivate();
         const circle = sculpture && sculptureBaseShape.value === 'circle';
         document.getElementById('sculptureBaseFields').hidden = !sculpture;
@@ -27,8 +31,8 @@ function initializeCreationSettingsUi() {
             ? (pedestalControls.enabled.checked ? '下部台座の高さ' : '全高（台座込み）') : '高さ';
         document.getElementById('depthGroup').hidden = circle;
         if (circle) depthInput.value = document.getElementById('artworkWidth').value;
-        if (depthLabel) depthLabel.textContent = sculpture ? '台座の奥行き' : displayTypeSelect.value === 'wall' ? '厚み' : '奥行き';
-        depthInput.dataset.tooltip = displayTypeSelect.value === 'wall'
+        if (depthLabel) depthLabel.textContent = sculpture ? '台座の奥行き' : panel ? '厚み' : '奥行き';
+        depthInput.dataset.tooltip = panel
             ? '壁面展示では厚みとして扱い、平面図では幅と厚みで表示します。'
             : '床置展示では奥行きとして扱い、平面図では幅と奥行きで表示します。';
         pedestalControls.refresh();

@@ -27,7 +27,8 @@ function renderWallExhibition() {
         const bodyY = top + height * .42;
         const common = {
             originX: 'left', originY: 'top', selectable: false, evented: false,
-            excludeFromExport: true, isWallExhibitionPreview: true
+            excludeFromExport: true, isWallExhibitionPreview: true,
+            visible: isArtworkTypeVisible('wall-exhibition')
         };
         // The preview is derived from the wall and is never saved as a movable object.
         const elements = [new fabric.Rect({ ...common, left, top, width, height, fill: '#e5dfd2', strokeWidth: 0 })];

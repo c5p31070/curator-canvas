@@ -17,6 +17,8 @@ function getWallCollisionScore(obj, includeMovableWalls = true) {
     if (
         !isWallDataLoaded ||
         !obj ||
+        isHangingArtwork(obj) ||
+        (obj.type === 'activeSelection' && obj.getObjects().every(isHangingArtwork)) ||
         obj.isPin ||
         obj.isShapeObject ||
         obj.isDimension ||
@@ -139,6 +141,7 @@ function checkCollisionWithWall(obj) {
 
 function snapObjectToFloorWall(obj) {
     if (currentViewMode !== 'floor' || !isWallDataLoaded ||
+        isHangingArtwork(obj) ||
         (!obj?.isArtwork && !obj?.isMovableWall) || obj.isFixture || obj.group ||
         window.CURATOR_ROLE === 'viewer' || getWallCollisionScore(obj) > 0) return false;
     const origin = { left: obj.left, top: obj.top };

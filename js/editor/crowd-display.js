@@ -73,9 +73,12 @@ function syncCrowdVisibilityButton() {
 
 function configureCrowdCircle(circle) {
     if (!circle) return;
+    const hiddenArtwork = canvas.getObjects().some(artwork =>
+        artwork.isArtwork && !isArtworkTypeVisible(artwork) && (artwork.crowdCircle === circle ||
+            (circle.crowdLinkId && artwork.crowdLinkId === circle.crowdLinkId)));
     circle.set({
         isCrowdCircle: true,
-        visible: crowdVisible,
+        visible: crowdVisible && !hiddenArtwork,
         selectable: false,
         evented: false,
         hasControls: false,

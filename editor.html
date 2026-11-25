@@ -476,6 +476,7 @@
                     <span><i class="artwork-swatch-wall" aria-hidden="true"></i>壁面展示</span>
                     <span><i class="artwork-swatch-floor" aria-hidden="true"></i>床置き</span>
                     <span><i class="artwork-swatch-sculpture" aria-hidden="true"></i>彫刻</span>
+                    <span><i class="artwork-swatch-hanging" aria-hidden="true"></i>吊り下げ</span>
                     <span><i class="artwork-swatch-fixture" aria-hidden="true"></i>固定設備</span>
                 </div>
 
@@ -504,11 +505,17 @@
                             床置展示（展示ケース・立体物など）
                         </option>
                         <option value="sculpture">彫刻</option>
+                        <option value="hanging-panel">吊り下げ展示（絵画・パネル）</option>
+                        <option value="hanging-object">吊り下げ展示（立体物）</option>
                         <option value="wall-exhibition">壁面全体（人物紹介・年表など）</option>
                     </select>
                 </div>
 
                 <div id="artworkObjectFields">
+                    <div id="hangingArtworkFields" class="form-group" hidden>
+                        <label for="hangingArtworkDrop">天井から展示物の上端まで (mm)</label>
+                        <input id="hangingArtworkDrop" class="form-control" type="number" min="0" step="1" value="500">
+                    </div>
                     <div id="sculptureBaseFields" class="form-group" hidden>
                         <label for="sculptureBaseShape">台座の形</label>
                         <select id="sculptureBaseShape" class="form-control">
@@ -602,7 +609,7 @@
 
                     </div>
 
-                    <div class="form-group">
+                    <div id="artworkCenterHeightGroup" class="form-group">
                         <label for="artworkCenterHeight">床から作品中央まで (mm)</label>
                         <input id="artworkCenterHeight" class="form-control" type="number" min="0" step="1" data-tooltip="任意。壁面図ではこの高さに配置します。未入力なら配置位置から高さを取得します。">
                     </div>
@@ -743,6 +750,10 @@
                         <input id="editItemName" class="form-control" type="text">
                     </div>
                     <div id="itemArtworkDimensions" hidden>
+                        <div id="editHangingArtworkFields" class="form-group" hidden>
+                            <label for="editHangingArtworkDrop">天井から展示物の上端まで (mm)</label>
+                            <input id="editHangingArtworkDrop" class="form-control" type="number" min="0" step="1">
+                        </div>
                         <div id="editSculptureBaseFields" class="form-group" hidden>
                             <label for="editSculptureBaseShape">台座の形</label>
                             <select id="editSculptureBaseShape" class="form-control">
@@ -779,7 +790,7 @@
                             <label for="editItemAngle">回転角度 (°)</label>
                             <input id="editItemAngle" class="form-control" type="number" min="-360" max="360" step="1">
                         </div>
-                        <div class="form-group">
+                        <div id="editArtworkCenterHeightGroup" class="form-group">
                             <label for="editArtworkCenterHeight">床から作品中央まで (mm)</label>
                             <input id="editArtworkCenterHeight" class="form-control" type="number" min="0" step="1" data-tooltip="壁面図で上下に動かすと自動更新します。数値変更時は壁面図の高さも合わせます。">
                         </div>
@@ -883,6 +894,7 @@
                     <button class="tool-icon" type="button" data-tool="movable-walls" title="移動式の壁" aria-label="移動式の壁"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h12v10H6zM8 15v2m8-2v2m-11 3h14"/><path class="tool-icon-detail" d="m5 17-3 3 3 2m14-5 3 3-3 2"/></svg><span class="tool-label">移動壁</span></button>
                     <button class="tool-icon" type="button" data-tool="draw" title="描画・図形・寸法線" aria-label="描画・図形・寸法線"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 17 1-4L17 3l4 4L11 17zM15 5l4 4"/><path class="tool-icon-detail" d="M6 17c-3 .5-4 4 0 4h7c3 0 3-4 6-4h2"/></svg><span class="tool-label">描画</span></button>
                     <button class="tool-icon" type="button" data-tool="artwork" title="展示物" aria-label="展示物"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h12v11H6zM6 16l-3 4h18l-3-4"/><path class="tool-icon-detail" d="m9 13 4-5 2 3m-4 7h2"/></svg><span class="tool-label">展示物</span></button>
+                    <button class="tool-icon" type="button" data-action="artwork-visibility" title="展示物の種類別表示" aria-label="展示物の種類別表示" aria-expanded="false" aria-controls="artworkVisibilityMenu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 10s4-6 10-6 10 6 10 6-4 6-10 6S2 10 2 10Z"/><circle cx="12" cy="10" r="2.5"/><path d="m9 20 3 2 3-2"/></svg><span class="tool-label">展示表示</span></button>
                     <button class="tool-icon" type="button" data-tool="pins" title="ピン" aria-label="ピン"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10a8 8 0 1 0-11 7.4l3 4 3-4a8 8 0 0 0 5-7.4Z"/><path class="tool-icon-detail" d="m10 8 2-1v6m-2 0h4"/></svg><span class="tool-label">ピン</span></button>
                 </div>
                 <div class="tool-group tool-group-edit">
@@ -1048,6 +1060,8 @@
     <script src="js/editor/exhibition-storage.js" defer></script>
     <script src="js/editor/canvas-state.js" defer></script>
     <script src="js/editor/canvas-objects.js" defer></script>
+    <script src="js/editor/hanging-exhibits.js" defer></script>
+    <script src="js/editor/artwork-visibility.js" defer></script>
     <script src="js/editor/crowd-display.js" defer></script>
 
     <!-- 図面機能とUI。初期化の順序に合わせて読み込む -->

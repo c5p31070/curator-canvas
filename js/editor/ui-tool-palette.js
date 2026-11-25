@@ -73,7 +73,8 @@ function initializeToolPalette() {
             undo,
             redo,
             'light-visibility': () => window.toggleLightingVisibility?.(),
-            'crowd-visibility': () => setCrowdVisibility(!crowdVisible)
+            'crowd-visibility': () => setCrowdVisibility(!crowdVisible),
+            'artwork-visibility': () => toggleArtworkVisibilityMenu()
         };
         actions[button.dataset.action]?.();
     });
@@ -81,6 +82,7 @@ function initializeToolPalette() {
     activate('artwork');
     updateViewModeToolState(currentViewMode);
     syncCrowdVisibilityButton();
+    initializeArtworkVisibilityMenu();
 }
 
 function updateViewModeToolState(mode = currentViewMode) {

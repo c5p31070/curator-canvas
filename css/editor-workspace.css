@@ -206,6 +206,7 @@ header h1 .brand-subtitle {
 .artwork-swatch-wall { background: #a9dce9; }
 .artwork-swatch-floor { background: #f3d58b; }
 .artwork-swatch-sculpture { background: #e8c79f; }
+.artwork-swatch-hanging { background: #bbd5c7; }
 .artwork-color-legend .artwork-swatch-fixture { background: #d4d9de; border: 1px dashed #66727d; }
 .team-scale-notice button {
     padding: 3px 7px;
@@ -404,8 +405,10 @@ header h1 .brand-subtitle {
 }
 #perspectiveDialog {
     box-sizing: border-box;
-    width: min(1100px, 94vw);
-    max-height: 94vh;
+    width: min(1280px, 96vw);
+    max-height: 96vh;
+    max-height: 96dvh;
+    overflow: auto;
     padding: 12px;
     border: 1px solid #48525a;
     background: #20262a;
@@ -414,7 +417,7 @@ header h1 .brand-subtitle {
 #perspectiveDialog::backdrop { background: rgba(10, 13, 15, .76); }
 .perspective-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .perspective-header h2 { font-size: 14px; margin: 0; }
-#perspectiveCanvas { display: block; width: 100%; max-height: 65vh; object-fit: contain; background: #15191c; touch-action: none; cursor: grab; }
+#perspectiveCanvas { display: block; width: 100%; max-height: 72vh; max-height: 72dvh; object-fit: contain; background: #15191c; touch-action: none; cursor: grab; }
 #perspectiveCanvas.is-looking { cursor: grabbing; }
 .perspective-navigation { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 8px; }
 .perspective-navigation button { padding: 5px 10px; border: 1px solid #48525a; border-radius: 0; background: #2b3237; color: #e0e5e8; cursor: pointer; font: inherit; }
@@ -463,7 +466,37 @@ header h1 .brand-subtitle {
 #artworkOutlineStatus { min-height: 1.5em; }
 
 /* Visibility toggles are secondary to the tools that edit the drawing. */
-.tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"]) {
+.artwork-visibility-menu {
+    position: fixed;
+    z-index: 1200;
+    width: 212px;
+    max-width: calc(100vw - 12px);
+    max-height: calc(100dvh - 12px);
+    overflow-y: auto;
+    padding: 4px 0;
+    border: 1px solid #485158;
+    border-radius: 0;
+    background: #282e33;
+    color: #cbd2d6;
+    font-family: inherit;
+    font-size: 11px;
+    line-height: 1.4;
+}
+.artwork-visibility-menu[hidden] { display: none; }
+.artwork-visibility-menu label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 30px;
+    padding: 3px 10px;
+    margin: 0;
+    font-weight: 400;
+    cursor: pointer;
+}
+.artwork-visibility-menu label:hover { background: #333c43; }
+.artwork-visibility-menu input { margin: 0; width: 13px; height: 13px; accent-color: #9cabb5; }
+.tool-palette .tool-icon.visibility-filtered { color: #d4c29e !important; }
+.tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"], [data-action="artwork-visibility"]) {
     flex: 0 0 44px;
     min-width: 44px;
     gap: 2px;
@@ -472,19 +505,19 @@ header h1 .brand-subtitle {
     background: transparent !important;
     color: #87939b !important;
 }
-.tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"])[aria-pressed="true"] {
+.tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"], [data-action="artwork-visibility"])[aria-pressed="true"] {
     color: #aeb9bf !important;
 }
-.tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"]):is(:hover, :focus-visible) {
+.tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"], [data-action="artwork-visibility"]):is(:hover, :focus-visible) {
     background: #252d33 !important;
     color: #cbd4d9 !important;
 }
-.tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"]) svg {
+.tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"], [data-action="artwork-visibility"]) svg {
     flex-basis: 13px;
     width: 13px;
     height: 13px;
 }
-.tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"]) .tool-label {
+.tool-palette .tool-icon:is([data-action="light-visibility"], [data-action="crowd-visibility"], [data-action="artwork-visibility"]) .tool-label {
     font-size: 8px;
 }
 

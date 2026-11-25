@@ -34,6 +34,7 @@ function configureSculptureBase(artwork) {
 
 function getArtworkAppearance(artwork) {
     if (artwork.isFixture) return { fill: '#d4d9de', stroke: '#66727d', text: '#26323b', dash: [4, 3] };
+    if (isHangingArtwork(artwork)) return { fill: '#bbd5c7', stroke: '#5f8875', text: '#172127', dash: null };
     if (artwork.displayType === 'sculpture') return { fill: '#e8c79f', stroke: '#946e4d', text: '#172127', dash: null };
     return ['floor', 'sculpture'].includes(artwork.displayType)
         ? { fill: '#f3d58b', stroke: '#94702f', text: '#172127', dash: null }
@@ -42,6 +43,7 @@ function getArtworkAppearance(artwork) {
 
 function configureArtworkTransform(artwork) {
     if (!artwork?.isArtwork) return;
+    configureArtworkVisibility(artwork);
     const appearance = getArtworkAppearance(artwork);
     artwork.item?.(0)?.set({ fill: appearance.fill, stroke: appearance.stroke,
         strokeWidth: 1.5, strokeDashArray: appearance.dash });
