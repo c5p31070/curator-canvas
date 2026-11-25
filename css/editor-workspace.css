@@ -333,6 +333,30 @@ header h1 .brand-subtitle {
     overflow: auto hidden;
     scrollbar-width: thin;
 }
+.wall-kind-switch {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: stretch;
+    margin-right: 5px;
+    border-right: 1px solid #586168;
+}
+.wall-kind-switch button {
+    margin: 0;
+    padding: 0 7px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #859198;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 400;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.wall-kind-switch button + button { border-left: 1px solid #41494e; }
+.wall-kind-switch button[aria-pressed="true"] { background: #394249; color: #e2e6e8; }
+.wall-kind-switch button:disabled { opacity: .4; cursor: default; }
+.wall-kind-switch button:focus-visible { outline: 1px solid #aab7c1; outline-offset: -2px; }
 #wallTabs .wall-tab {
     min-width: 42px;
     max-width: 140px;

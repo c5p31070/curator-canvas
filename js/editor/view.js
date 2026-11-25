@@ -238,6 +238,7 @@ function selectWallForCurrentFloor() {
 
 const wallFaceLabels = { front: '前面', back: '裏面', left: '左側面', right: '右側面' };
 const lastMovableWallFaces = new Map();
+const lastWallByKind = new Map();
 
 function wallTabOrder(faces) {
     const wall = faces[0][1];
@@ -284,9 +285,30 @@ function updateWallTabs() {
     let focusedButton = null;
     let activeFaces = [];
     const orderedGroups = [...groups].sort(([, a], [, b]) => wallTabOrder(a) - wallTabOrder(b));
+    const selectedGroup = orderedGroups.find(([, faces]) => faces.some(([id]) => id === selectedWallInfo.id));
+    const selectedKind = (selectedGroup || orderedGroups[0])?.[1][0][1].movableWallId ? 'movable' : 'fixed';
+    if (selectedGroup) lastWallByKind.set(`${selectedFloorId}:${selectedKind}`, selectedWallInfo.id);
+    strip.querySelectorAll('[data-wall-kind]').forEach(button => {
+        const kind = button.dataset.wallKind;
+        const matching = orderedGroups.filter(([, faces]) => Boolean(faces[0][1].movableWallId) === (kind === 'movable'));
+        const name = kind === 'movable' ? '移動壁' : '固定壁';
+        button.textContent = `${name} ${matching.length}`;
+        button.disabled = matching.length === 0;
+        button.setAttribute('aria-pressed', String(kind === selectedKind));
+        button.setAttribute('aria-label', `${name} ${matching.length}件`);
+        button.onclick = () => {
+            if (kind === selectedKind) return;
+            const faces = matching.flatMap(([, entries]) => entries);
+            const remembered = lastWallByKind.get(`${selectedFloorId}:${kind}`);
+            const destination = faces.find(([id]) => id === remembered) || faces[0];
+            if (destination) handleWallSelectChange(destination[0]);
+        };
+    });
+    tabList.setAttribute('aria-label', selectedKind === 'movable' ? '移動壁を選択' : '固定壁を選択');
     for (const [key, faces] of orderedGroups) {
         const selected = faces.find(([id]) => id === selectedWallInfo.id);
         const movable = Boolean(faces[0][1].movableWallId);
+        if (movable !== (selectedKind === 'movable')) continue;
         const [id, wall] = selected || faces.find(([faceId]) => faceId === lastMovableWallFaces.get(key))
             || faces.find(([, face]) => face.face === 'front') || faces[0];
         const title = wall.title || '壁面';

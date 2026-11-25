@@ -921,6 +921,10 @@
                 <div id="floorTabList" role="tablist" aria-label="図面の階を選択"></div>
             </nav>
             <nav id="wallTabs" class="wall-tabs" aria-label="壁面を選択" hidden>
+                <div class="wall-kind-switch" role="group" aria-label="壁の種類">
+                    <button type="button" data-wall-kind="fixed" aria-pressed="true">固定壁</button>
+                    <button type="button" data-wall-kind="movable" aria-pressed="false">移動壁</button>
+                </div>
                 <div id="wallTabList" role="tablist" aria-label="壁を選択"></div>
                 <select id="wallFaceSelect" aria-label="選択中の移動壁の面" hidden></select>
             </nav>
