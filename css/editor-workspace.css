@@ -363,6 +363,9 @@ header h1 .brand-subtitle {
     padding: 2px 8px !important;
     font-size: 10px !important;
 }
+#wallTabList [data-wall-group^="fixed:"] { touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#wallTabList.is-reordering, #wallTabList.is-reordering .wall-tab { cursor: grabbing; }
+#wallTabList .wall-tab.is-reordering { background: #414c54 !important; color: #fff !important; }
 #wallFaceSelect {
     flex: 0 0 auto;
     max-width: 92px;

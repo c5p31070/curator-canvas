@@ -251,6 +251,7 @@ function wallTabOrder(faces) {
 }
 
 function updateWallTabs() {
+    window.cancelFixedWallTabReorder?.();
     normalizeFixedWallHeights();
     updateFloorTabs();
     const ceiling = cmToMm(venueCeilingHeightCm());
@@ -284,7 +285,11 @@ function updateWallTabs() {
     let activeButton = null;
     let focusedButton = null;
     let activeFaces = [];
-    const orderedGroups = [...groups].sort(([, a], [, b]) => wallTabOrder(a) - wallTabOrder(b));
+    const fixedOrder = window.getFixedWallTabOrder?.() || [];
+    const fixedRanks = new Map(fixedOrder.map((id, index) => [id, index]));
+    const orderedGroups = [...groups].sort(([, a], [, b]) => wallTabOrder(a) - wallTabOrder(b) ||
+        (!a[0][1].movableWallId && !b[0][1].movableWallId
+            ? (fixedRanks.get(a[0][0]) ?? fixedOrder.length) - (fixedRanks.get(b[0][0]) ?? fixedOrder.length) : 0));
     const selectedGroup = orderedGroups.find(([, faces]) => faces.some(([id]) => id === selectedWallInfo.id));
     const selectedKind = (selectedGroup || orderedGroups[0])?.[1][0][1].movableWallId ? 'movable' : 'fixed';
     if (selectedGroup) lastWallByKind.set(`${selectedFloorId}:${selectedKind}`, selectedWallInfo.id);
@@ -322,6 +327,7 @@ function updateWallTabs() {
         button.classList.toggle('active', Boolean(selected));
         button.textContent = label;
         button.title = `${title} · ${cmToMm(wall.widthCm)} × ${cmToMm(wall.heightCm)} mm`;
+        if (!movable) button.title += ' · 1秒長押しして並べ替え';
         button.addEventListener('click', () => handleWallSelectChange(id));
         tabList.appendChild(button);
         if (focusedGroup === key) focusedButton = button;
