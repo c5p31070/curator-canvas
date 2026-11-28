@@ -456,6 +456,10 @@
                 <button id="btnAddMovableWall" class="btn btn-secondary" type="button">移動壁を追加</button>
                 <div id="movableWallSelection" class="drawing-subsection" hidden>
                     <h3>選択中の移動壁</h3>
+                    <div class="form-row" data-tooltip="使用中の番号を指定すると、その壁と番号を入れ替えます。">
+                        <div class="form-group"><label for="movableWallNumber">壁番号</label><input id="movableWallNumber" class="form-control" type="number" min="1" step="1" inputmode="numeric"></div>
+                        <button id="btnRenumberMovableWall" class="btn btn-secondary" type="button">番号を変更</button>
+                    </div>
                     <label class="lighting-visibility" data-tooltip="この面の壁面図と配置内容を削除します。チェックを外すと空の壁面図を作成します。"><input id="movableWallFrontUnused" type="checkbox">前面を使わない</label>
                     <label class="lighting-visibility" data-tooltip="この面の壁面図と配置内容を削除します。チェックを外すと空の壁面図を作成します。"><input id="movableWallBackUnused" type="checkbox">裏面を使わない</label>
                     <button id="btnUpdateMovableWall" class="btn btn-secondary" type="button">選択壁を更新</button>

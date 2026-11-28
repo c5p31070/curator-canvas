@@ -165,6 +165,7 @@
         if (actions) actions.hidden = !selected;
         if (!selected) return;
         document.getElementById('movableWallName').value = selected.movableWallName;
+        document.getElementById('movableWallNumber').value = selected.movableWallNumber;
         document.getElementById('movableWallWidth').value = cmToMm(selected.cmWidth);
         document.getElementById('movableWallDepth').value = cmToMm(selected.cmDepth);
         document.getElementById('movableWallAngle').value = Math.round(selected.angle || 0);
@@ -196,6 +197,50 @@
         return { width, depth, angle: ((angle % 360) + 360) % 360 };
     }
     window.refreshMovableWallPanel = refreshPanel;
+
+    function renumberSelectedWall() {
+        if (!selected || !canEdit() || currentViewMode !== 'floor' || isTransitioning || isUndoRedoOperation ||
+            window.isCombinedPdfBusy || window.isLayoutVariantBusy?.() || !canvas.getObjects().includes(selected)) return;
+        const number = Number(document.getElementById('movableWallNumber').value);
+        if (!Number.isSafeInteger(number) || number < 1) return alert('壁番号は1以上の整数で入力してください。');
+        const previous = selected.movableWallNumber;
+        if (number === previous) return;
+        captureCurrentCanvasState();
+        const other = [...wallNumbers()].find(([id, value]) => id !== selected.movableWallId && value === number);
+        const changes = new Map([[selected.movableWallId, number]]);
+        if (other) changes.set(other[0], previous);
+        const rename = wall => {
+            if (!wall.isMovableWall || !changes.has(wall.movableWallId)) return;
+            wall.movableWallNumber = changes.get(wall.movableWallId);
+            wall.movableWallName = `壁${circled(wall.movableWallNumber)}`;
+            // 保存済みのFabricグループ内の文字も更新し、他の階の読み込みに備えます。
+            if (wall.objects?.[1]) wall.objects[1].text = wall.movableWallName;
+        };
+        // 両方の番号を先に更新してから再描画し、重複解消処理との競合を避けます。
+        Object.values(floorPlanData).forEach(floor => {
+            let plan;
+            try { plan = typeof floor.json === 'string' ? JSON.parse(floor.json) : floor.json; } catch { return; }
+            if (!plan?.objects?.some(wall => wall.isMovableWall && changes.has(wall.movableWallId))) return;
+            plan.objects.forEach(rename);
+            floor.json = typeof floor.json === 'string' ? JSON.stringify(plan) : plan;
+        });
+        Object.values(wallPlanJsonData).forEach(face => {
+            if (!changes.has(face.movableWallId)) return;
+            face.movableWallNumber = changes.get(face.movableWallId);
+            const suffix = { front: '前面', back: '裏面', left: '左側面', right: '右側面' }[face.face]
+                || face.title?.split('・').pop() || '前面';
+            face.title = `壁${circled(face.movableWallNumber)}・${suffix}`;
+        });
+        const liveWalls = canvas.getObjects().filter(wall => wall.isMovableWall && changes.has(wall.movableWallId));
+        liveWalls.forEach(rename);
+        liveWalls.forEach(wall => window.configureMovableWall(wall));
+        const activeFace = wallPlanJsonData[selectedWallInfo.id];
+        if (activeFace && changes.has(activeFace.movableWallId)) selectedWallInfo.title = activeFace.title;
+        updateWallDropdownOptions();
+        refreshPanel(selected);
+        canvas.requestRenderAll();
+        saveState();
+    }
 
     async function addWall() {
         if (!requireVenueScale()) return;
@@ -476,6 +521,7 @@
         canvas.on(event, ({ target }) => { if (target?.isMovableWall) window.refreshMovableWallSlots?.(); }));
     canvas.on('object:modified', event => { if (event.target?.isMovableWall) refreshPanel(event.target); });
     document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('btnRenumberMovableWall')?.addEventListener('click', renumberSelectedWall);
         window.refreshMovableWallVenueDefaults();
         // A display-only overlay keeps wall bounds, snapping and saved geometry intact.
         faceLabelOverlay = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
